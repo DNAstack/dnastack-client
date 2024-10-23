@@ -11,7 +11,7 @@ from dnastack.client.workbench.ewes.models import ExecutionEngine, EngineParamPr
 from dnastack.client.workbench.ewes.models import ExtendedRunStatus, ExtendedRun, BatchActionResult, BatchRunResponse, \
     MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, EventType, State, MinimalExtendedRun, \
     MinimalExtendedRunWithOutputs
-from dnastack.client.workbench.samples.models import Sample, SampleFile
+from dnastack.client.workbench.samples.models import Sample, SampleFile, Instrument
 from dnastack.client.workbench.storage.models import Platform, StorageAccount, Provider
 from tests.cli.base import WorkbenchCliTestCase
 
@@ -1383,3 +1383,14 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             parse_output=False
         )
         self.assertTrue("Deleted..." in output)
+
+    def test_instruments_list(self):
+        created_storage_account = self._create_storage_account()
+        created_platform = self._create_platform(created_storage_account)
+        self._wait()
+        instruments = [Instrument(**instrument) for instrument in self.simple_invoke(
+            'workbench', 'instruments', 'list'
+        )]
+        self.assert_not_empty(instruments, f'Expected at least one instrument. Found {instruments}')
+        for instrument in instruments:
+            self.assert_not_empty(instrument.id, 'Instrument ID should not be empty')

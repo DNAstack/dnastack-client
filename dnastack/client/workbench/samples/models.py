@@ -23,8 +23,6 @@ class SampleFile(BaseModel):
     last_updated_at: Optional[datetime]
 
 
-
-
 class Sample(BaseModel):
     id: str
     created_at: Optional[datetime]
@@ -38,6 +36,7 @@ class SampleListResponse(PaginatedResource):
     def items(self) -> List[Any]:
         return self.samples
 
+
 class SampleFilesListOptions(BaseListOptions):
     platform_id: Optional[str]
     storage_id: Optional[str]
@@ -45,8 +44,25 @@ class SampleFilesListOptions(BaseListOptions):
     instrument_id: Optional[str]
     search: Optional[str]
 
+
 class SampleFileListResponse(PaginatedResource):
     files: List[SampleFile]
 
     def items(self) -> List[Any]:
         return self.files
+
+
+class InstrumentListOptions(BaseListOptions):
+    platform_type: Optional[PlatformType]
+
+
+class Instrument(BaseModel):
+    id: str
+    platform_type: PlatformType
+
+
+class InstrumentListResponse(PaginatedResource):
+    instruments: List[Instrument]
+
+    def items(self) -> List[Any]:
+        return self.instruments
