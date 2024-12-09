@@ -378,8 +378,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
                 '--access-key-id', env('E2E_AWS_ACCESS_KEY_ID', required=True),
                 '--secret-access-key', env('E2E_AWS_SECRET_ACCESS_KEY', required=True),
                 '--region', env('E2E_AWS_REGION', default='ca-central-1'),
-                )
-            )
+                ))
         elif provider == provider.gcp:
             service_account_json_file = self._create_service_account_json_file(env('E2E_GCP_SERVICE_ACCOUNT', required=True))
             return StorageAccount(**self.simple_invoke(
@@ -390,8 +389,16 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
                 '--project-id', env('E2E_GCP_PROJECT_ID', default='striking-effort-817', required=False),
                 '--service-account', f'@{service_account_json_file}',
                 '--region', env('E2E_GCP_REGION', default='us-east1'),
-                )
-            )
+                ))
+        elif provider == provider.azure:
+            return StorageAccount(**self.simple_invoke(
+                'workbench', 'storage', 'add', 'azure',
+                id,
+                '--name', 'Test GCP Storage Account',
+                '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+                '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+                '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+                ))
 
     def _get_or_create_storage_account(self, provider: Provider) -> StorageAccount:
         if not self.storage_account:

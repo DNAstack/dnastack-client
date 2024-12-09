@@ -675,6 +675,105 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assertEqual(updated_storage_account.id, storage_account.id)
         self.assertEqual(updated_storage_account.name, name)
 
+    def test_storage_add_azure(self):
+        created_storage_account = self._create_storage_account(provider=Provider.azure)
+        self.assertIsNotNone(created_storage_account.id)
+        self.assertIsNotNone(created_storage_account.name)
+        self.assertEqual(created_storage_account.provider, Provider.azure)
+
+    def test_storage_add_azure_with_conflicting_auth_methods(self):
+        self.expect_error_from([
+            'workbench', 'storage', 'add', 'azure',
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+            '--sas', "https://example.com",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: sas, access_key. Use only one.')
+
+        self.expect_error_from([
+            'workbench', 'storage', 'add', 'azure',
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+            '--tenant-id', "foo",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: access_key, service_principal. Use only one.')
+
+        self.expect_error_from([
+            'workbench', 'storage', 'add', 'azure',
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--sas', "foo",
+            '--tenant-id', "foo",
+            '--client-id', "foo",
+            '--client-secret', "foo",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: sas, service_principal. Use only one.')
+
+    def test_update_azure_storage_account(self):
+        # Setup test data for adding
+        storage_id = f'test-azure-storage-account-{random.randint(0, 100000)}'
+        storage_account = self._create_storage_account(id=storage_id, provider=Provider.azure)
+
+        # Setup test data for updating
+        name = 'Updated Azure Storage Account'
+
+        # Invoke the update_gcp_storage_account command
+        updated_storage_account = StorageAccount(**self.simple_invoke(
+            'workbench', 'storage', 'update', 'azure',
+            storage_id,
+            '--name', name,
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+        ))
+
+        self.assertEqual(updated_storage_account.id, storage_account.id)
+        self.assertEqual(updated_storage_account.name, name)
+
+    def test_update_azure_storage_with_conflicting_auth_methods(self):
+        storage_id = f'test-azure-storage-account-{random.randint(0, 100000)}'
+        storage_account = self._create_storage_account(id=storage_id, provider=Provider.azure)
+
+        self.expect_error_from([
+            'workbench', 'storage', 'update', 'azure',
+            storage_id,
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+            '--sas', "https://example.com",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: sas, access_key. Use only one.')
+
+        self.expect_error_from([
+            'workbench', 'storage', 'update', 'azure',
+            storage_id,
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
+            '--tenant-id', "foo",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: access_key, service_principal. Use only one.')
+
+        self.expect_error_from([
+            'workbench', 'storage', 'update', 'azure',
+            storage_id,
+            '--name', 'Test GCP Storage Account with Access Key',
+            '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
+            '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
+            '--sas', "foo",
+            '--tenant-id', "foo",
+            '--client-id', "foo",
+            '--client-secret', "foo",
+        ],
+            r'^BadParameter: Conflicting authentication methods provided: sas, service_principal. Use only one.')
+
     def test_storage_list(self):
         created_storage_account = self._get_or_create_storage_account(provider=Provider.aws)
         storage_accounts = [StorageAccount(**storage_account) for storage_account in self.simple_invoke(

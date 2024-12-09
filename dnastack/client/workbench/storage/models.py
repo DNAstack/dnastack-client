@@ -40,6 +40,23 @@ class GcpStorageAccountCredentials(BaseModel):
     project_id: Optional[str]
 
 
+class AzureCredentialsType(str, CaseInsensitiveEnum):
+    SAS_URL = "SAS_URL"
+    ACCESS_KEY = "ACCESS_KEY"
+    CLIENT_CREDENTIALS = "CLIENT_CREDENTIALS"
+
+
+class AzureStorageAccountCredentials(BaseModel):
+    type: Literal['AZURE_CREDENTIALS'] = 'AZURE_CREDENTIALS'
+    sas_url: Optional[str]
+    access_key: Optional[str]
+    tenant_id: Optional[str]
+    client_id: Optional[str]
+    client_secret: Optional[str]
+    storage_account_name: Optional[str]
+    azure_credentials_type: Optional[AzureCredentialsType]
+
+
 class StorageAccount(BaseModel):
     id: Optional[str]
     namespace: Optional[str]
@@ -49,7 +66,7 @@ class StorageAccount(BaseModel):
     created_at: Optional[str]
     last_updated_at: Optional[str]
     bucket: Optional[str]
-    credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials]]
+    credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]]
 
 
 class StorageListOptions(BaseListOptions):
