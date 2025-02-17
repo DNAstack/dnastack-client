@@ -134,4 +134,4 @@ class CollectionValidationMissingItems(BaseModel):
 class CollectionStatus(BaseModel):
     validationsStatus: CollectionValidationStatus
     lastChecked: Optional[datetime]
-    missingItems: Optional[CollectionValidationMissingItems]
+    missingItems: Optional[int]
