@@ -76,7 +76,7 @@ def list(collection: str,
         ArgumentSpec(
             name='datasource',
             arg_names=['--datasource'],
-            help='The ID of the data source where the files or folders reside, such as a bucket or storage location.',
+            help='The ID or Name of the data source where the files or folders reside, such as a bucket or storage location.',
             required=True,
         ),
         ArgumentSpec(
