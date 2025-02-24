@@ -1,8 +1,10 @@
 import time
+import unittest
 
 import click
 
 from dnastack.client.collections.model import Collection
+from dnastack.common.environments import env
 from tests.cli.base import PublisherCliTestCase
 
 
@@ -158,16 +160,20 @@ class TestPublisherCommand(PublisherCliTestCase):
         self.assertIn('Validation Status:', result.output)
 
 
+    @unittest.skip("Skipping this test until the issue with BQ sideloading is resolved")
     def test_collections_query(self):
-        collection_with_table = self._get_first_collection_with_table()
+        collection_slug = env(key='E2E_COLLECTION_SLUG', default=None)
+        if not collection_slug:
+            collection_slug = self._get_first_collection_with_table()
+
         tables_result = self.simple_invoke(
             'publisher', 'collections', 'tables', 'list',
-            '--collection', collection_with_table.slugName
+            '--collection', collection_slug
         )
         first_table = tables_result[0]
         query_result = self.simple_invoke(
             'publisher', 'collections', 'query',
-            '--collection', collection_with_table.slugName,
+            '--collection', collection_slug,
             f'SELECT * FROM {first_table["name"]} LIMIT 1'
         )
 
