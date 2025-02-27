@@ -66,6 +66,28 @@ class TestDatasourcesCommand(PublisherCliTestCase):
             "Invalid value for '--output' / '-o': 'invalid_format' is not one of 'json', 'yaml'"
         )
 
+    def test_list_datasources_with_type_filter(self):
+        """Test listing datasources with type filter"""
+        # First get all datasources to find an existing type
+        all_datasources = self.simple_invoke('publisher', 'datasources', 'list', '-o', 'json')
+        self.assert_not_empty(all_datasources, "Expected at least one datasource for testing type filter")
+
+        # Get the type of the first datasource
+        test_type = all_datasources[0]['type']
+
+        # Test with the existing type
+        filtered_datasources = self.simple_invoke('publisher', 'datasources', 'list', '--type', test_type, '-o', 'json')
+        self.assert_not_empty(filtered_datasources, f"Expected at least one datasource of type {test_type}")
+
+        for datasource in filtered_datasources:
+            self.assertEqual(datasource['type'].upper(), test_type.upper(),
+                           f"Expected all datasources to be of type {test_type}")
+
+    def test_list_datasources_with_nonexistent_type(self):
+        """Test listing datasources with a type that doesn't exist"""
+        result = self.simple_invoke('publisher', 'datasources', 'list', '--type', 'NONEXISTENT_TYPE', '-o', 'json')
+        self.assertEqual(len(result), 0, "Expected no datasources for nonexistent type")
+
     def test_filter_datasource_fields(self):
         """Test datasource field filtering utility"""
         from dnastack.cli.commands.publisher.datasources.utils import _filter_datasource_fields

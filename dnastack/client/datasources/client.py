@@ -29,11 +29,21 @@ class DataSourceServiceClient(BaseServiceClient):
         """Get the supported service types for this client"""
         return [STANDARD_COLLECTION_SERVICE_TYPE_V1_0]
 
-    def list_datasources(self, trace: Optional[Span] = None) -> DataSourcesResponse:
+    def list_datasources(self, trace: Optional[Span] = None, type: Optional[str] = None) -> DataSourcesResponse:
         """
         List all available data sources.
+
+        Args:
+            trace: Optional trace span
+            type: Optional type to filter datasources
+
+        Returns:
+            DataSourcesResponse containing the list of datasources
         """
         trace = trace or Span(origin=self)
         with self.create_http_session() as session:
-            response = session.get(f"{self.url}/connections/data-sources")
+            params = {}
+            if type:
+                params['type'] = type
+            response = session.get(f"{self.url}/connections/data-sources", params=params)
             return DataSourcesResponse.parse_obj(response.json())
