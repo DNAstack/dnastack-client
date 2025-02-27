@@ -114,6 +114,9 @@ For more information, please check out [the documentation on service registries]
     * query
   * [files](#data-repository-service-endpoint) (aliases: `drs`)
     * download
+  * [publisher](#publisher-service-endpoint) 
+    * datasources
+      * list
   * use<sup>1</sup>
 
 > <sup>1</sup>This command group is deprecated.
@@ -506,19 +509,38 @@ Options:
   -a, --attachment TEXT
   --inputs-file TEXT
   -e, --engine-parameter TEXT
-  --engine-parameters-file TEXT
-  -t, --tag TEXT
-  --tags-file TEXT
 ```
 
-### Get the list of workflow runs
+## Publisher Service Endpoint
+
+To use this set of commands, you need to configure at least one Publisher Service endpoint.
+
+### List data sources
 
 ```shell
-dnastack wes runs list [OPTIONS]
+dnastack publisher datasources list [OPTIONS]
+
+  List all data sources
 
 Options:
-  -s, --page-size INTEGER
-  -t, --page-token TEXT
+  --type TEXT              Filter datasources by type (e.g., "AWS")
+  -o, --output [json|yaml] Output format  [default: json]
+```
+
+| Output Reference Schema |
+|------------------------|
+| `List[Dict[str, Any]]` |
+
+Example:
+```shell
+# List all datasources
+dnastack publisher datasources list
+
+# List only AWS datasources
+dnastack publisher datasources list --type AWS
+
+# Get output in YAML format
+dnastack publisher datasources list -o yaml
 ```
 
 ### Get the information of a specific workflow run
