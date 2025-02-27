@@ -509,6 +509,19 @@ Options:
   -a, --attachment TEXT
   --inputs-file TEXT
   -e, --engine-parameter TEXT
+  --engine-parameters-file TEXT
+  -t, --tag TEXT
+  --tags-file TEXT
+```
+
+### Get the list of workflow runs
+
+```shell
+dnastack wes runs list [OPTIONS]
+
+Options:
+  -s, --page-size INTEGER
+  -t, --page-token TEXT
 ```
 
 ## Publisher Service Endpoint
