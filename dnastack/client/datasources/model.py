@@ -1,10 +1,11 @@
-from pydantic.main import BaseModel, Field
+from typing import Optional
 
+from pydantic.main import BaseModel
+
+class DataSourceListOptions(BaseModel):
+    pass
 
 class DataSource(BaseModel):
-    """
-    A model representing a data source
-    """
-    id: str = Field(..., description="Unique identifier of the data source")
-    name: str = Field(..., description="Name of the data source")
-    type: str = Field(..., description="Type of the data source")
+    id: Optional[str]
+    name: Optional[str]
+    type: Optional[str]
