@@ -8,20 +8,18 @@ from dnastack.cli.core.command_spec import RESOURCE_OUTPUT_ARG, ArgumentSpec
 from dnastack.cli.helpers.iterator_printer import show_iterator
 from dnastack.common.tracing import Span
 
-TYPE_ARG = ArgumentSpec(
-    name='type',
-    arg_names=['--type'],
-    help='Filter datasources by type (e.g., "AWS")',
-    required=False
-)
-
 def init_datasources_commands(group: Group):
     @formatted_command(
         group=group,
         name='list',
         specs=[
             RESOURCE_OUTPUT_ARG,
-            TYPE_ARG,
+            ArgumentSpec(
+                name='type',
+                arg_names=['--type'],
+                help='Filter datasources by type (e.g., "AWS")',
+                required=False
+            ),
         ]
     )
     def list_datasources(output: Optional[str] = None, type: Optional[str] = None):
