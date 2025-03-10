@@ -42,7 +42,7 @@ class TestCommand(DeprecatedPublisherCliTestCase):
         self.assertGreater(len(config.contexts[config.current_context].endpoints), 0,
                            'There should be at least one endpoints.')
         # ↓ This line should not throw an error or prompt for the authentication.
-        self.simple_invoke('collections', 'list')
+        self.simple_invoke('collections', 'list', '--endpoint-id=collection-service')
 
         handle_device_code_flow(['python', '-m', 'dnastack', 'use', secondary_context_host],
                                 self._states['email'],
@@ -55,7 +55,7 @@ class TestCommand(DeprecatedPublisherCliTestCase):
         self.assertGreater(len(config.contexts[config.current_context].endpoints), 0,
                            'There should be at least one endpoints.')
         # ↓ This line should not throw an error or prompt for the authentication.
-        self.invoke('collections', 'list', bypass_error=False)
+        self.invoke('collections', 'list', '--endpoint-id=collection-service', bypass_error=False)
 
         # Switch the context back should not be a problem.
         self.invoke('use', 'test-viral-ai', bypass_error=False)
@@ -88,7 +88,7 @@ class TestCommand(DeprecatedPublisherCliTestCase):
         self.assertGreater(len(config.contexts[config.current_context].endpoints), 0,
                            'There should be at least one endpoints.')
         # ↓ This line should not throw an error or prompt for the authentication.
-        self.invoke('collections', 'list')
+        self.invoke('collections', 'list', '--endpoint-id=collection-service')
         # self._show_config()
 
     def test_use_command_error_recovery(self):
