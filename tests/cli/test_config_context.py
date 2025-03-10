@@ -75,7 +75,7 @@ class TestCommand(DeprecatedPublisherCliTestCase):
         self.assertGreater(len(config.contexts[config.current_context].endpoints), 0,
                            'There should be at least one endpoints.')
         # ↓ This line should not throw an error or prompt for the authentication.
-        self.invoke('collections', 'list', '--no-auth')
+        self.invoke('collections', 'list', '--no-auth' , '--endpoint-id=collection-service')
         # self._show_config()
 
     def test_use_command_with_exact_url(self):
