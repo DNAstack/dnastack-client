@@ -55,7 +55,7 @@ class TestCommand(DeprecatedPublisherCliTestCase):
         self.assertGreater(len(config.contexts[config.current_context].endpoints), 0,
                            'There should be at least one endpoints.')
         # ↓ This line should not throw an error or prompt for the authentication.
-        self.invoke('collections', 'list', '--endpoint-id=collection-service', bypass_error=False)
+        self.invoke('collections', 'list', bypass_error=False)
 
         # Switch the context back should not be a problem.
         self.invoke('use', 'test-viral-ai', bypass_error=False)
