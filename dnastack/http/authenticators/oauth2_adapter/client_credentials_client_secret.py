@@ -5,7 +5,7 @@ from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, 
 from dnastack.http.client_factory import HttpClientFactory
 
 
-class ClientCredentialAdapter(OAuth2Adapter):
+class ClientCredentialsClientSecretAdapter(OAuth2Adapter):
     __grant_type = 'client_credentials'
 
     @staticmethod
@@ -55,8 +55,8 @@ class ClientCredentialAdapter(OAuth2Adapter):
 
             if not response.ok:
                 sub_logger.debug(f'exchange_token: Token exchange fails.')
-                raise AuthException(f'Failed to perform client-credential authentication for '
-                                    f'{auth_info.client_id} as the server responds with HTTP {response.status_code}:'
+                raise AuthException(f'Client secret authentication for {auth_info.client_id} failed with '
+                                    f'HTTP {response.status_code}:'
                                     f'\n\n{response.text}\n',
                                     resource_urls)
 
