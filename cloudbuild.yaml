@@ -61,10 +61,10 @@ steps:
         git config --global --add safe.directory /workspace
 
         # Public release
-        #./scripts/build-package.py
+        ./scripts/build-package.py
 
         # Pre-release
-        ./scripts/build-package.py --pre-release a  # a=alpha, b=beta, rc=release-candidate
+        #./scripts/build-package.py --pre-release a  # a=alpha, b=beta, rc=release-candidate
     volumes:
       - name: 'homedir'
         path: /root
