@@ -114,7 +114,7 @@ class DataSourceServiceClient(BaseServiceClient):
 
         trace = trace or Span(origin=self)
         loader = DataSourceListResultLoader(
-            service_url=f"{self.url}/connections/data-sources",
+            service_url=f"{self.url}data-sources",
             http_session=self.create_http_session(),
             trace=trace,
             list_options=list_options,
