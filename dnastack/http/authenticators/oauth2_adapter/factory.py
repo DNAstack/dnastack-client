@@ -3,7 +3,9 @@ from typing import Optional
 from imagination.decorator import service
 
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter
-from dnastack.http.authenticators.oauth2_adapter.client_credential import ClientCredentialAdapter
+from dnastack.http.authenticators.oauth2_adapter.client_credentials_client_assertion import \
+    ClientCredentialsClientAssertionAdapter
+from dnastack.http.authenticators.oauth2_adapter.client_credentials_client_secret import ClientCredentialsClientSecretAdapter
 from dnastack.http.authenticators.oauth2_adapter.device_code_flow import DeviceCodeFlowAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
 
@@ -12,8 +14,9 @@ from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authenticat
 class OAuth2AdapterFactory:
     # NOTE: It was ordered this way to accommodate the general intended authentication flow.
     __supported_auth_adapter_classes = [
+        ClientCredentialsClientAssertionAdapter,
         DeviceCodeFlowAdapter,
-        ClientCredentialAdapter,
+        ClientCredentialsClientSecretAdapter,
     ]
 
     def get_from(self, auth_info: OAuth2Authentication) -> Optional[OAuth2Adapter]:
