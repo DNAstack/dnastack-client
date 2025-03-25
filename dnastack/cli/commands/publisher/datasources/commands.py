@@ -17,7 +17,7 @@ def init_datasources_commands(group: Group):
             ArgumentSpec(
                 name='type',
                 arg_names=['--type'],
-                help='Filter datasources by type (e.g., "AWS")',
+                help='Filter datasources by type (e.g., "Amazon AWS S3, postgresql")',
                 required=False
             ),
         ]
