@@ -569,8 +569,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                           f'Expected first event not to have message. Got {events_result[0].metadata.message}')
         self.assertIsNone(events_result[0].metadata.old_state,
                           f'Expected first event to not have old state. Got {events_result[0].metadata.old_state}')
-        self.assertEqual(State.QUEUED, events_result[0].metadata.new_state,
-                         f'Expected first event\'s new state to be QUEUED. Got {events_result[0].metadata.new_state}')
+        self.assertEqual(State.QUEUED, events_result[0].metadata.state,
+                         f'Expected first event\'s new state to be QUEUED. Got {events_result[0].metadata.state}')
 
     ## Samples
 

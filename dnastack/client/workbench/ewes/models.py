@@ -113,6 +113,7 @@ class EventType(str, Enum):
 
 class RunEventMetadata(BaseModel):
     message: Optional[str]
+    state: Optional[State]
     old_state: Optional[State]
     new_state: Optional[State]
 
