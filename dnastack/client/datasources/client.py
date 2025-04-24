@@ -5,7 +5,8 @@ from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import (
     UnauthenticatedApiAccessError, UnauthorizedApiAccessError
 )
-from dnastack.client.collections.client import STANDARD_COLLECTION_SERVICE_TYPE_V1_0
+from dnastack.client.collections.client import STANDARD_COLLECTION_SERVICE_TYPE_V1_0, \
+    STANDARD_DATASOURCE_SERVICE_TYPE_V1_0
 from dnastack.client.collections.model import PageableApiError
 from dnastack.client.datasources.model import DataSource, DataSourceListOptions
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
@@ -96,14 +97,14 @@ class DataSourceServiceClient(BaseServiceClient):
 
     @staticmethod
     def get_adapter_type() -> str:
-        return 'collections'
+        return 'dataousrces'
 
     @classmethod
     def get_supported_service_types(cls) -> List[str]:
         """
         Returns supported service types.
         """
-        return [ STANDARD_COLLECTION_SERVICE_TYPE_V1_0,]
+        return [ STANDARD_DATASOURCE_SERVICE_TYPE_V1_0,]
 
     def list_datasources(self, type: Optional[str] = None, trace: Optional[Span] = None,
                          max_results: Optional[int] = None) -> DataSourcesResponse:

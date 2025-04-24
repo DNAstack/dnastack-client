@@ -21,10 +21,19 @@ from dnastack.http.session import ClientError, HttpSession, HttpError
 STANDARD_COLLECTION_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
                                                     artifact='collection-service',
                                                     version='1.0.0')
+STANDARD_DATASOURCE_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
+                                                    artifact='collection-service',
+                                                    version='1.0.0')
+
 
 # Feature: No support for service registry integration
 # Feature: Only using "plural" per-collection data connect endpoint
 EXPLORER_COLLECTION_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack.explorer',
+                                                    artifact='collection-service',
+                                                    version='1.0.0')
+
+
+STANDARD_DATA_SOURCE_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
                                                     artifact='collection-service',
                                                     version='1.0.0')
 
