@@ -271,6 +271,22 @@ class CollectionServiceClient(BaseServiceClient):
                            params=params, trace_context=trace)
             return None
 
+    def delete_collection(self,
+                          collection_id: str,
+                          trace: Optional[Span] = None) -> None:
+        """ Delete a collection by ID """
+        trace = trace or Span(origin=self)
+        local_logger = trace.create_span_logger(self._logger)
+        with self.create_http_session() as session:
+            try:
+                delete_url = self._get_single_collection_url(collection_id)
+                session.delete(delete_url, trace_context=trace)
+                return None
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    raise UnknownCollectionError(collection_id, trace) from e
+                raise e
+
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
                               no_auth: bool = False) -> ServiceEndpoint:
