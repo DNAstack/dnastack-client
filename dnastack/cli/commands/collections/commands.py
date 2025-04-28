@@ -74,6 +74,7 @@ def init_collections_commands(group: Group):
                 arg_names=['--limit', '-l'],
                 help='The maximum number of items to display',
                 type=int,
+                default=50
             ),
             ArgumentSpec(
                 name='no_auth',
