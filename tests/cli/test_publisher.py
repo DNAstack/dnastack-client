@@ -3,11 +3,10 @@ import unittest
 
 import click
 
-from dnastack.client.collections.model import Collection, CollectionItemListOptions
+from dnastack.cli.commands.publisher.collections.utils import _get_collection_service_client
+from dnastack.client.collections.model import Collection
 from dnastack.common.environments import env
 from tests.cli.base import PublisherCliTestCase
-from dnastack.cli.commands.publisher.collections.utils import _get_collection_service_client
-from dnastack.client.collections.model import DeleteCollectionItemRequest
 
 
 class TestPublisherCommand(PublisherCliTestCase):
