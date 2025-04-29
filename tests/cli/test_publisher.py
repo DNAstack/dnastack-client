@@ -31,6 +31,23 @@ class TestPublisherCommand(PublisherCliTestCase):
         self.created_collections = []
         self.collection = self._create_empty_collection()
 
+
+    def tearDown(self) -> None:
+        print("Cleaning up collections...")
+        client = _get_collection_service_client()
+
+        for collection in self.created_collections:
+            print("Deleting collection {}...".format(collection.name))
+
+            try:
+                client.delete_collection(collection_id=collection.id)
+            except Exception as e:
+                print(f"Error deleting collection {collection.slugName}: {str(e)}")
+
+        # Call parent tearDown
+        super().tearDown()
+
+
     def _get_first_collection_with_table(self):
         collections_result = self.simple_invoke(
             'publisher', 'collections', 'list'
