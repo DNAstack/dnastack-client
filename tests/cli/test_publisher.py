@@ -3,6 +3,7 @@ import unittest
 
 import click
 
+from dnastack.cli.commands.publisher.collections.utils import _get_collection_service_client
 from dnastack.client.collections.model import Collection
 from dnastack.common.environments import env
 from tests.cli.base import PublisherCliTestCase
@@ -26,7 +27,26 @@ class TestPublisherCommand(PublisherCliTestCase):
         else:
             click.echo(f'Registry {collection_service_registry_id} already exists. Skipping adding it.')
 
+        # Track collections created during tests
+        self.created_collections = []
         self.collection = self._create_empty_collection()
+
+
+    def tearDown(self) -> None:
+        print("Cleaning up collections...")
+        client = _get_collection_service_client()
+
+        for collection in self.created_collections:
+            print("Deleting collection {}...".format(collection.name))
+
+            try:
+                client.delete_collection(collection_id=collection.id)
+            except Exception as e:
+                print(f"Error deleting collection {collection.slugName}: {str(e)}")
+
+        # Call parent tearDown
+        super().tearDown()
+
 
     def _get_first_collection_with_table(self):
         collections_result = self.simple_invoke(
@@ -40,12 +60,15 @@ class TestPublisherCommand(PublisherCliTestCase):
 
     def _create_empty_collection(self):
         collection_name = f'dnastack-client-col{time.time_ns()}'
-        return Collection(**self.simple_invoke(
+        collection = Collection(**self.simple_invoke(
             'publisher', 'collections', 'create',
             '--name', collection_name,
             '--description', "foo",
             '--slug', collection_name,
         ))
+        # Track the created collection
+        self.created_collections.append(collection)
+        return collection
 
 
     def test_collections_list(self):
@@ -102,6 +125,9 @@ class TestPublisherCommand(PublisherCliTestCase):
             '--slug', collection_name,
         ))
 
+        # Track the created collection
+        self.created_collections.append(created_collection)
+
         self.assertEqual(created_collection.name, collection_name)
         self.assertEqual(created_collection.description, "Cohort of participants with quality of life assessments")
         self.assertEqual(created_collection.slugName, collection_name)
@@ -109,12 +135,15 @@ class TestPublisherCommand(PublisherCliTestCase):
 
     def test_collections_create_with_conflicting_name(self):
         collection_name = f'dnastack-client-col{time.time_ns()}'
-        self.simple_invoke(
+        collection_data = self.simple_invoke(
             'publisher', 'collections', 'create',
             '--name', collection_name,
             '--description', "Cohort of participants with quality of life assessments",
             '--slug', collection_name,
         )
+
+        # Track the created collection
+        self.created_collections.append(Collection(**collection_data))
 
         self.expect_error_from([
             'publisher', 'collections', 'create',
@@ -271,3 +300,18 @@ class TestPublisherCommand(PublisherCliTestCase):
         self.assert_not_empty(tables_result, f'Expected at least one table. Found: {tables_result}')
         for table in tables_result:
             self.assert_not_empty(table['name'], 'Table name should not be empty')
+
+    def tearDown(self) -> None:
+        print("Cleaning up collections...")
+        client = _get_collection_service_client()
+
+        for collection in self.created_collections:
+            print("Deleting collection {}...".format(collection.name))
+
+            try:
+                client.delete_collection(collection_id=collection.id)
+            except Exception as e:
+                print(f"Error deleting collection {collection.slugName}: {str(e)}")
+
+        # Call parent tearDown
+        super().tearDown()

@@ -271,6 +271,16 @@ class CollectionServiceClient(BaseServiceClient):
                            params=params, trace_context=trace)
             return None
 
+    def delete_collection(self,
+                          collection_id: str,
+                          trace: Optional[Span] = None) -> None:
+        trace = trace or Span(origin=self)
+        local_logger = trace.create_span_logger(self._logger)
+        with self.create_http_session() as session:
+            delete_url = self._get_single_collection_url(collection_id)
+            session.delete(delete_url, trace_context=trace)
+            return None
+
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
                               no_auth: bool = False) -> ServiceEndpoint:
