@@ -73,6 +73,9 @@ def init_drs_commands(group: Group):
         download_urls = []
         full_output = not quiet and in_interactive_shell
 
+        if not output_dir:
+            output_dir = os.getcwd()
+
         if len(id_or_urls) > 0:
             download_urls = list(id_or_urls)
         elif input_file:
