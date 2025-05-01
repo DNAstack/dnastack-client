@@ -57,6 +57,23 @@ class TestDrsCommand(DeprecatedPublisherCliTestCase):
             file_path = os.path.join(self.tmp_path, file_name)
             self.assertTrue(os.path.getsize(file_path) > 0, f'The downloaded {file_path} must not be empty.')
 
+    def test_download_files_with_cli_arguments_no_output_dir(self):
+        self.retry_if_fail(self._test_download_files_with_cli_arguments_no_output_dir,
+                           intermediate_cleanup=lambda: self._clear_temp_files())
+
+    def _test_download_files_with_cli_arguments_no_output_dir(self):
+        result = self.invoke('files', 'download', *self.drs_uris)
+        self.assertEqual(0, result.exit_code)
+
+        # The files should be downloaded to the current working directory.
+        file_name_list = [f for f in os.listdir(os.getcwd()) if f != os.path.basename(self.input_file_path)]
+        self.assertGreaterEqual(len(file_name_list),len(self.drs_uris))
+
+        for file_name in file_name_list:
+            file_path = os.path.join(os.getcwd(), file_name)
+            self.assertTrue(os.path.getsize(file_path) > 0, f'The downloaded {file_path} must not be empty.')
+        # Clean up downloaded files in the current working directory.
+
     def test_download_files_with_input_file(self):
         self.retry_if_fail(self._test_download_files_with_input_file,
                            intermediate_cleanup=lambda: self._clear_temp_files(),
