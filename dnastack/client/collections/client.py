@@ -22,7 +22,7 @@ STANDARD_COLLECTION_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
                                                     artifact='collection-service',
                                                     version='1.0.0')
 STANDARD_DATASOURCE_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
-                                                    artifact='collection-service',
+                                                    artifact='datasource-service',
                                                     version='1.0.0')
 
 
@@ -33,9 +33,6 @@ EXPLORER_COLLECTION_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack.explorer
                                                     version='1.0.0')
 
 
-STANDARD_DATA_SOURCE_SERVICE_TYPE_V1_0 = ServiceType(group='com.dnastack',
-                                                    artifact='collection-service',
-                                                    version='1.0.0')
 
 
 class InvalidApiResponse(RuntimeError):
