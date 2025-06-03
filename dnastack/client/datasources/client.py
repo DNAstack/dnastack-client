@@ -97,7 +97,7 @@ class DataSourceServiceClient(BaseServiceClient):
 
     @staticmethod
     def get_adapter_type() -> str:
-        return 'dataousrces'
+        return 'datasources'
 
     @classmethod
     def get_supported_service_types(cls) -> List[str]:
