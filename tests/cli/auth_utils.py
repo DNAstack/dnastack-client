@@ -127,7 +127,7 @@ def _login_via_personal_access_token(driver: WebDriver, email: str, token: str, 
     from tests.exam_helper import WithTestUserTestCase
     if WithTestUserTestCase.test_user_prefix in email:
         wallet_login_uri = urljoin(device_code_url, "/login")
-        driver.get(f'{wallet_login_uri}s')
+        driver.get(f'{wallet_login_uri}')
     WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((By.XPATH, "//a[contains(@href, 'login')]"))
     )
