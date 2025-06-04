@@ -43,8 +43,8 @@ There are three ways to run the test suite.
    * For example: `source .env` 
 2. Run `python3 -m unittest discover -v -s .` to run all tests.
    * Alternatively, run `python3 -m unittest -v <FILE_PATH_OR_PYTHON_MODULE>` to run specific tests.
-     * Example 1: `python3 -m uniitest -v tests.cli.test_dataconnect`
-     * Example 2: `python3 -m uniitest -v tests/cli/test_dataconnect.py`
+     * Example 1: `python3 -m unittest -v tests.cli.test_dataconnect`
+     * Example 2: `python3 -m unittest -v tests/cli/test_dataconnect.py`
    * You can use `-f` to end the test on the first failure.
    * See [the official docs](https://docs.python.org/3/library/unittest.html) for more information.
 

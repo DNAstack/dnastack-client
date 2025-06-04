@@ -48,6 +48,10 @@ def create_publisher_login_handler(app_base_url: str) -> Callable:
 
 
 class BasePublisherTestCase(WithTestUserTestCase):
+    _wallet_base_uri = env(
+        'E2E_PUBLISHER_WALLET_BASE_URI',
+        required=False,
+        default='http://localhost:8081')
     _wallet_admin_client_id = env(
         'E2E_PUBLISHER_WALLET_CLIENT_ID',
         required=False,
