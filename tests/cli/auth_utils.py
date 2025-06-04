@@ -5,6 +5,7 @@ from subprocess import PIPE, Popen
 from sys import stderr
 from time import sleep
 from typing import List
+from urllib.parse import urljoin
 
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
@@ -122,10 +123,11 @@ def _get_web_driver() -> WebDriver:
     return Chrome(options=chrome_options)
 
 
-def _login_via_personal_access_token(driver: WebDriver, email: str, token: str):
-    from tests.exam_helper import WithTestUserTestCase, wallet_base_uri
+def _login_via_personal_access_token(driver: WebDriver, email: str, token: str, device_code_url: str):
+    from tests.exam_helper import WithTestUserTestCase
     if WithTestUserTestCase.test_user_prefix in email:
-        driver.get(f'{wallet_base_uri}/login')
+        wallet_login_uri = urljoin(device_code_url, "/login")
+        driver.get(f'{wallet_login_uri}s')
     WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((By.XPATH, "//a[contains(@href, 'login')]"))
     )
@@ -163,7 +165,7 @@ def confirm_device_code(device_code_url: str, email: str, token: str):
             message='Expecting login page'
         )
         # Login via personal access token
-        _login_via_personal_access_token(driver=driver, email=email, token=token)
+        _login_via_personal_access_token(driver=driver, email=email, token=token, device_code_url=device_code_url)
         # Assert authorize device page is loaded
         WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.ID, "authorization")),

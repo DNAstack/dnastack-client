@@ -40,8 +40,7 @@ _logger = get_logger('exam_helper')
 publisher_client_id = env('E2E_PUBLISHER_CLIENT_ID', required=False)
 publisher_client_secret = env('E2E_PUBLISHER_CLIENT_SECRET', required=False)
 
-passport_base_url = env('E2E_PASSPORT_BASE_URL', required=False, default='https://passport.prod.dnastack.com')
-wallet_base_uri = env('E2E_WALLET_BASE_URI', required=False, default='http://localhost:8081')
+passport_base_url = env('E2E_PASSPORT_BASE_URL', required=False, default='https://passport.alpha.rc.dnastack.com')
 device_code_endpoint = urljoin(passport_base_url, '/oauth/device/code')
 token_endpoint = urljoin(passport_base_url, '/oauth/token')
 
@@ -411,6 +410,7 @@ class BaseTestCase(TestCase):
 
 
 class WithTestUserTestCase(BaseTestCase):
+    _wallet_base_uri = None
     _wallet_admin_client_id = None
     _wallet_admin_client_secret = None
     _wallet_helper = None
@@ -425,10 +425,12 @@ class WithTestUserTestCase(BaseTestCase):
     def _get_wallet_helper(cls) -> WalletHelper:
         """Get or create wallet helper instance"""
         if cls._wallet_helper is None:
+            if cls._wallet_base_uri is None:
+                raise NotImplementedError("Wallet base URI must be set by child class")
             if cls._wallet_admin_client_id is None or cls._wallet_admin_client_secret is None:
                 raise NotImplementedError("Wallet credentials must be set by child class")
             cls._wallet_helper = WalletHelper(
-                wallet_base_uri,
+                cls._wallet_base_uri,
                 cls._wallet_admin_client_id,
                 cls._wallet_admin_client_secret
             )
