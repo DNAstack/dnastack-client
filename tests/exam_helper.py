@@ -477,11 +477,11 @@ class WithTestUserTestCase(BaseTestCase):
 
 
 class DeprecatedBasePublisherTestCase(BaseTestCase):
-    _explorer_base_url = env('E2E_EXPLORER_BASE_URL', required=False, default='https://explorer.beta.dnastack.com/')
+    _explorer_base_url = env('E2E_EXPLORER_BASE_URL', required=False, default='https://explorer.beta.rc.dnastack.com/')
     _explorer_hostname = urlparse(_explorer_base_url).netloc
     _collection_service_url = env('E2E_COLLECTION_SERVICE_BASE_URL',
                                   required=False,
-                                  default='https://collection-service.prod.dnastack.com/')
+                                  default='https://collection-service.beta.rc.dnastack.com/')
     _collection_service_hostname = urlparse(_collection_service_url).netloc
     _test_via_explorer = not flag('E2E_TEST_DIRECTLY_AGAINST_PUBLISHER_DATA_SERVICE')  # By default, this is TRUE.
     _raw_explorer_urls = env('E2E_EXPLORER_BASE_URLS',
