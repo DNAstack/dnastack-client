@@ -10,6 +10,7 @@ class OAuth2Authentication(BaseModel, HashableModel):
     authorization_endpoint: Optional[str]
     client_id: Optional[str]
     client_secret: Optional[str]
+    client_assertion_file: Optional[str]
     device_code_endpoint: Optional[str]
     grant_type: str
     personal_access_endpoint: Optional[str]
