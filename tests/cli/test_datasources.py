@@ -14,8 +14,9 @@ class TestDatasourcesCommand(PublisherCliTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.invoke('use', self.service_registry_base_url)
+        
+        # Add collection service registry if not exists
         collection_service_registry_id = 'collection-service-registry' # we are using collection service for this
-
         existing_registries = self.simple_invoke('config', 'registries', 'list')
         if not any(registry['id'] == collection_service_registry_id for registry in existing_registries):
             self.invoke(
@@ -24,6 +25,9 @@ class TestDatasourcesCommand(PublisherCliTestCase):
             )
         else:
             click.echo(f'Registry {collection_service_registry_id} already exists. Skipping adding it.')
+        
+        # Sync services to ensure datasources endpoint is discovered and authenticated
+        self.invoke('config', 'registries', 'sync', collection_service_registry_id)
 
     def _get_default_parameters(self) -> List[str]:
         return ['-o', 'json']
