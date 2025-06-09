@@ -28,6 +28,18 @@ class TestDatasourcesCommand(PublisherCliTestCase):
         
         # Sync services to ensure datasources endpoint is discovered and authenticated
         self.invoke('config', 'registries', 'sync', collection_service_registry_id)
+        
+        # Set default endpoint for datasources adapter type
+        # Since datasources use the same collection service endpoint, set it as default
+        endpoints_result = self.simple_invoke('config', 'endpoints', 'list')
+        collection_endpoint_id = None
+        for endpoint in endpoints_result:
+            if 'collection-service' in endpoint.get('type', ''):
+                collection_endpoint_id = endpoint['id']
+                break
+        
+        if collection_endpoint_id:
+            self.invoke('config', 'defaults', 'set', 'datasources', collection_endpoint_id)
 
     def _get_default_parameters(self) -> List[str]:
         return ['-o', 'json']
