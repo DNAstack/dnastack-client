@@ -94,6 +94,75 @@ def init_auth_commands(group: Group):
         handler.revoke([endpoint_id] if endpoint_id else [], force)
     
     
+    @formatted_command(
+        group=group,
+        name='token-exchange',
+        specs=[
+            ArgumentSpec(
+                name='subject_token',
+                arg_names=['--subject-token'],
+                help='ID token to exchange (if not provided, will fetch from cloud environment)',
+            ),
+            ArgumentSpec(
+                name='resource',
+                arg_names=['--resource'],
+                help='Resource URL for the token exchange',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='token_endpoint',
+                arg_names=['--token-endpoint'],
+                help='Token endpoint URL',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='audience',
+                arg_names=['--audience'],
+                help='Audience for GCP ID token (defaults to resource URL)',
+            ),
+        ]
+    )
+    def token_exchange(resource: str,
+                       token_endpoint: str,
+                       subject_token: Optional[str] = None,
+                       audience: Optional[str] = None):
+        """
+        Perform token exchange flow using ID token.
+        If subject_token is not provided, will attempt to fetch from cloud metadata service.
+        """
+        from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
+        from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+        from dnastack.common.tracing import Span
+        
+        # Create auth info for token exchange
+        auth_info = OAuth2Authentication(
+            grant_type='urn:ietf:params:oauth:grant-type:token-exchange',
+            token_endpoint=token_endpoint,
+            resource_url=resource,
+            subject_token=subject_token,
+            audience=audience or resource,
+        )
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='token-exchange-cli')
+        click.echo(f"Performing token exchange...")
+        click.echo(f"Token endpoint: {token_endpoint}")
+        click.echo(f"Resource: {resource}")
+        if subject_token:
+            click.echo("Using provided subject token")
+        else:
+            click.echo("Fetching ID token from cloud environment...")
+
+        result = adapter.exchange_tokens(trace_context)
+        
+        click.echo("\nToken exchange successful!")
+        click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
+        click.echo(f"Token type: {result.get('token_type', 'N/A')}")
+        click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
+        if result.get('refresh_token'):
+            click.echo(f"Refresh token: {result.get('refresh_token', 'N/A')[:50]}...")
+    
+    
 class AuthCommandHandler:
     def __init__(self, context_name: Optional[str] = None):
         self._logger = get_logger(type(self).__name__)

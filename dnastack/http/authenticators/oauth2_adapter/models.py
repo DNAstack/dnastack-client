@@ -20,3 +20,7 @@ class OAuth2Authentication(BaseModel, HashableModel):
     scope: Optional[str]
     token_endpoint: Optional[str]
     type: str = 'oauth2'
+    subject_token: Optional[str]
+    subject_token_type: Optional[str]
+    requested_token_type: Optional[str]
+    audience: Optional[str]
