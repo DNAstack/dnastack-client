@@ -36,7 +36,7 @@ class TestStress(TestCase):
         .. note:: This test is specifically designed for a certain deployment.
         """
         client = CollectionServiceClient.make(ServiceEndpoint(adapter_type='collections',
-                                                              url='https://explorer.beta.dnastack.com/api/',
+                                                              url='https://explorer.beta.rc.dnastack.com/api/',
                                                               mode='explorer'))
 
         sub_client = client.data_connect('sars-cov-2-ncbi-sequence-read-archive')
