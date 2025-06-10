@@ -12,7 +12,7 @@ from tests.cli.base import PublisherCliTestCase
 class TestPublisherCommand(PublisherCliTestCase):
     @staticmethod
     def reuse_session() -> bool:
-        return True
+        return False
 
     def setUp(self) -> None:
         super().setUp()

@@ -23,7 +23,7 @@ run-notebooks-dev:
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
-	rm ~/.dnastack/sessions/* 2> /dev/null
+	rm -rf ~/.dnastack/sessions/*
 
 .PHONY: test-all
 test-all:

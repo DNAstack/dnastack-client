@@ -9,7 +9,7 @@ from tests.cli.base import PublisherCliTestCase
 class TestDatasourcesCommand(PublisherCliTestCase):
     @staticmethod
     def reuse_session() -> bool:
-        return True
+        return False
 
     def setUp(self) -> None:
         super().setUp()
