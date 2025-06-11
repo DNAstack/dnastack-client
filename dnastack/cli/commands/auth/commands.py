@@ -133,6 +133,8 @@ def init_auth_commands(group: Group):
         from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
         from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
         from dnastack.common.tracing import Span
+        from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
+        from time import time
         
         # Create auth info for token exchange
         auth_info = OAuth2Authentication(
@@ -141,6 +143,8 @@ def init_auth_commands(group: Group):
             resource_url=resource,
             subject_token=subject_token,
             audience=audience or resource,
+            client_id='dnastack-client',
+            client_secret='dev-secret-never-use-in-prod',
         )
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -155,10 +159,32 @@ def init_auth_commands(group: Group):
 
         result = adapter.exchange_tokens(trace_context)
         
+        # Convert token response to session following OAuth2Authenticator pattern
+        created_time = int(time())
+        expiry_time = created_time + result['expires_in']
+        
+        session_info = SessionInfo(
+            model_version=4,
+            config_hash=auth_info.get_content_hash(),
+            access_token=result['access_token'],
+            refresh_token=result.get('refresh_token'),
+            scope=result.get('scope'),
+            token_type=result['token_type'],
+            issued_at=created_time,
+            valid_until=expiry_time,
+            handler=SessionInfoHandler(auth_info=auth_info.dict())
+        )
+        
+        # Save the session
+        session_manager: SessionManager = container.get(SessionManager)
+        session_id = auth_info.get_content_hash()
+        session_manager.save(session_id, session_info)
+        
         click.echo("\nToken exchange successful!")
         click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
         click.echo(f"Token type: {result.get('token_type', 'N/A')}")
         click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
+        click.echo(f"Session saved with ID: {session_id[:8]}...")
         if result.get('refresh_token'):
             click.echo(f"Refresh token: {result.get('refresh_token', 'N/A')[:50]}...")
     
