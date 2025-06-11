@@ -23,7 +23,19 @@ run-notebooks-dev:
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
-	rm -rf ~/.dnastack/sessions/*
+	rm ~/.dnastack/sessions/* 2> /dev/null
+
+.PHONY: test-setup
+test-setup:
+	pip install -r tests/requirements-test.txt
+
+.PHONY: test-unit
+test-unit:
+	pytest tests/unit -v
+
+.PHONY: test-unit-cov
+test-unit-cov:
+	pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
 .PHONY: test-all
 test-all:
