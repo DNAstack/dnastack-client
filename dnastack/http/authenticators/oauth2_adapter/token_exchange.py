@@ -10,10 +10,6 @@ class TokenExchangeAdapter(OAuth2Adapter):
     __grant_type = 'urn:ietf:params:oauth:grant-type:token-exchange'
     __subject_token_type = 'urn:ietf:params:oauth:token-type:jwt'
     
-    # TODO: Explorer public client credentials - these should be fetched from service registry
-    EXPLORER_CLIENT_ID = 'dnastack-client'
-    EXPLORER_CLIENT_SECRET = 'dev-secret-never-use-in-prod'
-    
     @classmethod
     def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
         return auth_info.grant_type == cls.__grant_type
@@ -68,8 +64,8 @@ class TokenExchangeAdapter(OAuth2Adapter):
         auth_info = self._auth_info
         resource_urls = self._prepare_resource_urls_for_request(auth_info.resource_url)
         subject_token = self._get_subject_token(trace_context)
-        client_id = self.EXPLORER_CLIENT_ID
-        client_secret = self.EXPLORER_CLIENT_SECRET
+        client_id = auth_info.client_id
+        client_secret = auth_info.client_secret
 
         trace_info = dict(
             oauth='token-exchange',
@@ -93,7 +89,6 @@ class TokenExchangeAdapter(OAuth2Adapter):
             auth_params['scope'] = auth_info.scope
 
         with trace_context.new_span(metadata=trace_info) as sub_span:
-            sub_logger = sub_span.create_span_logger(self._logger)
             with HttpClientFactory.make() as http_session:
                 span_headers = sub_span.create_http_headers()
                 response = http_session.post(

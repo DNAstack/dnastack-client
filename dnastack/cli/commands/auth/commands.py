@@ -15,7 +15,11 @@ from dnastack.common.auth_manager import AuthManager, ExtendedAuthState
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.configuration.wrapper import ConfigurationWrapper
-from dnastack.http.session_info import SessionManager
+from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.common.tracing import Span
+from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
+from time import time
 
 
 def init_auth_commands(group: Group):
@@ -130,23 +134,15 @@ def init_auth_commands(group: Group):
         Perform token exchange flow using ID token.
         If subject_token is not provided, will attempt to fetch from cloud metadata service.
         """
-        from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
-        from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
-        from dnastack.common.tracing import Span
-        from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
-        from time import time
-        
-        # Create auth info for token exchange
         auth_info = OAuth2Authentication(
             grant_type='urn:ietf:params:oauth:grant-type:token-exchange',
             token_endpoint=token_endpoint,
             resource_url=resource,
             subject_token=subject_token,
             audience=audience or resource,
-            client_id='dnastack-client',
+            client_id='dnastack-client', # TODO: pull credentials from service_registry
             client_secret='dev-secret-never-use-in-prod',
         )
-        
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='token-exchange-cli')
         click.echo(f"Performing token exchange...")
@@ -157,12 +153,10 @@ def init_auth_commands(group: Group):
         else:
             click.echo("Fetching ID token from cloud environment...")
 
+        # perform call and create session to store them
         result = adapter.exchange_tokens(trace_context)
-        
-        # Convert token response to session following OAuth2Authenticator pattern
         created_time = int(time())
         expiry_time = created_time + result['expires_in']
-        
         session_info = SessionInfo(
             model_version=4,
             config_hash=auth_info.get_content_hash(),
@@ -174,8 +168,6 @@ def init_auth_commands(group: Group):
             valid_until=expiry_time,
             handler=SessionInfoHandler(auth_info=auth_info.dict())
         )
-        
-        # Save the session
         session_manager: SessionManager = container.get(SessionManager)
         session_id = auth_info.get_content_hash()
         session_manager.save(session_id, session_info)
