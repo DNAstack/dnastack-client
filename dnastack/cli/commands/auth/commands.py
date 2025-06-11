@@ -101,6 +101,7 @@ def init_auth_commands(group: Group):
     @formatted_command(
         group=group,
         name='token-exchange',
+        hidden=True,
         specs=[
             ArgumentSpec(
                 name='subject_token',
