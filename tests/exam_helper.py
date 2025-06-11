@@ -576,7 +576,7 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
         items: Dict[str, List[Dict[str, Any]]] = dict()
         current_count = 0
 
-        for collection in self._get_testable_collections(cs):
+        for collection in self._get_testable_collections(cs, test_types=['blob']):
             # At this point, we can safely assume that all selected items are accessible by the test suite.
             items[collection.id] = []
 
