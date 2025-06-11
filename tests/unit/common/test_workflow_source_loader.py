@@ -8,7 +8,7 @@ from dnastack.client.workbench.workflow.models import WorkflowFile, WorkflowFile
 from dnastack.client.workbench.workflow.utils import WorkflowSourceLoader, WorkflowSourceLoaderError
 
 
-class TestWorkflowFile(WorkflowFile):
+class MockWorkflowFile(WorkflowFile):
     test_file_path: Optional[Union[Path, str]]
 
 
@@ -73,14 +73,14 @@ class WorkflowSourceLoaderTestcase(unittest.TestCase):
     def tearDown(self):
         self.tempdir.cleanup()
 
-    def create_files(self, workflow_files: List[WorkflowFile]) -> List[TestWorkflowFile]:
-        test_files: List[TestWorkflowFile] = list()
+    def create_files(self, workflow_files: List[WorkflowFile]) -> List[MockWorkflowFile]:
+        test_files: List[MockWorkflowFile] = list()
         for workflow_to_write in workflow_files:
             path = Path(f"{self.tempdir.name}/{workflow_to_write.path}")
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as fd:
                 fd.write(workflow_to_write.content)
-                test_files.append(TestWorkflowFile(**workflow_to_write.__dict__, test_file_path=path))
+                test_files.append(MockWorkflowFile(**workflow_to_write.__dict__, test_file_path=path))
 
         self.assertEqual(len(test_files), len(workflow_files), f"Expecting {len(workflow_files)} files to be created")
         self.assertTrue(all(str(test_file.test_file_path).startswith(self.tempdir.name) for test_file in test_files))

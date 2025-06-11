@@ -53,11 +53,6 @@ package-test:
 .PHONY: docker-test-all
 docker-test-all: docker-test-all-python-oldest-stable docker-test-all-python-latest-stable docker-test-all-python-rc
 
-# Terminal for testing
-.PHONY: docker-test-all-baseline
-docker-test-all-baseline:
-	make TESTING_PYTHON=python:$(PY_VERSION_BASELINE)-slim WEBDRIVER_DISABLED=false docker-test-all-solo
-
 # Testing the oldest stable version.
 .PHONY: docker-test-all-baseline
 docker-test-all-baseline:
