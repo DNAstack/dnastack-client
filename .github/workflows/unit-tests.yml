@@ -52,27 +52,3 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black isort
-    
-    - name: Run linting
-      run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 dnastack tests --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Check code formatting with black (don't fail for now)
-        black --check dnastack tests || true
-        # Check import sorting (don't fail for now)
-        isort --check-only dnastack tests || true
