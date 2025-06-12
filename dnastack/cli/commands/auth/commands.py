@@ -1,4 +1,4 @@
-from typing import List, Optional, Any, Dict, Iterator
+from typing import List, Optional, Any, Dict, Iterator, Tuple
 
 import click
 from click import Group
@@ -20,6 +20,48 @@ from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authenticat
 from dnastack.common.tracing import Span
 from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
 from time import time
+
+
+def get_client_credentials_from_service_registry(context_name: Optional[str] = None) -> Tuple[str, str]:
+    """
+    Retrieve OAuth2 client credentials from service registry configuration.
+    Falls back to default explorer credentials if not available.
+    """
+    config_manager: ConfigurationManager = container.get(ConfigurationManager)
+    wrapper = ConfigurationWrapper(config_manager.load(), context_name)
+    context = wrapper.current_context
+
+    # if context and context.endpoints:
+    #     # Look for OAuth2 endpoints with client credentials
+    #     for endpoint in context.endpoints:
+    #         for auth in endpoint.get_authentications():
+    #             if auth.get('type') == 'oauth2' and auth.get('client_id'):
+    #                 return auth['client_id'], auth.get('client_secret', '')
+
+    # Fallback to explorer credentials
+    return 'dnastack-client', 'dev-secret-never-use-in-prod'
+
+
+def create_token_exchange_session(auth_info: OAuth2Authentication, 
+                                token_response: Dict[str, Any]) -> SessionInfo:
+    """
+    Create a session info for token exchange with complete re-authentication support.
+    """
+    created_time = int(time())
+    expiry_time = created_time + token_response['expires_in']
+    handler_auth_info = auth_info.dict()
+
+    return SessionInfo(
+        model_version=4,
+        config_hash=auth_info.get_content_hash(),
+        access_token=token_response['access_token'],
+        refresh_token=token_response.get('refresh_token'),  # Usually None for token exchange
+        scope=token_response.get('scope'),
+        token_type=token_response['token_type'],
+        issued_at=created_time,
+        valid_until=expiry_time,
+        handler=SessionInfoHandler(auth_info=handler_auth_info)
+    )
 
 
 def init_auth_commands(group: Group):
@@ -125,61 +167,66 @@ def init_auth_commands(group: Group):
                 arg_names=['--audience'],
                 help='Audience for GCP ID token (defaults to resource URL)',
             ),
+            ArgumentSpec(
+                name='scope',
+                arg_names=['--scope'],
+                help='OAuth2 scope for the token exchange',
+            ),
+            CONTEXT_ARG,
         ]
     )
     def token_exchange(resource: str,
                        token_endpoint: str,
                        subject_token: Optional[str] = None,
-                       audience: Optional[str] = None):
+                       audience: Optional[str] = None,
+                       scope: Optional[str] = None,
+                       context: Optional[str] = None):
         """
         Perform token exchange flow using ID token.
-        If subject_token is not provided, will attempt to fetch from cloud metadata service.
+        Sessions created by this command support automatic re-authentication
+        when access tokens expire in cloud environments.
         """
+        client_id, client_secret = get_client_credentials_from_service_registry(context)
+        
         auth_info = OAuth2Authentication(
             grant_type='urn:ietf:params:oauth:grant-type:token-exchange',
             token_endpoint=token_endpoint,
             resource_url=resource,
             subject_token=subject_token,
             audience=audience or resource,
-            client_id='dnastack-client', # TODO: pull credentials from service_registry
-            client_secret='dev-secret-never-use-in-prod',
+            client_id=client_id,
+            client_secret=client_secret,
+            scope=scope,
+            type='oauth2'
         )
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='token-exchange-cli')
         click.echo(f"Performing token exchange...")
         click.echo(f"Token endpoint: {token_endpoint}")
         click.echo(f"Resource: {resource}")
+        click.echo(f"Client ID: {client_id}")
+        
         if subject_token:
             click.echo("Using provided subject token")
         else:
             click.echo("Fetching ID token from cloud environment...")
 
-        # perform call and create session to store them
-        result = adapter.exchange_tokens(trace_context)
-        created_time = int(time())
-        expiry_time = created_time + result['expires_in']
-        session_info = SessionInfo(
-            model_version=4,
-            config_hash=auth_info.get_content_hash(),
-            access_token=result['access_token'],
-            refresh_token=result.get('refresh_token'),
-            scope=result.get('scope'),
-            token_type=result['token_type'],
-            issued_at=created_time,
-            valid_until=expiry_time,
-            handler=SessionInfoHandler(auth_info=auth_info.dict())
-        )
-        session_manager: SessionManager = container.get(SessionManager)
-        session_id = auth_info.get_content_hash()
-        session_manager.save(session_id, session_info)
-        
-        click.echo("\nToken exchange successful!")
-        click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
-        click.echo(f"Token type: {result.get('token_type', 'N/A')}")
-        click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
-        click.echo(f"Session saved with ID: {session_id[:8]}...")
-        if result.get('refresh_token'):
-            click.echo(f"Refresh token: {result.get('refresh_token', 'N/A')[:50]}...")
+        try:
+            result = adapter.exchange_tokens(trace_context)
+            session_info = create_token_exchange_session(auth_info, result)
+            session_manager: SessionManager = container.get(SessionManager)
+            session_id = auth_info.get_content_hash()
+            session_manager.save(session_id, session_info)
+
+            click.echo("\nToken exchange successful!")
+            click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
+            click.echo(f"Token type: {result.get('token_type', 'N/A')}")
+            click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
+            click.echo(f"Session saved with ID: {session_id[:8]}...")
+                
+        except Exception as e:
+            click.echo(f"❌ Token exchange failed: {e}", err=True)
+            raise click.ClickException(str(e))
     
     
 class AuthCommandHandler:

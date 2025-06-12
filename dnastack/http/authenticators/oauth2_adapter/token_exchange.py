@@ -23,16 +23,17 @@ class TokenExchangeAdapter(OAuth2Adapter):
         ]
 
     def _get_subject_token(self, trace_context: Span) -> str:
-        """Get ID token from cloud metadata service or use provided token"""
+        """
+        Get ID token from cloud metadata service or use provided token.
+        For re-authentication, always tries cloud metadata fetch.
+        """
         logger = trace_context.create_span_logger(self._logger)
         
         if self._auth_info.subject_token:
             return self._auth_info.subject_token
         
-        audience = self._auth_info.resource_url
-        if self._auth_info.audience:
-            audience = self._auth_info.audience
-
+        audience = self._auth_info.audience or self._auth_info.resource_url
+        
         # TODO: refactor to handle multiple clouds
         metadata_url = (
             f'http://metadata.google.internal/computeMetadata/v1/instance/'
