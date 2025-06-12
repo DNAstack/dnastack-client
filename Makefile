@@ -3,6 +3,30 @@ PY_VERSION_STABLE=3.11
 PY_VERSION_LATEST=3.12
 TESTING_IMAGE_NAME=dnastack/client-library-testing
 
+.PHONY: setup
+setup:
+	uv venv
+	uv pip install -e ".[all]"
+	uv pip install --group dev
+
+.PHONY: lint
+lint:
+	uv run ruff check .
+	uv run ruff format --check .
+
+.PHONY: format
+format:
+	uv run ruff check --fix .
+	uv run ruff format .
+
+.PHONY: typecheck
+typecheck:
+	uv run mypy dnastack
+
+.PHONY: build
+build:
+	uv build
+
 .PHONY: run-notebooks
 run-notebooks:
 	docker run -it --rm \
@@ -27,15 +51,16 @@ reset:
 
 .PHONY: test-setup
 test-setup:
-	pip install -r tests/requirements-test.txt
+	uv pip install -e ".[all]"
+	uv pip install --group test
 
 .PHONY: test-unit
 test-unit:
-	pytest tests/unit -v
+	uv run pytest tests/unit -v
 
 .PHONY: test-unit-cov
 test-unit-cov:
-	pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
+	uv run pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
 .PHONY: test-all
 test-all:
