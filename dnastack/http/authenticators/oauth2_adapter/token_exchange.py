@@ -9,10 +9,16 @@ from dnastack.http.client_factory import HttpClientFactory
 class TokenExchangeAdapter(OAuth2Adapter):
     __grant_type = 'urn:ietf:params:oauth:grant-type:token-exchange'
     __subject_token_type = 'urn:ietf:params:oauth:token-type:jwt'
+    __METADATA_TIMEOUT = 5
+    __GCP_METADATA_FLAVOR = 'Google'
+    __GCP_METADATA_BASE_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity'
     
     @classmethod
     def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
-        return auth_info.grant_type == cls.__grant_type
+        if auth_info.grant_type != cls.__grant_type:
+            return False
+        required_fields = ['token_endpoint', 'resource_url']
+        return all(getattr(auth_info, field, None) for field in required_fields)
 
     @staticmethod
     def get_expected_auth_info_fields() -> List[str]:
@@ -36,16 +42,15 @@ class TokenExchangeAdapter(OAuth2Adapter):
         
         # TODO: refactor to handle multiple clouds
         metadata_url = (
-            f'http://metadata.google.internal/computeMetadata/v1/instance/'
-            f'service-accounts/default/identity?audience={audience}&format=full'
+            f'{self.__GCP_METADATA_BASE_URL}?audience={audience}&format=full'
         )
         
         try:
             with HttpClientFactory.make() as http_session:
                 response = http_session.get(
                     metadata_url,
-                    headers={'Metadata-Flavor': 'Google'}, # TODO: refactor to handle multiple clouds
-                    timeout=5
+                    headers={'Metadata-Flavor': self.__GCP_METADATA_FLAVOR}, # TODO: refactor to handle multiple clouds
+                    timeout=self.__METADATA_TIMEOUT
                 )
                 if response.ok:
                     token = response.text.strip()
@@ -77,17 +82,14 @@ class TokenExchangeAdapter(OAuth2Adapter):
             subject_token_type=self.__subject_token_type,
         )
         logger.debug(f'exchange_token: Authenticating with {trace_info}')
-        auth_params = dict(
-            grant_type=self.__grant_type,
-            subject_token_type=self.__subject_token_type,
-            subject_token=subject_token,
-            resource=resource_urls,
-        )
-
-        if self._auth_info.requested_token_type:
-            auth_params['requested_token_type'] = self._auth_info.requested_token_type
-        if auth_info.scope:
-            auth_params['scope'] = auth_info.scope
+        auth_params = {
+            'grant_type': self.__grant_type,
+            'subject_token_type': self.__subject_token_type,
+            'subject_token': subject_token,
+            'resource': resource_urls,
+            **({'requested_token_type': self._auth_info.requested_token_type} if self._auth_info.requested_token_type else {}),
+            **({'scope': auth_info.scope} if auth_info.scope else {})
+        }
 
         with trace_context.new_span(metadata=trace_info) as sub_span:
             with HttpClientFactory.make() as http_session:
