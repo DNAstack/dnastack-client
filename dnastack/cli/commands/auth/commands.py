@@ -31,12 +31,12 @@ def get_client_credentials_from_service_registry(context_name: Optional[str] = N
     wrapper = ConfigurationWrapper(config_manager.load(), context_name)
     context = wrapper.current_context
 
-    # if context and context.endpoints:
-    #     # Look for OAuth2 endpoints with client credentials
-    #     for endpoint in context.endpoints:
-    #         for auth in endpoint.get_authentications():
-    #             if auth.get('type') == 'oauth2' and auth.get('client_id'):
-    #                 return auth['client_id'], auth.get('client_secret', '')
+    if context and context.endpoints:
+        # Look for OAuth2 endpoints with client credentials
+        for endpoint in context.endpoints:
+            for auth in endpoint.get_authentications():
+                if auth.get('type') == 'oauth2' and auth.get('client_id'):
+                    return auth['client_id'], auth.get('client_secret', '')
 
     # Fallback to explorer credentials
     return 'dnastack-client', 'dev-secret-never-use-in-prod'
