@@ -43,6 +43,8 @@ jobs:
         else
           echo "No unit tests found in tests/unit/ - skipping"
           echo "Unit tests will be added as part of the migration process"
+          # Create empty coverage.xml to avoid issues with coverage actions
+          echo '<?xml version="1.0" ?><coverage version="1.0"><packages></packages></coverage>' > coverage.xml
         fi
     
     - name: Upload coverage reports to Codecov
@@ -52,3 +54,13 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+    
+    - name: Python Coverage Comment
+      uses: orgoro/coverage@v3.2
+      if: github.event_name == 'pull_request'
+      with:
+        coverageFile: ./coverage.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        thresholdAll: 0.3
+        thresholdNew: 0.8
+        thresholdModified: 0.0
