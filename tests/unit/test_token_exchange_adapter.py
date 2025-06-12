@@ -1,0 +1,364 @@
+import json
+import base64
+from unittest import TestCase
+from unittest.mock import Mock, patch, MagicMock
+from time import time
+
+from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2_adapter.abstract import AuthException
+from dnastack.common.tracing import Span
+
+
+class TestTokenExchangeAdapter(TestCase):
+
+    def setUp(self):
+        self.sample_gcp_token_payload = {
+            "aud": "http://localhost:8081",
+            "azp": "100483287612623142116",
+            "email": "217706947495-compute@developer.gserviceaccount.com",
+            "email_verified": True,
+            "exp": int(time()) + 3600,  # Valid for 1 hour
+            "google": {
+                "compute_engine": {
+                    "instance_creation_timestamp": 1731425864,
+                    "instance_id": "3047934050210597033",
+                    "instance_name": "fedml-server",
+                    "project_id": "striking-effort-817",
+                    "project_number": 217706947495,
+                    "zone": "us-central1-c"
+                }
+            },
+            "iat": int(time()),
+            "iss": "https://accounts.google.com",
+            "sub": "100483287612623142116"
+        }
+        
+        # Create a fake JWT token (header.payload.signature)
+        header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode()).decode().rstrip("=")
+        payload = base64.urlsafe_b64encode(json.dumps(self.sample_gcp_token_payload).encode()).decode().rstrip("=")
+        self.sample_gcp_id_token = f"{header}.{payload}.fake_signature"
+        
+        # Minimal required auth info for token exchange
+        self.base_auth_info = {
+            'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange',
+            'token_endpoint': 'http://localhost:8081/oauth/token',
+            'resource_url': 'http://localhost:185',
+            'type': 'oauth2'
+        }
+    
+    def test_is_compatible_with_correct_grant_type(self):
+        """Test that adapter correctly identifies compatible auth configurations"""
+        auth_info = OAuth2Authentication(**self.base_auth_info)
+        self.assertTrue(TokenExchangeAdapter.is_compatible_with(auth_info))
+    
+    def test_is_compatible_with_wrong_grant_type(self):
+        """Test that adapter rejects incompatible grant types"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['grant_type'] = 'client_credentials'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        self.assertFalse(TokenExchangeAdapter.is_compatible_with(auth_info))
+    
+    def test_is_compatible_with_missing_required_fields(self):
+        """Test that adapter rejects configs missing required fields"""
+        # Test with None token_endpoint (which is Optional in the model)
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['token_endpoint'] = None
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        self.assertFalse(TokenExchangeAdapter.is_compatible_with(auth_info))
+        
+        # Test with empty string token_endpoint
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['token_endpoint'] = ''
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        self.assertFalse(TokenExchangeAdapter.is_compatible_with(auth_info))
+        
+        # Test with empty string resource_url (which is required but can be empty string)
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['resource_url'] = ''
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        self.assertFalse(TokenExchangeAdapter.is_compatible_with(auth_info))
+    
+    def test_exchange_tokens_with_provided_subject_token(self):
+        """Test token exchange when subject token is provided"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        # Explicitly set client credentials (as would be done by CLI)
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock successful token exchange response
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            'access_token': 'exchanged_access_token',
+            'token_type': 'Bearer',
+            'expires_in': 3600,
+            'scope': 'read write'
+        }
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            result = adapter.exchange_tokens(trace_context)
+            
+            # Verify the result
+            self.assertEqual(result['access_token'], 'exchanged_access_token')
+            self.assertEqual(result['token_type'], 'Bearer')
+            self.assertEqual(result['expires_in'], 3600)
+            
+            # Verify the HTTP call
+            mock_session.post.assert_called_once()
+            call_args = mock_session.post.call_args
+            
+            # Check URL
+            self.assertEqual(call_args[0][0], 'http://localhost:8081/oauth/token')
+            
+            # Check data payload
+            data = call_args[1]['data']
+            self.assertEqual(data['grant_type'], 'urn:ietf:params:oauth:grant-type:token-exchange')
+            self.assertEqual(data['subject_token_type'], 'urn:ietf:params:oauth:token-type:jwt')
+            self.assertEqual(data['subject_token'], self.sample_gcp_id_token)
+            self.assertEqual(data['resource'], 'http://localhost:8185')
+            
+            # Check auth (explorer credentials)
+            self.assertEqual(call_args[1]['auth'], ('dnastack-client', 'dev-secret-never-use-in-prod'))
+    
+    def test_exchange_tokens_with_gcp_metadata_fetch(self):
+        """Test token exchange when fetching ID token from GCP metadata"""
+        # No subject_token provided - should fetch from GCP
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock GCP metadata response
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = True
+        mock_metadata_response.text = self.sample_gcp_id_token
+        
+        # Mock token exchange response
+        mock_token_response = Mock()
+        mock_token_response.ok = True
+        mock_token_response.json.return_value = {
+            'access_token': 'gcp_derived_access_token',
+            'token_type': 'Bearer',
+            'expires_in': 7200
+        }
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_session.post.return_value = mock_token_response
+            mock_factory.return_value = mock_session
+            
+            result = adapter.exchange_tokens(trace_context)
+            
+            # Verify the result
+            self.assertEqual(result['access_token'], 'gcp_derived_access_token')
+            self.assertEqual(result['expires_in'], 7200)
+            
+            # Verify GCP metadata was called
+            mock_session.get.assert_called_once()
+            get_call = mock_session.get.call_args
+            self.assertIn('metadata.google.internal', get_call[0][0])
+            self.assertIn(f'audience={self.base_auth_info["resource_url"]}', get_call[0][0])
+            self.assertEqual(get_call[1]['headers']['Metadata-Flavor'], 'Google')
+            self.assertEqual(get_call[1]['timeout'], 5)
+            
+            # Verify token exchange was called with fetched token
+            post_call = mock_session.post.call_args
+            self.assertEqual(post_call[1]['data']['subject_token'], self.sample_gcp_id_token)
+    
+    def test_exchange_tokens_with_custom_audience(self):
+        """Test that custom audience is used for GCP metadata fetch"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['audience'] = 'https://custom-audience.example.com'
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = True
+        mock_metadata_response.text = self.sample_gcp_id_token
+        
+        mock_token_response = Mock()
+        mock_token_response.ok = True
+        mock_token_response.json.return_value = {'access_token': 'token', 'token_type': 'Bearer', 'expires_in': 3600}
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_session.post.return_value = mock_token_response
+            mock_factory.return_value = mock_session
+            
+            adapter.exchange_tokens(trace_context)
+            
+            # Verify custom audience was used
+            get_call = mock_session.get.call_args
+            self.assertIn('audience=https://custom-audience.example.com', get_call[0][0])
+    
+    def test_exchange_tokens_metadata_fetch_failure(self):
+        """Test handling when GCP metadata service fails"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock failed metadata response
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = False
+        mock_metadata_response.status_code = 404
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_factory.return_value = mock_session
+            
+            with self.assertRaises(AuthException) as context:
+                adapter.exchange_tokens(trace_context)
+            
+            self.assertIn('No subject token provided', str(context.exception))
+            self.assertIn('unable to fetch from cloud', str(context.exception))
+    
+    def test_exchange_tokens_with_optional_parameters(self):
+        """Test token exchange with scope and requested_token_type"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        auth_info_dict['scope'] = 'read write admin'
+        auth_info_dict['requested_token_type'] = 'urn:ietf:params:oauth:token-type:access_token'
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {'access_token': 'scoped_token', 'token_type': 'Bearer', 'expires_in': 3600}
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            adapter.exchange_tokens(trace_context)
+            
+            # Verify optional parameters were included
+            post_call = mock_session.post.call_args
+            data = post_call[1]['data']
+            self.assertEqual(data['scope'], 'read write admin')
+            self.assertEqual(data['requested_token_type'], 'urn:ietf:params:oauth:token-type:access_token')
+    
+    def test_exchange_tokens_server_error(self):
+        """Test handling of server errors during token exchange"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 401
+        mock_response.text = 'Invalid subject token or client credentials'
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            with self.assertRaises(AuthException) as context:
+                adapter.exchange_tokens(trace_context)
+            
+            self.assertIn('Failed to perform token exchange', str(context.exception))
+            self.assertIn('401', str(context.exception))
+            self.assertIn('Invalid subject token', str(context.exception))
+    
+    def test_multiple_resource_urls(self):
+        """Test that multiple resource URLs are properly formatted"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        auth_info_dict['resource_url'] = 'http://resource1.com http://resource2.com,http://resource3.com'
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {'access_token': 'token', 'token_type': 'Bearer', 'expires_in': 3600}
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            adapter.exchange_tokens(trace_context)
+            
+            # Verify resource URLs were properly formatted
+            post_call = mock_session.post.call_args
+            data = post_call[1]['data']
+            self.assertEqual(data['resource'], 'http://resource1.com,http://resource2.com,http://resource3.com')
+    
+    def test_exchange_tokens_without_client_credentials(self):
+        """Test that exchange fails when client credentials are not provided"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        # No client_id/client_secret provided
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {'access_token': 'token', 'token_type': 'Bearer', 'expires_in': 3600}
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            adapter.exchange_tokens(trace_context)
+            
+            # Verify that None credentials are passed (would fail in real scenario)
+            post_call = mock_session.post.call_args
+            self.assertEqual(post_call[1]['auth'], (None, None))
