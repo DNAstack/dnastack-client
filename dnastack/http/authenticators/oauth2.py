@@ -409,7 +409,6 @@ class OAuth2Authenticator(Authenticator):
         Re-authenticate a token exchange session by performing the exchange again.
         Assumes we're in a cloud environment and attempts to fetch new identity token.
         """
-        logger = trace_context.create_span_logger(self._logger)
         if not session_info.handler or not session_info.handler.auth_info:
             raise ReauthenticationRequired('Cannot re-authenticate: missing authentication configuration')
         auth_info_dict = session_info.handler.auth_info.copy()
