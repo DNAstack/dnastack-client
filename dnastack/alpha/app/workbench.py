@@ -315,7 +315,6 @@ class Workbench:
 		for task_log in run.task_logs:
 			if task_log.name == task_name:
 				return self.stream_task_log(run_id=run, task_id=task_log.task_id, log_type=log_type, max_bytes=max_bytes)
-				return self._get_ewes_client().stream_task_logs(run_id=run, task_id=task_log.task_id, log_type=logtype, max_bytes=max_bytes)
 
 	def stream_task_log(self, run: Union[ExtendedRun, str], task_id: str, log_type: LogType, max_bytes: Optional[int] = None) -> Iterable[bytes]:
 		return self._get_ewes_client().stream_task_logs(run_id=run, task_id=task_id, log_type=log_type, max_bytes=max_bytes)
