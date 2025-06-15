@@ -512,11 +512,11 @@ class EndpointCommandHandler:
             setattr(node, property_name, annotation())
 
     def __get_place_holder(self, cls):
-        if cls == str:
+        if cls is str:
             return ''
-        elif cls == int or cls == float:
+        elif cls is int or cls is float:
             return 0
-        elif cls == bool:
+        elif cls is bool:
             return False
         else:
             raise NotImplementedError(cls)

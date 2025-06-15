@@ -20,7 +20,7 @@ class TestSmoke(DeprecatedPublisherCliTestCase):
                 self.invoke('collections', 'query', '-c', collection_id, 'SELECT 1', '--endpoint-id=collection-service')
                 self.invoke('collections', 'query', '--collection', collection_id, 'SELECT 1','--endpoint-id=collection-service')
                 return
-            except:
+            except Exception:
                 pass
 
         self.fail('No usable collection for the CLI smoke test')

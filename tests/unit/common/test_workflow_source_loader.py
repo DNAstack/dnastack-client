@@ -118,7 +118,9 @@ class WorkflowSourceLoaderTestcase(unittest.TestCase):
 
     def test_un_nested_workflow_loads_with_all_imports(self):
         workflow_files = [SUCCESS_WORKFLOW] + LIBRARY_FILES
-        files_has_path = lambda x: any(workflow_file.path == x for workflow_file in workflow_files)
+        
+        def files_has_path(x):
+            return any(workflow_file.path == x for workflow_file in workflow_files)
 
         test_files = self.create_files(workflow_files=workflow_files)
         # Only pass in the first workflow, allow the auto discover to find the rest of them
@@ -130,7 +132,9 @@ class WorkflowSourceLoaderTestcase(unittest.TestCase):
 
     def test_nested_workflow_loads_with_all_imports(self):
         workflow_files = [SUCCESS_WORKFLOW_NESTED] + LIBRARY_FILES
-        files_has_path = lambda x: any(workflow_file.path == x for workflow_file in workflow_files)
+        
+        def files_has_path(x):
+            return any(workflow_file.path == x for workflow_file in workflow_files)
         test_files = self.create_files(workflow_files=workflow_files)
         original_directory = Path(os.curdir).absolute()
         try:
