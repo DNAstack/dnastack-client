@@ -26,6 +26,10 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make docker-test-all-latest` - Test with Python 3.12 (latest)
 - `./scripts/run-e2e-tests.sh` - Direct E2E test execution script
 
+### Linting
+- `make lint` - Run ruff linter to check code style and errors
+- `make lint-fix` - Auto-fix linting issues and format code with ruff
+
 ### Package Management
 - `make package-test` - Build and test package installation in clean container
 - `./scripts/build-package.py --pre-release a` - Build pre-release package

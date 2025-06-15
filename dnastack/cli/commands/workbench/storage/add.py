@@ -12,7 +12,7 @@ from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_A
 from dnastack.cli.core.group import formatted_group
 from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.client.workbench.storage.models import AwsStorageAccountCredentials, StorageAccount, Provider, \
-    GcpStorageAccountCredentials, AzureStorageAccountCredentials, AzureCredentialsType
+    GcpStorageAccountCredentials, AzureStorageAccountCredentials
 from dnastack.common.json_argument_parser import FileOrValue
 
 

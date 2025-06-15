@@ -1,7 +1,6 @@
-import sys
 from time import time
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import jwt
 from requests import Response, Session

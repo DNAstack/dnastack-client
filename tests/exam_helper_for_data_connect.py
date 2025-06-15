@@ -25,7 +25,7 @@ class DataConnectTestCaseMixin:
 
     @classmethod
     def _scan_for_usable_tables(cls):
-        logger = get_logger(f'DataConnectTestCaseMixin/table-scanner', logging.INFO)
+        logger = get_logger('DataConnectTestCaseMixin/table-scanner', logging.INFO)
         logger.info('Scanning for usable tables')
 
         def get_result(future):
@@ -70,7 +70,7 @@ class DataConnectTestCaseMixin:
         max_approx_usable_table_count = cls._max_approx_usable_table_count
 
         with cls._table_scanning_network_lock:
-            logger = get_logger(f'DataConnectTestCaseMixin/table-checker')
+            logger = get_logger('DataConnectTestCaseMixin/table-checker')
             table = client.table(target_table)
 
             with cls._table_scanning_sync_lock:

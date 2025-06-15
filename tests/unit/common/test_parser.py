@@ -1,7 +1,6 @@
 from unittest import TestCase
 
-from dnastack.common.parser import DotPropertiesParser, DotPropertiesSyntaxError, DotPropertiesDuplicatedPathError, \
-    DotPropertiesAmbiguousStructureError
+from dnastack.common.parser import DotPropertiesParser, DotPropertiesSyntaxError, DotPropertiesAmbiguousStructureError
 
 
 class TestDotPropertiesParser(TestCase):
@@ -49,7 +48,7 @@ class TestDotPropertiesParser(TestCase):
                 self.fail(f'The given properties ({test_properties}) does not cause an error thrown.')
             except DotPropertiesSyntaxError:
                 pass  # Expected behaviour.
-            except Exception as e:
+            except Exception:
                 self.fail('The error is thrown but the type of error is unexpected.')
 
         # Test properties that may cause structural changes while parsing.
@@ -62,5 +61,5 @@ class TestDotPropertiesParser(TestCase):
                 self.fail(f'The given properties ({test_properties}) does not cause an error thrown.')
             except DotPropertiesAmbiguousStructureError:
                 pass  # Expected behaviour.
-            except Exception as e:
+            except Exception:
                 self.fail('The error is thrown but the type of error is unexpected.')

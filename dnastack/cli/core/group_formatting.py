@@ -1,7 +1,6 @@
 from typing import Optional, List
 
 import click
-from click import style
 
 from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_WIDTH, TOTAL_WIDTH, OPTION_PADDING
 from dnastack.cli.core.formatting_utils import wrap_text, get_visual_length

@@ -470,7 +470,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             self.assertEqual(len(described_runs), 1, f'Expected exactly one run. Found {described_runs}')
             self.assertTrue('key' in described_runs[0].request.workflow_engine_parameters and 'value' in
                             described_runs[0].request.workflow_engine_parameters['key'],
-                            f'Expected workflow engine params to be exactly the same. ' + f'Found {described_runs[0].request.workflow_engine_parameters}')
+                            'Expected workflow engine params to be exactly the same. ' + f'Found {described_runs[0].request.workflow_engine_parameters}')
 
         test_submit_batch_with_engine_key_value_param()
 

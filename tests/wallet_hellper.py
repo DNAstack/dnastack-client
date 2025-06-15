@@ -149,7 +149,7 @@ class WalletHelper:
 
     def create_access_policy(self, policy: Policy) -> Policy:
         with self._create_http_session() as session:
-            response = session.post(urljoin(self.__wallet_base_uri, f'/policies'),
+            response = session.post(urljoin(self.__wallet_base_uri, '/policies'),
                                     json=policy.dict(),
                                     headers={'Authorization': self._bearer_auth()})
             created_policy = Policy(**response.json())

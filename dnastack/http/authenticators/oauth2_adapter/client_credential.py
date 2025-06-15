@@ -54,11 +54,11 @@ class ClientCredentialAdapter(OAuth2Adapter):
             sub_logger.debug(f'exchange_tokens: {auth_info.token_endpoint}: HTTP {response.status_code}:\n{response.text}')
 
             if not response.ok:
-                sub_logger.debug(f'exchange_token: Token exchange fails.')
+                sub_logger.debug('exchange_token: Token exchange fails.')
                 raise AuthException(f'Failed to perform client-credential authentication for '
                                     f'{auth_info.client_id} as the server responds with HTTP {response.status_code}:'
                                     f'\n\n{response.text}\n',
                                     resource_urls)
 
-            sub_logger.debug(f'exchange_token: Token exchange OK')
+            sub_logger.debug('exchange_token: Token exchange OK')
             return response.json()

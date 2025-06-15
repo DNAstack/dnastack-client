@@ -37,6 +37,15 @@ test-unit:
 test-unit-cov:
 	pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
+.PHONY: lint
+lint:
+	ruff check .
+
+.PHONY: lint-fix
+lint-fix:
+	ruff check --fix .
+	ruff format .
+
 .PHONY: test-all
 test-all:
 	E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh

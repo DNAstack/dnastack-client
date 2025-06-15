@@ -171,7 +171,7 @@ class Workbench:
 			if not r.has_failed() and not r.was_canceled():
 				try:
 					self.cancel_run(run_status.run_id)
-				except Exception as rex:
+				except Exception:
 					bad_run_ids.append(run_status.run_id)
 		if(len(bad_run_ids) > 0):
 			raise WorkbenchRunException("Could not cancel all runs in batch "+batch_id+".  Run IDs: "+"\n".join(bad_run_ids), run_ids=bad_run_ids)
@@ -196,10 +196,10 @@ class Workbench:
 			if this_runs_state.has_failed():
 				batch_error_message = batch_error_message + "\nRun {run_id} failed with status {run_state}".format(run_id=run.run_id, run_state=run.state)
 			elif this_runs_state.was_canceled():
-				batch_error_message = batch_error_message + "\nRun {run_id} was canceled".format(run_id=run.run_id, run_state=run.state)
+				batch_error_message = batch_error_message + "\nRun {run_id} was canceled".format(run_id=run.run_id, )
 			elif batch_error_message == "":
 				if current_unanimous_state is None:
-					current_unanimous_state = RunStatus(run.state);
+					current_unanimous_state = RunStatus(run.state)
 				elif current_unanimous_state != this_runs_state:
 					current_unanimous_state = RunStatus.UNKNOWN
 

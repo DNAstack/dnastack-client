@@ -6,11 +6,8 @@ from typing import Dict, List, Any, Optional, Union
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock
 
-from dnastack import ServiceEndpoint
 from dnastack.common.tracing import Span
-from dnastack.http.authenticators.abstract import Authenticator, AuthenticationRequired
-from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
-from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
+from dnastack.http.authenticators.abstract import Authenticator
 from dnastack.http.session import HttpSession, ClientError
 from dnastack.http.session_info import InMemorySessionStorage, SessionManager, SessionInfo
 from requests import Session, Response, Request
@@ -217,7 +214,7 @@ class TestHttpSession(TestCase):
 
     def test_tracing_submit_function(self):
         """Test that HTTP session properly handles requests with tracing"""
-        from unittest.mock import patch, Mock
+        from unittest.mock import Mock
         
         # Create a minimal mock authenticator that doesn't require authentication
         class NoAuthAuthenticator(Authenticator):
