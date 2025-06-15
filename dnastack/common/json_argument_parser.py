@@ -13,7 +13,12 @@ logger = get_logger('json_argument_parser')
 
 try:
     from httpie.cli.argtypes import KeyValueArgType
-    from httpie.cli.constants import *
+    from httpie.cli.constants import (
+        SEPARATOR_GROUP_NESTED_JSON_ITEMS,
+        SEPARATOR_DATA_EMBED_FILE_CONTENTS,
+        SEPARATOR_DATA_EMBED_RAW_JSON_FILE,
+        SEPARATOR_DATA_RAW_JSON
+    )
     from httpie.cli.nested_json import interpret_nested_json
 except UnsupportedOperation:
     # NOTE This is just to bypass the error raised by Colab's Jupyter Notebook.
