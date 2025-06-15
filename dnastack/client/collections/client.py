@@ -219,7 +219,7 @@ class CollectionServiceClient(BaseServiceClient):
                               trace: Optional[Span] = None) -> Iterator[CollectionItem]:
         """ List all items in a collection """
         trace = trace or Span(origin=self)
-        with self.create_http_session() as session:
+        with self.create_http_session():
             return ResultIterator(CollectionItemListResultLoader(
                 service_url=urljoin(self.endpoint.url, f'collection/{collection_id_or_slug_name_or_db_schema_name}/items'),
                 http_session=self.create_http_session(),
@@ -272,7 +272,7 @@ class CollectionServiceClient(BaseServiceClient):
                           collection_id: str,
                           trace: Optional[Span] = None) -> None:
         trace = trace or Span(origin=self)
-        local_logger = trace.create_span_logger(self._logger)
+        trace.create_span_logger(self._logger)
         with self.create_http_session() as session:
             delete_url = self._get_single_collection_url(collection_id)
             session.delete(delete_url, trace_context=trace)

@@ -13,7 +13,6 @@ from selenium.webdriver.support import expected_conditions as EC
 
 try:
     from selenium.webdriver import Chrome
-    from selenium.common.exceptions import JavascriptException, NoSuchElementException, TimeoutException
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.common.by import By
 except ImportError:

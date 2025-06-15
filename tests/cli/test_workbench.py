@@ -575,7 +575,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
     ## Samples
 
     def test_samples_list_and_describe(self):
-        created_storage_account = self._create_storage_account(provider=Provider.aws)
+        self._create_storage_account(provider=Provider.aws)
         samples = self._wait_for_samples()
         self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
         for sample in samples:
@@ -604,11 +604,11 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
     def _wait(self):
         timeout = 30
-        start_time = asyncio.get_event_loop().time()
+        asyncio.get_event_loop().time()
         sleep(timeout)
 
     def test_samples_files_list(self):
-        created_storage_account = self._create_storage_account(provider=Provider.aws)
+        self._create_storage_account(provider=Provider.aws)
         samples = self._wait_for_samples()
         self._wait()
         self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
@@ -756,7 +756,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
     def test_update_azure_storage_with_conflicting_auth_methods(self):
         storage_id = f'test-azure-storage-account-{random.randint(0, 100000)}'
-        storage_account = self._create_storage_account(id=storage_id, provider=Provider.azure)
+        self._create_storage_account(id=storage_id, provider=Provider.azure)
 
         self.expect_error_from([
             'workbench', 'storage', 'update', 'azure',
@@ -1496,7 +1496,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assertTrue("Deleted..." in output)
 
     def test_instruments_list(self):
-        created_storage_account = self._create_storage_account(provider=Provider.aws)
+        self._create_storage_account(provider=Provider.aws)
         self._wait()
         instruments = [Instrument(**instrument) for instrument in self.simple_invoke(
             'workbench', 'instruments', 'list'
