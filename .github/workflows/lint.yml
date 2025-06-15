@@ -11,19 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install ruff==0.11.13
+    - uses: actions/checkout@v4
     
     - name: Run Ruff
-      run: |
-        ruff check .
-        ruff format --check .
+      uses: astral-sh/ruff-action@v3
