@@ -9,7 +9,7 @@ class TestJsonArgumentParser(TestCase):
 
     def test_split_arguments_list(self):
         assert split_arguments_list("foo,bar") == ["foo", "bar"]
-        assert split_arguments_list("foo\,bar,biz") == ["foo,bar", "biz"]
+        assert split_arguments_list(r"foo\,bar,biz") == ["foo,bar", "biz"]
         assert split_arguments_list("foo") == ["foo"]
 
     def test_load_simple_content(self):
