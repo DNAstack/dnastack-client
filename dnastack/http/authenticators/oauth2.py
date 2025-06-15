@@ -145,14 +145,14 @@ class OAuth2Authenticator(Authenticator):
         session_info = self._session_info or self._session_manager.restore(session_id)
 
         if session_info is None:
-            logger.debug(f'refresh: The session does not exist.')
+            logger.debug('refresh: The session does not exist.')
             raise ReauthenticationRequired('No existing session information available')
 
         if session_info.dnastack_schema_version < 3:
             logger.debug('refresh: Cannot refresh the tokens as there are not enough information to perform the '
                          'action. You can use the session ID for debugging further.')
 
-            event_details['reason'] = f'Not enough information for token refresh'
+            event_details['reason'] = 'Not enough information for token refresh'
             self.events.dispatch('refresh-failure', event_details)
 
             raise ReauthenticationRequired(f'The stored session information does not provide enough information to '

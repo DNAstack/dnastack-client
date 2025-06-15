@@ -51,7 +51,7 @@ def handle_device_code_flow(cmd: List[str], email: str, token: str) -> str:
         exit_code = p.poll()
         if exit_code is not None:
             if exit_code == 0:
-                logger.info(f'No further auth actions necessary')
+                logger.info('No further auth actions necessary')
                 output = p.stdout.read()
                 logger.info(f'CLI: EXIT: {exit_code}')
                 logger.info(f'CLI: STDOUT: {output}')

@@ -15,7 +15,7 @@ try:
     from httpie.cli.argtypes import KeyValueArgType
     from httpie.cli.constants import *
     from httpie.cli.nested_json import interpret_nested_json
-except UnsupportedOperation as e:
+except UnsupportedOperation:
     # NOTE This is just to bypass the error raised by Colab's Jupyter Notebook.
     # FIXME Fix the issue where ncurses raises io.UnsupportedOperation.
     if currently_in_debug_mode():
@@ -121,7 +121,7 @@ def is_json_object_or_array_string(string: str) -> bool:
     try:
         json_val = json.loads(string)
         return isinstance(json_val, list) or isinstance(json_val, dict)
-    except ValueError as e:
+    except ValueError:
         return False
 
 

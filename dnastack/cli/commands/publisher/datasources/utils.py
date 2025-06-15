@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from imagination import container
 from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
 from dnastack.client.datasources.client import DataSourceServiceClient

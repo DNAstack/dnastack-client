@@ -1,7 +1,6 @@
 """
 Common mock objects for unit testing.
 """
-from unittest.mock import Mock, MagicMock
 from typing import Dict, Any, Optional, List
 import json
 

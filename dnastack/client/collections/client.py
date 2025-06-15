@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError
 from dnastack.client.collections.model import Collection, CreateCollectionItemsRequest, DeleteCollectionItemRequest, \
-    CollectionItem, CollectionItemListOptions, PaginatedResource, PageableApiError, CollectionItemListResponse, \
+    CollectionItem, CollectionItemListOptions, PageableApiError, CollectionItemListResponse, \
     CollectionStatus
 from dnastack.client.data_connect import DATA_CONNECT_TYPE_V1_0
 from dnastack.client.models import ServiceEndpoint
@@ -120,7 +120,7 @@ class CollectionItemListResultLoader(ResultLoader):
 
             try:
                 response_body = response.json() if response_text else dict()
-            except Exception as e:
+            except Exception:
                 self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise PageableApiError(
                     f'Unable to deserialize JSON from {response_text}.',
@@ -132,7 +132,7 @@ class CollectionItemListResultLoader(ResultLoader):
 
             try:
                 api_response = self.extract_api_response(response_body)
-            except ValidationError as e:
+            except ValidationError:
                 raise PageableApiError(
                     f'Invalid Response Body: {response_body}',
                     status_code,

@@ -1,14 +1,12 @@
-from pprint import pformat
 from typing import List, Optional
 from pydantic import BaseModel, ValidationError
 from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import (
     UnauthenticatedApiAccessError, UnauthorizedApiAccessError
 )
-from dnastack.client.collections.client import STANDARD_COLLECTION_SERVICE_TYPE_V1_0, \
-    STANDARD_DATASOURCE_SERVICE_TYPE_V1_0
+from dnastack.client.collections.client import STANDARD_DATASOURCE_SERVICE_TYPE_V1_0
 from dnastack.client.collections.model import PageableApiError
-from dnastack.client.datasources.model import DataSource, DataSourceListOptions
+from dnastack.client.datasources.model import DataSource
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
 from dnastack.http.session import HttpSession, HttpError
 from dnastack.common.tracing import Span

@@ -470,7 +470,7 @@ class EndpointCommandHandler:
 
                 node = e.parent or obj
 
-                self.__logger.debug(f'__repair_path: LOOP: ***** Broken Path Detected *****')
+                self.__logger.debug('__repair_path: LOOP: ***** Broken Path Detected *****')
                 self.__logger.debug(f'__repair_path: LOOP: type(e.parent) => {type(e.parent).__name__}')
                 self.__logger.debug(f'__repair_path: LOOP: e.parent => {e.parent}')
                 self.__logger.debug(f'__repair_path: LOOP: last_visited_node => {last_visited_node}')
@@ -478,10 +478,10 @@ class EndpointCommandHandler:
                 annotation = node.__annotations__[last_visited_node]
 
                 if hasattr(node, last_visited_node) and getattr(node, last_visited_node):
-                    self.__logger.debug(f'__repair_path: LOOP: No repair')
+                    self.__logger.debug('__repair_path: LOOP: No repair')
                 elif str(annotation).startswith('typing.Union[') or str(annotation).startswith("typing.Optional["):
                     # Dealing with Union/Optional
-                    self.__logger.debug(f'__repair_path: LOOP: Handling union and optional')
+                    self.__logger.debug('__repair_path: LOOP: Handling union and optional')
                     self.__logger.debug(f'__repair_path: LOOP: annotation.__args__ => {annotation.__args__}')
                     self.__initialize_default_value(node, last_visited_node, annotation.__args__[0])
                 else:
@@ -592,7 +592,7 @@ class EndpointCommandHandler:
                 while ref_path:
                     property_name = ref_path.pop(0)
                     local_reference = local_reference[property_name]
-            except KeyError as e:
+            except KeyError:
                 raise RuntimeError(f'The reference {reference_url} for the configuration is undefined.')
             return self.__resolve_json_reference(local_reference, root)
 

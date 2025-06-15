@@ -1,4 +1,3 @@
-import json
 import time
 from math import floor
 from typing import Optional, Any, Dict
@@ -6,7 +5,7 @@ from unittest.mock import MagicMock, Mock
 from urllib.parse import urljoin
 from uuid import uuid4
 
-from requests import Response, Request, Session
+from requests import Request, Session
 
 from dnastack.client.data_connect import DATA_CONNECT_TYPE_V1_0
 from dnastack.client.models import ServiceEndpoint

@@ -1,7 +1,6 @@
 import json
 import tempfile
 from unittest import TestCase
-from tempfile import TemporaryFile
 from dnastack.common.json_argument_parser import split_arguments_list, parse_kv_arguments
 
 
