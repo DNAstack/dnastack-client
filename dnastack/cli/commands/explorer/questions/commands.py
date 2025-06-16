@@ -152,17 +152,13 @@ def init_questions_commands(group: Group):
         # If no collections specified, warn user about using all collections
         if collection_ids is None:
             collection_names = [col.name for col in question.collections]
-            logger.info(f"No collections specified. Querying all {len(question.collections)} collections: {', '.join(collection_names)}")
         else:
             # Validate collection IDs exist in question
             available_ids = {col.id for col in question.collections}
             invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
             if invalid_ids:
-                click.echo(f"Warning: The following collection IDs are not available for this question: {', '.join(invalid_ids)}", err=True)
-                collection_ids = [cid for cid in collection_ids if cid in available_ids]
-                if not collection_ids:
-                    click.echo("Error: No valid collection IDs provided", err=True)
-                    raise click.Abort()
+                click.echo("Error: One or more collection IDs are not available for this question", err=True)
+                raise click.Abort()
         
         # Execute the question
         results_iter = client.ask_federated_question(
