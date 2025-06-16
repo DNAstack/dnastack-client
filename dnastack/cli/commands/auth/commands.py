@@ -32,8 +32,6 @@ def get_client_credentials_from_service_registry(context_name: Optional[str] = N
     context = wrapper.current_context
 
     if context and context.endpoints:
-        print(f"printing endpoints for debug: {context.endpoints}")
-        # Look for OAuth2 endpoints with client credentials
         for endpoint in context.endpoints:
             for auth in endpoint.get_authentications():
                 if auth.get('type') == 'oauth2' and auth.get('client_id'):
