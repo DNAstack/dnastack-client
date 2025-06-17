@@ -224,8 +224,7 @@ def init_auth_commands(group: Group):
                 
         except Exception as e:
             click.echo(f"❌ Token exchange failed: {e}", err=True)
-            raise click.ClickException(str(e))
-    
+
     
 class AuthCommandHandler:
     def __init__(self, context_name: Optional[str] = None):
