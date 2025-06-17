@@ -37,8 +37,7 @@ def get_client_credentials_from_service_registry(context_name: Optional[str] = N
                 if auth.get('type') == 'oauth2' and auth.get('client_id'):
                     return auth['client_id'], auth.get('client_secret', '')
 
-    # Fallback to explorer credentials
-    return 'dnastack-client', 'dev-secret-never-use-in-prod'
+    raise click.ClickException("Could not find a credential to use")
 
 
 def create_token_exchange_session(auth_info: OAuth2Authentication, 
