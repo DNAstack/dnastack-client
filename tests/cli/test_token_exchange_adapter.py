@@ -524,3 +524,39 @@ class TestTokenExchangeAdapter(TestCase):
 
             self.assertIn('No subject token provided', str(context.exception))
             self.assertIn('unable to fetch from cloud', str(context.exception))
+
+    def test_exchange_tokens_metadata_fetch_ok_empty_body(self):
+        """Test handling when metadata service returns 200 OK with an empty body"""
+        auth_info = OAuth2Authentication(**self.base_auth_info)
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+
+        # Mock a successful metadata response with an empty body
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = True
+        mock_metadata_response.text = '   '  # Whitespace only
+
+        # Mock the token exchange failing due to an invalid subject_token
+        mock_token_response = Mock()
+        mock_token_response.ok = False
+        mock_token_response.status_code = 400
+        mock_token_response.text = '{"error": "invalid_request", "error_description": "subject_token must not be empty"}'
+
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_session.post.return_value = mock_token_response
+            mock_factory.return_value = mock_session
+
+            # The process should fail at the token exchange step
+            with self.assertRaises(AuthException) as context:
+                adapter.exchange_tokens(trace_context)
+
+            self.assertIn('HTTP 400', str(context.exception))
+
+            # Verify that the POST call was attempted with an empty subject token
+            post_call = mock_session.post.call_args
+            data = post_call[1]['data']
+            self.assertEqual(data['subject_token'], '')
