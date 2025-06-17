@@ -5,6 +5,7 @@ import string
 from unittest import TestCase
 from unittest.mock import Mock, patch, MagicMock
 from time import time
+from requests.exceptions import Timeout
 
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
@@ -498,3 +499,28 @@ class TestTokenExchangeAdapter(TestCase):
             mock_save.assert_called_once()
             saved_session = mock_save.call_args[0][1]
             self.assertEqual(saved_session.access_token, 'cloud_refreshed_token')
+
+    def test_get_expected_auth_info_fields(self):
+        """Test that the expected auth info fields are returned"""
+        expected = ['grant_type', 'resource_url', 'token_endpoint']
+        self.assertEqual(TokenExchangeAdapter.get_expected_auth_info_fields(), expected)
+
+    def test_exchange_tokens_metadata_fetch_exception(self):
+        """Test handling when a network exception occurs during metadata fetch"""
+        auth_info = OAuth2Authentication(**self.base_auth_info)
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            # Simulate a network timeout or connection error
+            mock_session.get.side_effect = Timeout("Connection to metadata server timed out")
+            mock_factory.return_value = mock_session
+
+            with self.assertRaises(AuthException) as context:
+                adapter.exchange_tokens(trace_context)
+
+            self.assertIn('No subject token provided', str(context.exception))
+            self.assertIn('unable to fetch from cloud', str(context.exception))
