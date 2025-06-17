@@ -22,11 +22,14 @@ from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoH
 from time import time
 
 
-def get_client_credentials_from_service_registry(context_name: Optional[str] = None) -> Tuple[str, str]:
+def get_client_credentials_from_service_registry(token_endpoint: str, context_name: Optional[str] = None) -> Tuple[str, str]:
     """
     Retrieve OAuth2 client credentials from service registry configuration.
     Falls back to default explorer credentials if not available.
     """
+    if "localhost" in token_endpoint or "127.0.0.1" in token_endpoint:
+        return 'dnastack-client', 'dev-secret-never-use-in-prod'
+
     config_manager: ConfigurationManager = container.get(ConfigurationManager)
     wrapper = ConfigurationWrapper(config_manager.load(), context_name)
     context = wrapper.current_context
@@ -38,7 +41,6 @@ def get_client_credentials_from_service_registry(context_name: Optional[str] = N
                     return auth['client_id'], auth.get('client_secret', '')
 
     raise click.ClickException("Could not find a credential to use")
-
 
 def create_token_exchange_session(auth_info: OAuth2Authentication, 
                                 token_response: Dict[str, Any]) -> SessionInfo:
@@ -184,7 +186,7 @@ def init_auth_commands(group: Group):
         Sessions created by this command support automatic re-authentication
         when access tokens expire in cloud environments.
         """
-        client_id, client_secret = get_client_credentials_from_service_registry(context)
+        client_id, client_secret = get_client_credentials_from_service_registry(token_endpoint, context)
         
         auth_info = OAuth2Authentication(
             grant_type='urn:ietf:params:oauth:grant-type:token-exchange',

@@ -1,18 +1,23 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
+    CloudProviderFactory, CloudMetadataProvider, CloudMetadataConfig
+)
 from dnastack.http.client_factory import HttpClientFactory
 
 
 class TokenExchangeAdapter(OAuth2Adapter):
     __grant_type = 'urn:ietf:params:oauth:grant-type:token-exchange'
     __subject_token_type = 'urn:ietf:params:oauth:token-type:jwt'
-    __METADATA_TIMEOUT = 5
-    __GCP_METADATA_FLAVOR = 'Google'
-    __GCP_METADATA_BASE_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity'
+    __METADATA_TIMEOUT = 10
     
+    def __init__(self, auth_info: OAuth2Authentication):
+        super().__init__(auth_info)
+        self._cloud_provider: Optional[CloudMetadataProvider] = None
+
     @classmethod
     def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
         if auth_info.grant_type != cls.__grant_type:
@@ -34,36 +39,44 @@ class TokenExchangeAdapter(OAuth2Adapter):
         For re-authentication, always tries cloud metadata fetch.
         """
         logger = trace_context.create_span_logger(self._logger)
-        
         if self._auth_info.subject_token:
             return self._auth_info.subject_token
-        
+
         audience = self._auth_info.audience or self._auth_info.resource_url
-        
-        # TODO: refactor to handle multiple clouds
-        metadata_url = (
-            f'{self.__GCP_METADATA_BASE_URL}?audience={audience}&format=full'
-        )
-        
-        try:
-            with HttpClientFactory.make() as http_session:
-                response = http_session.get(
-                    metadata_url,
-                    headers={'Metadata-Flavor': self.__GCP_METADATA_FLAVOR}, # TODO: refactor to handle multiple clouds
-                    timeout=self.__METADATA_TIMEOUT
-                )
-                if response.ok:
-                    token = response.text.strip()
-                    return token
-                else:
-                    logger.warning(f'cloud service returned {response.status_code}')
-        except Exception as e:
-            logger.warning(f'Failed to fetch token from cloud service: {e}')
+        token = self._fetch_cloud_identity_token(audience, trace_context)
+        if token:
+            return token
         
         raise AuthException(
             'No subject token provided and unable to fetch from cloud. '
-            'Please provide a subject token or run from a cloud environment.'
+            'Please provide a subject token or run from a supported cloud environment.'
         )
+    
+    def _fetch_cloud_identity_token(self, audience: str, trace_context: Span) -> Optional[str]:
+        """Fetch identity token from cloud metadata service."""
+        logger = trace_context.create_span_logger(self._logger)
+        
+        if self._cloud_provider:
+            logger.debug(f'Attempting to fetch identity token from {self._cloud_provider.name}')
+            token = self._cloud_provider.get_identity_token(audience, trace_context)
+            if token:
+                return token
+            logger.error(f'Failed to fetch token from configured provider: {self._cloud_provider.name}')
+        
+        logger.info('Auto-detecting cloud provider...')
+        config = CloudMetadataConfig(timeout=self.__METADATA_TIMEOUT)
+        detected_provider = CloudProviderFactory.detect_provider(config)
+        if detected_provider:
+            logger.info(f'Detected cloud provider: {detected_provider.name}')
+            self._cloud_provider = detected_provider
+            token = detected_provider.get_identity_token(audience, trace_context)
+            if token:
+                return token
+            logger.error(f'Failed to fetch token from detected provider: {detected_provider.name}')
+        else:
+            logger.error('No cloud provider detected')
+        
+        return None
 
     def exchange_tokens(self, trace_context: Span) -> Dict[str, Any]:
         logger = trace_context.create_span_logger(self._logger)
@@ -80,6 +93,7 @@ class TokenExchangeAdapter(OAuth2Adapter):
             grant_type=self.__grant_type,
             resource_urls=resource_urls,
             subject_token_type=self.__subject_token_type,
+            cloud_provider=self._cloud_provider.name if self._cloud_provider else 'none',
         )
         logger.debug(f'exchange_token: Authenticating with {trace_info}')
         auth_params = {

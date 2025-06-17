@@ -24,3 +24,4 @@ class OAuth2Authentication(BaseModel, HashableModel):
     subject_token_type: Optional[str]
     requested_token_type: Optional[str]
     audience: Optional[str]
+    cloud_provider: Optional[str]  # Currently supported: 'gcp'
