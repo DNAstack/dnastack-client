@@ -260,38 +260,54 @@ class TestTokenExchangeAdapter(TestCase):
             
             self.assertIn('No subject token provided', str(context.exception))
             self.assertIn('unable to fetch from cloud', str(context.exception))
-    
+
     def test_exchange_tokens_with_optional_parameters(self):
-        """Test token exchange with scope and requested_token_type"""
-        auth_info_dict = self.base_auth_info.copy()
-        auth_info_dict['subject_token'] = self.sample_gcp_id_token
-        auth_info_dict['scope'] = 'read write admin'
-        auth_info_dict['requested_token_type'] = 'urn:ietf:params:oauth:token-type:access_token'
-        auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = generate_dummy_secret()
-        auth_info = OAuth2Authentication(**auth_info_dict)
-        
-        adapter = TokenExchangeAdapter(auth_info)
+        """Test token exchange with various combinations of optional parameters"""
         trace_context = Span(origin='test')
-        
-        mock_response = Mock()
-        mock_response.ok = True
-        mock_response.json.return_value = {'access_token': 'scoped_token', 'token_type': 'Bearer', 'expires_in': 3600}
-        
-        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.post.return_value = mock_response
-            mock_factory.return_value = mock_session
-            
-            adapter.exchange_tokens(trace_context)
-            
-            # Verify optional parameters were included
-            post_call = mock_session.post.call_args
-            data = post_call[1]['data']
-            self.assertEqual(data['scope'], 'read write admin')
-            self.assertEqual(data['requested_token_type'], 'urn:ietf:params:oauth:token-type:access_token')
+        base_auth_info_dict = self.base_auth_info.copy()
+        base_auth_info_dict['subject_token'] = self.sample_gcp_id_token
+        base_auth_info_dict['client_id'] = 'dnastack-client'
+        base_auth_info_dict['client_secret'] = generate_dummy_secret()
+
+        test_cases = {
+            "with_scope_only": {
+                'scope': 'read write',
+            },
+            "with_rtt_only": {
+                'requested_token_type': 'urn:ietf:params:oauth:token-type:access_token',
+            },
+            "with_both": {
+                'scope': 'read write admin',
+                'requested_token_type': 'urn:ietf:params:oauth:token-type:access_token',
+            }
+        }
+
+        for name, params in test_cases.items():
+            with self.subTest(name=name):
+                auth_info_dict = {**base_auth_info_dict, **params}
+                auth_info = OAuth2Authentication(**auth_info_dict)
+                adapter = TokenExchangeAdapter(auth_info)
+
+                mock_response = Mock(ok=True)
+                mock_response.json.return_value = {'access_token': 'token'}
+
+                with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+                    mock_session = MagicMock()
+                    mock_session.__enter__.return_value.post.return_value = mock_response
+                    mock_factory.return_value = mock_session
+
+                    adapter.exchange_tokens(trace_context)
+                    post_call = mock_session.__enter__.return_value.post.call_args
+                    data = post_call[1]['data']
+
+                    if 'scope' in params:
+                        self.assertEqual(data['scope'], params['scope'])
+                    else:
+                        self.assertNotIn('scope', data)
+                    if 'requested_token_type' in params:
+                        self.assertEqual(data['requested_token_type'], params['requested_token_type'])
+                    else:
+                        self.assertNotIn('requested_token_type', data)
     
     def test_exchange_tokens_server_error(self):
         """Test handling of server errors during token exchange"""
