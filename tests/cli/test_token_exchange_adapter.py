@@ -1,5 +1,7 @@
 import json
 import base64
+import secrets
+import string
 from unittest import TestCase
 from unittest.mock import Mock, patch, MagicMock
 from time import time
@@ -19,6 +21,11 @@ def mock_exchange_tokens(trace_context):
         'token_type': 'Bearer',
         'expires_in': 3600
     }
+
+def generate_dummy_secret(length=32):
+    """Generate a dummy secret that won't be flagged as a real secret."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(24))
 
 
 class TestTokenExchangeAdapter(TestCase):
@@ -92,11 +99,12 @@ class TestTokenExchangeAdapter(TestCase):
     
     def test_exchange_tokens_with_provided_subject_token(self):
         """Test token exchange when subject token is provided"""
+        dummy_secret = generate_dummy_secret()
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['subject_token'] = self.sample_gcp_id_token
         # Explicitly set client credentials (as would be done by CLI)
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = dummy_secret
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -141,14 +149,14 @@ class TestTokenExchangeAdapter(TestCase):
             self.assertEqual(data['resource'], 'http://localhost:8185')
             
             # Check auth (explorer credentials)
-            self.assertEqual(call_args[1]['auth'], ('dnastack-client', 'dev-secret-never-use-in-prod'))
+            self.assertEqual(call_args[1]['auth'], ('dnastack-client', dummy_secret))
     
     def test_exchange_tokens_with_gcp_metadata_fetch(self):
         """Test token exchange when fetching ID token from GCP metadata"""
         # No subject_token provided - should fetch from GCP
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -198,7 +206,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['audience'] = 'https://custom-audience.example.com'
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -231,7 +239,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['cloud_provider'] = 'gcp'
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -268,7 +276,7 @@ class TestTokenExchangeAdapter(TestCase):
         """Test handling when cloud metadata service fails"""
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -286,7 +294,7 @@ class TestTokenExchangeAdapter(TestCase):
         """Test token exchange with auto-detected cloud provider."""
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -333,7 +341,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict['scope'] = 'read write admin'
         auth_info_dict['requested_token_type'] = 'urn:ietf:params:oauth:token-type:access_token'
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -363,7 +371,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['subject_token'] = self.sample_gcp_id_token
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -394,7 +402,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict['subject_token'] = self.sample_gcp_id_token
         auth_info_dict['resource_url'] = 'http://resource1.com http://resource2.com,http://resource3.com'
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         auth_info = OAuth2Authentication(**auth_info_dict)
         
         adapter = TokenExchangeAdapter(auth_info)
@@ -457,7 +465,7 @@ class TestTokenExchangeAdapter(TestCase):
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['subject_token'] = self.sample_gcp_id_token
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         endpoint = ServiceEndpoint(id='test-endpoint', url='http://localhost:8081')
         authenticator = OAuth2Authenticator(endpoint, auth_info_dict)
         
@@ -519,7 +527,7 @@ class TestTokenExchangeAdapter(TestCase):
         # Setup auth info for token exchange (no subject_token to force cloud fetch)
         auth_info_dict = self.base_auth_info.copy()
         auth_info_dict['client_id'] = 'dnastack-client'
-        auth_info_dict['client_secret'] = 'dev-secret-never-use-in-prod'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
         endpoint = ServiceEndpoint(id='test-endpoint', url='http://localhost:8081')
         authenticator = OAuth2Authenticator(endpoint, auth_info_dict)
         
