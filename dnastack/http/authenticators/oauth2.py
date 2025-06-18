@@ -26,6 +26,15 @@ class OAuth2MisconfigurationError(RuntimeError):
     pass
 
 
+def _is_token_exchange_session(session_info: SessionInfo) -> bool:
+    """Check if this session was created via token exchange"""
+    if not session_info.handler or not session_info.handler.auth_info:
+        return False
+
+    grant_type = session_info.handler.auth_info.get('grant_type')
+    return grant_type == 'urn:ietf:params:oauth:grant-type:token-exchange'
+
+
 class OAuth2Authenticator(Authenticator):
     def __init__(self,
                  endpoint: ServiceEndpoint,
@@ -131,7 +140,7 @@ class OAuth2Authenticator(Authenticator):
         return self._session_info
 
     def refresh(self, trace_context: Optional[Span] = None) -> SessionInfo:
-        """ Refresh the session using a refresh token. """
+        """ Refresh the session using a refresh token or re-authenticate for token exchange. """
         trace_context = trace_context or Span(origin='OAuth2Authenticator.refresh')
         logger = trace_context.create_span_logger(self._logger)
 
@@ -157,6 +166,15 @@ class OAuth2Authenticator(Authenticator):
 
             raise ReauthenticationRequired(f'The stored session information does not provide enough information to '
                                            f'refresh token. (given: {session_info})')
+
+        if _is_token_exchange_session(session_info):
+            try:
+                return self._reauthenticate_token_exchange(session_info, trace_context)
+            except Exception as e:
+                logger.error(f'refresh: Token exchange re-authentication failed: {e}')
+                event_details['reason'] = f'Token exchange re-authentication failed: {e}'
+                self.events.dispatch('refresh-failure', event_details)
+                raise ReauthenticationRequired(f'Token exchange re-authentication failed: {e}')
 
         if not session_info.refresh_token:
             logger.debug('refresh: Cannot refresh the tokens as the refresh token is not provided.')
@@ -385,3 +403,28 @@ class OAuth2Authenticator(Authenticator):
     @classmethod
     def make(cls, endpoint: ServiceEndpoint, auth_info: Dict[str, Any]):
         return cls(endpoint, auth_info)
+
+    def _reauthenticate_token_exchange(self, session_info: SessionInfo, trace_context: Span) -> SessionInfo:
+        """
+        Re-authenticate a token exchange session by performing the exchange again.
+        Assumes we're in a cloud environment and attempts to fetch new identity token.
+        """
+        if not session_info.handler or not session_info.handler.auth_info:
+            raise ReauthenticationRequired('Cannot re-authenticate: missing authentication configuration')
+        auth_info_dict = session_info.handler.auth_info.copy()
+        auth_info_dict['subject_token'] = None  # Force cloud metadata fetch
+
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        adapter = self._adapter_factory.get_from(auth_info)
+        if not adapter:
+            raise ReauthenticationRequired('Cannot create token exchange adapter for re-authentication')
+        
+        for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
+            self.events.relay_from(adapter.events, auth_event_type)
+
+        token_response = adapter.exchange_tokens(trace_context)
+        updated_session = self._convert_token_response_to_session(auth_info.dict(), token_response)
+        self._session_info = updated_session
+        self._session_manager.save(self.session_id, updated_session)
+        
+        return updated_session
