@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from dnastack.common.model_mixin import JsonModelMixin as HashableModel
 
 
+GRANT_TYPE_TOKEN_EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange'
+
+
 class OAuth2Authentication(BaseModel, HashableModel):
     """OAuth2 Authentication Information"""
     authorization_endpoint: Optional[str]

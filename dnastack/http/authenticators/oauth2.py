@@ -17,7 +17,8 @@ from dnastack.http.authenticators.abstract import Authenticator, AuthenticationR
     AuthStateStatus
 from dnastack.http.authenticators.constants import get_authenticator_log_level
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
@@ -32,12 +33,12 @@ def _is_token_exchange_session(session_info: SessionInfo) -> bool:
         return False
 
     grant_type = session_info.handler.auth_info.get('grant_type')
-    return grant_type == 'urn:ietf:params:oauth:grant-type:token-exchange'
+    return grant_type == GRANT_TYPE_TOKEN_EXCHANGE
 
 
 class OAuth2Authenticator(Authenticator):
     def __init__(self,
-                 endpoint: ServiceEndpoint,
+                 endpoint: Optional[ServiceEndpoint],
                  auth_info: Dict[str, Any],
                  session_manager: Optional[SessionManager] = None,
                  adapter_factory: Optional[OAuth2AdapterFactory] = None,
@@ -114,6 +115,10 @@ class OAuth2Authenticator(Authenticator):
         self.events.dispatch('authentication-before', event_details)
 
         auth_info = OAuth2Authentication(**self._auth_info)
+
+        if auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE:
+            return self._authenticate_token_exchange(auth_info, trace_context)
+
         adapter = self._adapter_factory.get_from(auth_info)
 
         if adapter:
@@ -152,6 +157,10 @@ class OAuth2Authenticator(Authenticator):
 
         logger.debug(f'refresh: Session ID = {session_id}')
         session_info = self._session_info or self._session_manager.restore(session_id)
+
+        # If no session found with our session_id, try to find token exchange session
+        if session_info is None:
+            session_info = self._find_token_exchange_session_for_resource()
 
         if session_info is None:
             logger.debug(f'refresh: The session does not exist.')
@@ -227,7 +236,7 @@ class OAuth2Authenticator(Authenticator):
 
                 if updated_session_info.scope:
                     session_info.scope = updated_session_info.scope
-                
+
                 if updated_session_info.refresh_token:
                     # NOTE: The refresh token may not be available in the response.
                     session_info.refresh_token = updated_session_info.refresh_token
@@ -314,18 +323,22 @@ class OAuth2Authenticator(Authenticator):
 
     def restore_session(self) -> Optional[SessionInfo]:
         logger = self._logger
-
         session_id = self.session_id
         event_details = dict(cached=self._session_info is not None,
                              cache_hash=session_id)
-
         session: SessionInfo = self._session_info
+        session_found_via_token_exchange = False
 
         if session:
             logger.debug(f'In-memory Session Info: {session}')
         else:
             session = self._session_manager.restore(session_id)
             logger.debug(f'Restored Session Info: {session}')
+
+        if not session:
+            session = self._find_token_exchange_session_for_resource()
+            if session:
+                session_found_via_token_exchange = True
 
         if not session:
             event_details['reason'] = 'No session available'
@@ -337,25 +350,31 @@ class OAuth2Authenticator(Authenticator):
         elif session.is_valid():
             logger.debug('The session is valid.')
 
-            current_auth_info = OAuth2Authentication(**self._auth_info)
-            current_config_hash = current_auth_info.get_content_hash()
-            stored_config_hash = session.config_hash
-
-            if current_config_hash == stored_config_hash:
+            if session_found_via_token_exchange:
+                # Skip config hash validation for token exchange sessions discovered via resource matching
+                # since they use different auth_info by design
                 return session
             else:
-                event_details['reason'] = 'Authentication information has changed and the session is invalidated.'
-                self.events.dispatch('session-not-restored', event_details)
+                # Normal config hash validation for regular sessions
+                current_auth_info = OAuth2Authentication(**self._auth_info)
+                current_config_hash = current_auth_info.get_content_hash()
+                stored_config_hash = session.config_hash
 
-                logger.debug(f'Require RE-AUTH -- event details = {event_details}')
+                if current_config_hash == stored_config_hash:
+                    return session
+                else:
+                    event_details['reason'] = 'Authentication information has changed and the session is invalidated.'
+                    self.events.dispatch('session-not-restored', event_details)
 
-                raise ReauthenticationRequiredDueToConfigChange(
-                    'The session is invalidated as the endpoint configuration has changed.'
-                )
+                    logger.debug(f'Require RE-AUTH -- event details = {event_details}')
+
+                    raise ReauthenticationRequiredDueToConfigChange(
+                        'The session is invalidated as the endpoint configuration has changed.'
+                    )
         else:
             logger.debug(f'The session is INVALID ({"expired" if session.access_token else "token revoked"}).')
 
-            if session.refresh_token:
+            if session.refresh_token or _is_token_exchange_session(session):
                 event_details['reason'] = 'The session is invalid but it can be refreshed.'
                 self.events.dispatch('session-not-restored', event_details)
 
@@ -369,6 +388,35 @@ class OAuth2Authenticator(Authenticator):
                 logger.debug(f'Require RE-AUTH -- event details = {event_details}')
 
                 raise ReauthenticationRequired('The session is invalid and refreshing tokens is not possible.')
+
+    def _find_token_exchange_session_for_resource(self) -> Optional[SessionInfo]:
+        """Find token exchange session that covers this endpoint's resource"""
+        if not self._endpoint:
+            return None
+
+        endpoint_url = self._endpoint.url
+        all_sessions = self._session_manager.list_all()
+
+        for session in all_sessions:
+            if (session.handler and
+                    session.handler.auth_info and
+                    session.handler.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE):
+
+                resource_url = session.handler.auth_info.get('resource_url')
+                if resource_url and self._resource_matches(endpoint_url, resource_url):
+                    return session
+
+        return None
+
+    def _resource_matches(self, endpoint_url: str, resource_url: str) -> bool:
+        """Check if endpoint URL is covered by token exchange resource"""
+        # Normalize URLs by removing trailing slashes
+        endpoint_url_normalized = endpoint_url.rstrip('/')
+        resource_url_normalized = resource_url.rstrip('/')
+
+        # Exact match or endpoint URL starts with resource URL
+        return (endpoint_url_normalized == resource_url_normalized or
+                endpoint_url_normalized.startswith(resource_url_normalized + '/'))
 
     def _convert_token_response_to_session(self,
                                            authentication: Dict[str, Any],
@@ -415,16 +463,24 @@ class OAuth2Authenticator(Authenticator):
         auth_info_dict['subject_token'] = None  # Force cloud metadata fetch
 
         auth_info = OAuth2Authentication(**auth_info_dict)
-        adapter = self._adapter_factory.get_from(auth_info)
-        if not adapter:
-            raise ReauthenticationRequired('Cannot create token exchange adapter for re-authentication')
-        
+        return self._authenticate_token_exchange(auth_info, trace_context)
+
+    def _authenticate_token_exchange(self, auth_info: OAuth2Authentication, trace_context: Span) -> SessionInfo:
+        """Handle token exchange authentication flow"""
+        logger = trace_context.create_span_logger(self._logger)
+        session_id = self.session_id
+        event_details = dict(session_id=session_id, auth_info=self._auth_info)
+        adapter = TokenExchangeAdapter(auth_info)
+
+        # Relay events for CLI feedback
         for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
             self.events.relay_from(adapter.events, auth_event_type)
 
         token_response = adapter.exchange_tokens(trace_context)
-        updated_session = self._convert_token_response_to_session(auth_info.dict(), token_response)
-        self._session_info = updated_session
-        self._session_manager.save(self.session_id, updated_session)
-        
-        return updated_session
+        self._session_info = self._convert_token_response_to_session(auth_info.dict(), token_response)
+        self._session_manager.save(session_id, self._session_info)
+
+        event_details['session_info'] = self._session_info
+        self.events.dispatch('authentication-ok', event_details)
+
+        return self._session_info

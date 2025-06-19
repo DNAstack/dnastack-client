@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
     CloudProviderFactory, CloudMetadataProvider, CloudMetadataConfig
 )
@@ -10,7 +10,7 @@ from dnastack.http.client_factory import HttpClientFactory
 
 
 class TokenExchangeAdapter(OAuth2Adapter):
-    __grant_type = 'urn:ietf:params:oauth:grant-type:token-exchange'
+    __grant_type = GRANT_TYPE_TOKEN_EXCHANGE
     __subject_token_type = 'urn:ietf:params:oauth:token-type:jwt'
     __METADATA_TIMEOUT = 10
     
