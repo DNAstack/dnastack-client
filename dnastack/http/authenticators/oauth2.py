@@ -324,70 +324,56 @@ class OAuth2Authenticator(Authenticator):
     def restore_session(self) -> Optional[SessionInfo]:
         logger = self._logger
         session_id = self.session_id
-        event_details = dict(cached=self._session_info is not None,
-                             cache_hash=session_id)
-        session: SessionInfo = self._session_info
-        session_found_via_token_exchange = False
+        event_details = dict(cached=self._session_info is not None, cache_hash=session_id)
 
+        # Try to get session (in-memory, then stored, then token exchange discovery)
+        session = self._session_info
         if session:
             logger.debug(f'In-memory Session Info: {session}')
         else:
             session = self._session_manager.restore(session_id)
             logger.debug(f'Restored Session Info: {session}')
-
-        if not session:
-            session = self._find_token_exchange_session_for_resource()
-            if session:
-                session_found_via_token_exchange = True
+            if not session:
+                session = self._find_token_exchange_session_for_resource()
 
         if not session:
             event_details['reason'] = 'No session available'
             self.events.dispatch('session-not-restored', event_details)
-
             logger.debug(f'Require RE-AUTH -- event details = {event_details}')
-
             raise AuthenticationRequired('No session available')
-        elif session.is_valid():
-            logger.debug('The session is valid.')
 
-            if session_found_via_token_exchange:
-                # Skip config hash validation for token exchange sessions discovered via resource matching
-                # since they use different auth_info by design
-                return session
-            else:
-                # Normal config hash validation for regular sessions
-                current_auth_info = OAuth2Authentication(**self._auth_info)
-                current_config_hash = current_auth_info.get_content_hash()
-                stored_config_hash = session.config_hash
-
-                if current_config_hash == stored_config_hash:
-                    return session
-                else:
-                    event_details['reason'] = 'Authentication information has changed and the session is invalidated.'
-                    self.events.dispatch('session-not-restored', event_details)
-
-                    logger.debug(f'Require RE-AUTH -- event details = {event_details}')
-
-                    raise ReauthenticationRequiredDueToConfigChange(
-                        'The session is invalidated as the endpoint configuration has changed.'
-                    )
-        else:
+        if not session.is_valid():
             logger.debug(f'The session is INVALID ({"expired" if session.access_token else "token revoked"}).')
 
             if session.refresh_token or _is_token_exchange_session(session):
                 event_details['reason'] = 'The session is invalid but it can be refreshed.'
                 self.events.dispatch('session-not-restored', event_details)
-
                 logger.debug(f'Require REFRESH -- event details = {event_details}')
-
                 raise RefreshRequired(session)
             else:
                 event_details['reason'] = 'The session is invalid. Require re-authentication.'
                 self.events.dispatch('session-not-restored', event_details)
-
                 logger.debug(f'Require RE-AUTH -- event details = {event_details}')
-
                 raise ReauthenticationRequired('The session is invalid and refreshing tokens is not possible.')
+
+        if _is_token_exchange_session(session):
+            # Skip config hash validation for token exchange sessions since they use different auth_info
+            return session
+        else:
+            # Normal config hash validation for regular sessions
+            current_auth_info = OAuth2Authentication(**self._auth_info)
+            current_config_hash = current_auth_info.get_content_hash()
+            stored_config_hash = session.config_hash
+
+            if current_config_hash == stored_config_hash:
+                return session
+            else:
+                event_details['reason'] = 'Authentication information has changed and the session is invalidated.'
+                self.events.dispatch('session-not-restored', event_details)
+                logger.debug(f'Require RE-AUTH -- event details = {event_details}')
+                raise ReauthenticationRequiredDueToConfigChange(
+                    'The session is invalidated as the endpoint configuration has changed.'
+                )
 
     def _find_token_exchange_session_for_resource(self) -> Optional[SessionInfo]:
         """Find token exchange session that covers this endpoint's resource"""
