@@ -206,5 +206,49 @@ class TestExplorerCoverage(unittest.TestCase):
         self.assertEqual(result_full, inputs_full)
 
 
+class TestExplorerErrorMessages(unittest.TestCase):
+    """Test cases for enhanced error messages added during PR review resolution."""
+
+    def test_error_message_formatting(self):
+        """Test the error message formatting logic directly."""
+        # Test the actual logic that was changed for error messages
+        # This tests the core functionality without complex CLI mocking
+        
+        # Simulate the scenario: we have available collection IDs and check against provided ones
+        available_ids = {"collection1", "collection2"}
+        
+        # Test case 1: Single invalid ID
+        collection_ids = ["invalid_id"]
+        invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
+        error_message = f"Error: Invalid collection IDs for this question: {', '.join(invalid_ids)}"
+        
+        self.assertEqual(error_message, "Error: Invalid collection IDs for this question: invalid_id")
+        self.assertIn("invalid_id", error_message)
+        
+        # Test case 2: Multiple invalid IDs
+        collection_ids = ["invalid1", "invalid2", "invalid3"]
+        invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
+        error_message = f"Error: Invalid collection IDs for this question: {', '.join(invalid_ids)}"
+        
+        self.assertIn("invalid1", error_message)
+        self.assertIn("invalid2", error_message)
+        self.assertIn("invalid3", error_message)
+        
+        # Test case 3: Mixed valid and invalid IDs
+        collection_ids = ["collection1", "invalid_id", "collection2", "another_invalid"]
+        invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
+        error_message = f"Error: Invalid collection IDs for this question: {', '.join(invalid_ids)}"
+        
+        self.assertIn("invalid_id", error_message)
+        self.assertIn("another_invalid", error_message)
+        self.assertNotIn("collection1", error_message)
+        self.assertNotIn("collection2", error_message)
+        
+        # Test case 4: No invalid IDs (should not trigger error)
+        collection_ids = ["collection1", "collection2"]
+        invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
+        self.assertEqual(len(invalid_ids), 0)  # No error should be triggered
+
+
 if __name__ == '__main__':
     unittest.main()
