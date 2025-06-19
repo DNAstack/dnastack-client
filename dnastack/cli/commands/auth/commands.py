@@ -217,8 +217,6 @@ def init_auth_commands(group: Group):
             session_manager.save(session_id, session_info)
 
             click.echo("\nToken exchange successful!")
-            click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
-            click.echo(f"Token type: {result.get('token_type', 'N/A')}")
             click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
             click.echo(f"Session saved with ID: {session_id[:8]}...")
                 
