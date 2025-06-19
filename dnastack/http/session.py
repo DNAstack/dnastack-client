@@ -121,7 +121,7 @@ class HttpSession(AbstractContextManager):
                 self.__events.set_passthrough(authenticator.events)
 
         if not self.__enable_auth:
-            self.__logger.info('Authentication has been disable for this session.')
+            self.__logger.info('Authentication has been disabled for this session.')
 
     @property
     def events(self) -> EventSource:
