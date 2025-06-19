@@ -171,8 +171,6 @@ def init_auth_commands(group: Group):
                                                   subject_token, audience, scope)
 
             click.echo("\nToken exchange successful!")
-            click.echo(f"Access token: {session_info.access_token[:50]}...")
-            click.echo(f"Token type: {session_info.token_type}")
             click.echo(f"Expires in: {int(session_info.valid_until - session_info.issued_at)} seconds")
             click.echo(f"Session saved with ID: {session_info.config_hash[:8]}...")
 
