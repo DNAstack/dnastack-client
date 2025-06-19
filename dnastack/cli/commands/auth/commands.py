@@ -15,14 +15,14 @@ from dnastack.common.auth_manager import AuthManager, ExtendedAuthState
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.configuration.wrapper import ConfigurationWrapper
-from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
+from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.common.tracing import Span
-from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
-from time import time
+from dnastack.http.session_info import SessionManager
 
 
-def get_client_credentials_from_service_registry(token_endpoint: str, context_name: Optional[str] = None) -> Tuple[str, str]:
+def get_client_credentials_from_service_registry(token_endpoint: str, context_name: Optional[str] = None) -> Tuple[
+    str, str]:
     """
     Retrieve OAuth2 client credentials from service registry configuration.
     Falls back to default explorer credentials if not available.
@@ -41,27 +41,6 @@ def get_client_credentials_from_service_registry(token_endpoint: str, context_na
                     return auth['client_id'], auth.get('client_secret', '')
 
     raise click.ClickException("Could not find a credential to use")
-
-def create_token_exchange_session(auth_info: OAuth2Authentication, 
-                                token_response: Dict[str, Any]) -> SessionInfo:
-    """
-    Create a session info for token exchange with complete re-authentication support.
-    """
-    created_time = int(time())
-    expiry_time = created_time + token_response['expires_in']
-    handler_auth_info = auth_info.dict()
-
-    return SessionInfo(
-        model_version=4,
-        config_hash=auth_info.get_content_hash(),
-        access_token=token_response['access_token'],
-        refresh_token=token_response.get('refresh_token'),  # Usually None for token exchange
-        scope=token_response.get('scope'),
-        token_type=token_response['token_type'],
-        issued_at=created_time,
-        valid_until=expiry_time,
-        handler=SessionInfoHandler(auth_info=handler_auth_info)
-    )
 
 
 def init_auth_commands(group: Group):
@@ -96,8 +75,7 @@ def init_auth_commands(group: Group):
         handler.initiate_authentications(endpoint_ids=[endpoint_id] if endpoint_id else [],
                                          force_refresh=force_refresh,
                                          revoke_existing=revoke_existing)
-    
-    
+
     @formatted_command(
         group=group,
         name='status',
@@ -186,44 +164,18 @@ def init_auth_commands(group: Group):
         Sessions created by this command support automatic re-authentication
         when access tokens expire in cloud environments.
         """
-        client_id, client_secret = get_client_credentials_from_service_registry(token_endpoint, context)
-        
-        auth_info = OAuth2Authentication(
-            grant_type='urn:ietf:params:oauth:grant-type:token-exchange',
-            token_endpoint=token_endpoint,
-            resource_url=resource,
-            subject_token=subject_token,
-            audience=audience or resource,
-            client_id=client_id,
-            client_secret=client_secret,
-            scope=scope,
-            type='oauth2'
-        )
-        adapter = TokenExchangeAdapter(auth_info)
-        trace_context = Span(origin='token-exchange-cli')
-        click.echo(f"Performing token exchange...")
-        click.echo(f"Token endpoint: {token_endpoint}")
-        click.echo(f"Resource: {resource}")
-        click.echo(f"Client ID: {client_id}")
-        
-        if subject_token:
-            click.echo("Using provided subject token")
-        else:
-            click.echo("Fetching ID token from cloud environment...")
+        handler = AuthCommandHandler(context_name=context)
 
         try:
-            result = adapter.exchange_tokens(trace_context)
-            session_info = create_token_exchange_session(auth_info, result)
-            session_manager: SessionManager = container.get(SessionManager)
-            session_id = auth_info.get_content_hash()
-            session_manager.save(session_id, session_info)
+            session_info = handler.token_exchange(resource, token_endpoint,
+                                                  subject_token, audience, scope)
 
             click.echo("\nToken exchange successful!")
-            click.echo(f"Access token: {result.get('access_token', 'N/A')[:50]}...")
-            click.echo(f"Token type: {result.get('token_type', 'N/A')}")
-            click.echo(f"Expires in: {result.get('expires_in', 'N/A')} seconds")
-            click.echo(f"Session saved with ID: {session_id[:8]}...")
-                
+            click.echo(f"Access token: {session_info.access_token[:50]}...")
+            click.echo(f"Token type: {session_info.token_type}")
+            click.echo(f"Expires in: {int(session_info.valid_until - session_info.issued_at)} seconds")
+            click.echo(f"Session saved with ID: {session_info.config_hash[:8]}...")
+
         except Exception as e:
             click.echo(f"❌ Token exchange failed: {e}", err=True)
 
@@ -260,7 +212,7 @@ class AuthCommandHandler:
         echo_header('Summary')
 
         if affected_endpoint_ids:
-            echo_list('The client is no longer authenticated to the follow endpoints:',
+            echo_list('The client is no longer authenticated to the following endpoints:',
                       affected_endpoint_ids)
         else:
             click.echo('No changes')
@@ -292,3 +244,32 @@ class AuthCommandHandler:
         auth_manager.events.on('refresh-skipped', handle_refresh_skipped)
 
         auth_manager.initiate_authentications(endpoint_ids, force_refresh, revoke_existing)
+
+    def token_exchange(self,
+                       resource: str,
+                       token_endpoint: str,
+                       subject_token: Optional[str] = None,
+                       audience: Optional[str] = None,
+                       scope: Optional[str] = None):
+        """Delegate token exchange to standard auth flow"""
+
+        client_id, client_secret = get_client_credentials_from_service_registry(token_endpoint, self._context_name)
+        auth_info = {
+            'grant_type': GRANT_TYPE_TOKEN_EXCHANGE,
+            'token_endpoint': token_endpoint,
+            'resource_url': resource,
+            'subject_token': subject_token,
+            'audience': audience or resource,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'scope': scope,
+            'type': 'oauth2'
+        }
+
+        authenticator = OAuth2Authenticator(
+            endpoint=None,  # No endpoint needed for token exchange
+            auth_info=auth_info
+        )
+
+        trace_context = Span(origin='token-exchange-cli')
+        return authenticator.authenticate(trace_context)
