@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for all tests.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -13,10 +14,11 @@ import pytest
 
 # Import fixtures from organized modules
 pytest_plugins = [
-    'tests.unit.fixtures.auth_fixtures',
-    'tests.unit.fixtures.service_fixtures', 
-    'tests.unit.fixtures.data_fixtures'
+    "tests.unit.fixtures.auth_fixtures",
+    "tests.unit.fixtures.service_fixtures",
+    "tests.unit.fixtures.data_fixtures",
 ]
+
 
 # Common test configuration
 @pytest.fixture(autouse=True)
@@ -24,15 +26,16 @@ def test_environment():
     """Set up test environment variables."""
     # Store original environment
     original_env = os.environ.copy()
-    
+
     # Set test-specific environment variables
-    os.environ['DNASTACK_TEST_MODE'] = 'true'
-    
+    os.environ["DNASTACK_TEST_MODE"] = "true"
+
     yield
-    
+
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
+
 
 # Utility functions
 def pytest_configure(config):
@@ -41,6 +44,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: mark test as a unit test")
     config.addinivalue_line("markers", "e2e: mark test as an end-to-end test")
     config.addinivalue_line("markers", "slow: mark test as slow")
+
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to add markers based on location."""

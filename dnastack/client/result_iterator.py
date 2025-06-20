@@ -8,7 +8,7 @@ from dnastack.common.logger import get_logger
 
 
 class InactiveLoaderError(StopIteration):
-    """ Raised when the loader has ended its session """
+    """Raised when the loader has ended its session"""
 
 
 class ResultLoader(ABC):
@@ -24,7 +24,7 @@ class ResultLoader(ABC):
     @property
     def logger(self):
         if not self.__logger__:
-            self.__logger__ = get_logger(f'{type(self).__name__}/{self.uuid}')
+            self.__logger__ = get_logger(f"{type(self).__name__}/{self.uuid}")
         return self.__logger__
 
     def load(self) -> List[Any]:
@@ -46,7 +46,7 @@ class ResultIterator:
 
     def __next__(self):
         if self.__depleted:
-            raise StopIteration('Already depleted')
+            raise StopIteration("Already depleted")
 
         with self.__read_lock:
             while not self.__buffer:
@@ -60,7 +60,7 @@ class ResultIterator:
                             raise e
                     else:
                         self.__depleted = True
-                        raise StopIteration('No more result to iterate')
+                        raise StopIteration("No more result to iterate")
 
             # Read within the lock
             item = self.__buffer.pop(0)

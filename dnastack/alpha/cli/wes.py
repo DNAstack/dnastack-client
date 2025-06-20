@@ -1,97 +1,98 @@
 import json
 import re
-from typing import Optional, List
+from typing import List, Optional
 
 import click
 import yaml
 from imagination import container
 
-from dnastack.alpha.client.wes.client import WesClient, RunRequest
+from dnastack.alpha.client.wes.client import RunRequest, WesClient
 from dnastack.cli.core.command import formatted_command
-from dnastack.cli.core.command_spec import ArgumentSpec, RESOURCE_OUTPUT_ARG, ArgumentType
+from dnastack.cli.core.command_spec import RESOURCE_OUTPUT_ARG, ArgumentSpec, ArgumentType
 from dnastack.cli.core.group import formatted_group
 from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
 from dnastack.cli.helpers.exporter import normalize, to_json, to_yaml
-from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
+from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
 from dnastack.constants import __version__
 from dnastack.feature_flags import in_interactive_shell
 
 
-def _get(context_name: Optional[str] = None,
-         endpoint_id: Optional[str] = None) -> WesClient:
+def _get(context_name: Optional[str] = None, endpoint_id: Optional[str] = None) -> WesClient:
     factory: ConfigurationBasedClientFactory = container.get(ConfigurationBasedClientFactory)
     return factory.get(WesClient, endpoint_id=endpoint_id, context_name=context_name)
 
 
-@formatted_group('wes')
+@formatted_group("wes")
 def alpha_wes_command_group():
-    """ Interact with Workflow Execution Service """
+    """Interact with Workflow Execution Service"""
 
 
 @formatted_command(
     group=alpha_wes_command_group,
-    name='submit',
+    name="submit",
     specs=[
         ArgumentSpec(
-            name='params',
-            arg_names=['--params'],
+            name="params",
+            arg_names=["--params"],
             arg_type=ArgumentType.POSITIONAL,
-            help='Parameters for this workflow run',
+            help="Parameters for this workflow run",
         ),
         ArgumentSpec(
-            name='workflow_type',
-            arg_names=['--workflow-type'],
-            help='Workflow type',
+            name="workflow_type",
+            arg_names=["--workflow-type"],
+            help="Workflow type",
             as_option=True,
         ),
         ArgumentSpec(
-            name='workflow_type_version',
-            arg_names=['--workflow-type-version'],
-            help='Workflow type version',
+            name="workflow_type_version",
+            arg_names=["--workflow-type-version"],
+            help="Workflow type version",
             as_option=True,
         ),
         ArgumentSpec(
-            name='manifest_file_path',
-            arg_names=['--manifest-file', '-f'],
-            help='The file path of the run manifest file',
+            name="manifest_file_path",
+            arg_names=["--manifest-file", "-f"],
+            help="The file path of the run manifest file",
             as_option=True,
         ),
         ArgumentSpec(
-            name='workflow_url',
-            arg_names=['--workflow-url', '-u'],
-            help='The file path or URL to the workflow file (*.wdl)',
+            name="workflow_url",
+            arg_names=["--workflow-url", "-u"],
+            help="The file path or URL to the workflow file (*.wdl)",
             as_option=True,
         ),
         ArgumentSpec(
-            name='attachments',
-            arg_names=['--attach', '-a'],
-            help='Attachment for this workflow run',
+            name="attachments",
+            arg_names=["--attach", "-a"],
+            help="Attachment for this workflow run",
             as_option=True,
         ),
         ArgumentSpec(
-            name='tags',
-            arg_names=['--tag', '-t'],
-            help='Tag for this run in the key-value pattern, e.g., <key>=<value>',
+            name="tags",
+            arg_names=["--tag", "-t"],
+            help="Tag for this run in the key-value pattern, e.g., <key>=<value>",
             as_option=True,
         ),
         ArgumentSpec(
-            name='dry_run',
-            arg_names=['--dry-run'],
-            help='Dry run mode',
+            name="dry_run",
+            arg_names=["--dry-run"],
+            help="Dry run mode",
             as_option=True,
         ),
-    ]
+    ],
 )
-def submit(context: Optional[str],
-           endpoint_id: Optional[str],
-           manifest_file_path: Optional[str],
-           workflow_url: Optional[str],
-           params: List[str],
-           attachments: List[str],
-           tags: List[str],
-           workflow_type: str = 'WDL',
-           workflow_type_version: str = '1.0',
-           dry_run: bool = False):
+def submit(
+    context: Optional[str],
+    endpoint_id: Optional[str],
+    manifest_file_path: Optional[str],
+    workflow_url: Optional[str],
+    params: List[str],
+    attachments: List[str],
+    tags: List[str],
+    workflow_type: str = "WDL",
+    workflow_type_version: str = "1.0",
+    dry_run: bool = False,
+):
     """
     Submit a run request.
 
@@ -117,7 +118,7 @@ def submit(context: Optional[str],
     """
     actual_params = dict()
 
-    re_parameter = re.compile(r'^(?P<key>[a-zA-Z0-9_\.]+)(?P<op>:?=@?)(?P<value>.+)$')
+    re_parameter = re.compile(r"^(?P<key>[a-zA-Z0-9_\.]+)(?P<op>:?=@?)(?P<value>.+)$")
 
     # Parse the workflow parameters.
     param_counter = 0
@@ -125,26 +126,26 @@ def submit(context: Optional[str],
         matches = re_parameter.search(param)
         if matches:
             data = matches.groupdict()
-            value = data['value']
-            if data['op'] == ':=':
+            value = data["value"]
+            if data["op"] == ":=":
                 value = json.loads(value)
-            elif data['op'] == ':=@':
+            elif data["op"] == ":=@":
                 with open(value) as fp:
                     value = json.load(fp)
 
-            actual_params[data['key']] = value
+            actual_params[data["key"]] = value
         else:
-            raise ValueError(f'Param #{param_counter + 1} ({param}) is invalid.')
+            raise ValueError(f"Param #{param_counter + 1} ({param}) is invalid.")
 
         param_counter += 1
 
-    actual_tags = dict(agent=f'dnastack-client-library/{__version__}')
+    actual_tags = dict(agent=f"dnastack-client-library/{__version__}")
     if tags:
         tag_counter = 0
         for tag in tags:
-            if '=' not in tag:
+            if "=" not in tag:
                 raise ValueError(f'Tag #{tag_counter + 1} ({tag}) is invalid. The tag format is "<key>=<value>".')
-            k, v = tag.split('=', 1)
+            k, v = tag.split("=", 1)
             actual_tags[k] = v
             tag_counter += 1
 
@@ -159,17 +160,17 @@ def submit(context: Optional[str],
         )
     else:
         try:
-            with open(manifest_file_path, 'r') as f:
+            with open(manifest_file_path) as f:
                 content = f.read()
         except FileNotFoundError:
-            raise RuntimeError(f'The given manifest file (at {manifest_file_path}) does not exist.')
+            raise RuntimeError(f"The given manifest file (at {manifest_file_path}) does not exist.")
 
-        if re.search(r'\.ya?ml$', manifest_file_path, re.IGNORECASE):
+        if re.search(r"\.ya?ml$", manifest_file_path, re.IGNORECASE):
             raw_run_request = yaml.load(content, Loader=yaml.SafeLoader)
-        elif re.search(r'\.json$', manifest_file_path, re.IGNORECASE):
+        elif re.search(r"\.json$", manifest_file_path, re.IGNORECASE):
             raw_run_request = json.loads(content)
         else:
-            raise RuntimeError('Unsupported manifest file type. Currently only support JSON and YAML.')
+            raise RuntimeError("Unsupported manifest file type. Currently only support JSON and YAML.")
 
         run_request = RunRequest(**raw_run_request)
 
@@ -188,63 +189,48 @@ def submit(context: Optional[str],
             run_request.attachments.extend(attachments)
 
     if dry_run:
-        click.secho('WARNING: You are running in the dry-run mode and '
-                    'this run request will not be submitted to the service endpoint.',
-                    fg='yellow',
-                    err=True)
+        click.secho(
+            "WARNING: You are running in the dry-run mode and "
+            "this run request will not be submitted to the service endpoint.",
+            fg="yellow",
+            err=True,
+        )
         click.secho(run_request.json(indent=2), dim=True)
     else:
-        _execute(context=context,
-                 endpoint_id=endpoint_id,
-                 run_request=run_request)
+        _execute(context=context, endpoint_id=endpoint_id, run_request=run_request)
 
 
-def _execute(run_request: RunRequest,
-             context: Optional[str] = None,
-             endpoint_id: Optional[str] = None):
+def _execute(run_request: RunRequest, context: Optional[str] = None, endpoint_id: Optional[str] = None):
     client = _get(context_name=context, endpoint_id=endpoint_id)
     run_id = client.submit(run_request)
 
-    click.secho(f'Successfully submitted workflow run {run_id}', fg='green')
+    click.secho(f"Successfully submitted workflow run {run_id}", fg="green")
 
-    _show_next_step(
-        'Now, you can get the job details with this command',
-        'get',
-        context,
-        endpoint_id,
-        run_id
-    )
+    _show_next_step("Now, you can get the job details with this command", "get", context, endpoint_id, run_id)
 
 
 @formatted_command(
     group=alpha_wes_command_group,
-    name='list',
+    name="list",
     specs=[
         RESOURCE_OUTPUT_ARG,
-    ]
+    ],
 )
-def list_runs(context: Optional[str],
-              endpoint_id: Optional[str],
-              output: Optional[str],
-              limit: int = 10):
-    """ List the most recent runs """
+def list_runs(context: Optional[str], endpoint_id: Optional[str], output: Optional[str], limit: int = 10):
+    """List the most recent runs"""
     client = _get(context_name=context, endpoint_id=endpoint_id)
     show_iterator(output_format=output, iterator=client.get_runs(), limit=limit)
 
 
 @formatted_command(
     group=alpha_wes_command_group,
-    name='get',
+    name="get",
     specs=[
         RESOURCE_OUTPUT_ARG,
-    ]
+    ],
 )
-def get(context: Optional[str],
-        endpoint_id: Optional[str],
-        output: Optional[str],
-        run_id: str,
-        verbose: bool = False):
-    """ Get the run information (request, state, log URLs, etc.) """
+def get(context: Optional[str], endpoint_id: Optional[str], output: Optional[str], run_id: str, verbose: bool = False):
+    """Get the run information (request, state, log URLs, etc.)"""
     client = _get(context_name=context, endpoint_id=endpoint_id)
     run = client.run(run_id)
     info = run.info()
@@ -258,104 +244,99 @@ def get(context: Optional[str],
         raise NotImplementedError(output)
 
     # Output the data
-    click.echo(formatter(normalize(
-        {'run_id': info.run_id, 'state': info.state, 'outputs': info.outputs}
-        if not verbose
-        else info
-    )))
+    click.echo(
+        formatter(
+            normalize({"run_id": info.run_id, "state": info.state, "outputs": info.outputs} if not verbose else info)
+        )
+    )
 
     # Show suggestions for next steps.
     basic_arguments = [run_id]
 
     if endpoint_id:
-        basic_arguments.insert(0, f'--endpoint-id {endpoint_id}')
+        basic_arguments.insert(0, f"--endpoint-id {endpoint_id}")
 
     if context:
-        basic_arguments.insert(0, f'--context {context}')
+        basic_arguments.insert(0, f"--context {context}")
 
     if not verbose:
         _show_next_step(
-            'Run this command to get the full details',
-            'get',
+            "Run this command to get the full details",
+            "get",
             context,
             endpoint_id,
             run_id,
-            ['--verbose'],
+            ["--verbose"],
         )
 
     _show_next_step(
-        'Run this command to get logs',
-        'logs',
+        "Run this command to get logs",
+        "logs",
         context,
         endpoint_id,
         run_id,
     )
 
 
-@formatted_command(
-    group=alpha_wes_command_group,
-    name='logs',
-    specs=[]
-)
-def logs(context: Optional[str],
-         endpoint_id: Optional[str],
-         run_id: str,
-         exclude_stderr: bool = False,
-         verbose: bool = False):
-    """ Show logs """
+@formatted_command(group=alpha_wes_command_group, name="logs", specs=[])
+def logs(
+    context: Optional[str], endpoint_id: Optional[str], run_id: str, exclude_stderr: bool = False, verbose: bool = False
+):
+    """Show logs"""
     client = _get(context_name=context, endpoint_id=endpoint_id)
     run = client.run(run_id)
 
     if verbose:
-        click.secho(f'Status: {run.status}', err=True, fg='blue')
+        click.secho(f"Status: {run.status}", err=True, fg="blue")
 
     for output in run.get_logs(include_stderr=not exclude_stderr):
         log_name = output.origin.name
 
         if output.is_empty():
             if verbose:
-                click.secho(f'{log_name}: No output', err=True, fg='magenta')
+                click.secho(f"{log_name}: No output", err=True, fg="magenta")
             else:
                 pass
         else:
-            stdout = (output.stdout or str())
-            stderr = (output.stderr or str())
+            stdout = output.stdout or ""
+            stderr = output.stderr or ""
 
             if verbose:
-                click.secho(f'{log_name}: ({len(stdout) + len(stderr)} bytes in total)', err=True, fg='blue')
+                click.secho(f"{log_name}: ({len(stdout) + len(stderr)} bytes in total)", err=True, fg="blue")
 
             if stdout:
-                for line in stdout.split('\n'):
-                    click.secho(f'{log_name}: ', dim=True, nl=False)
+                for line in stdout.split("\n"):
+                    click.secho(f"{log_name}: ", dim=True, nl=False)
                     click.secho(line)
 
             if stderr:
-                for line in stderr.split('\n'):
-                    click.secho(f'{log_name}: ', dim=True, nl=False)
-                    click.secho(line, fg='red')
+                for line in stderr.split("\n"):
+                    click.secho(f"{log_name}: ", dim=True, nl=False)
+                    click.secho(line, fg="red")
 
 
-def _show_next_step(suggestion: str,
-                    command: str,
-                    context: Optional[str],
-                    endpoint_id: Optional[str],
-                    run_id: str,
-                    arguments: Optional[List[str]] = None):
+def _show_next_step(
+    suggestion: str,
+    command: str,
+    context: Optional[str],
+    endpoint_id: Optional[str],
+    run_id: str,
+    arguments: Optional[List[str]] = None,
+):
     if not in_interactive_shell:
         return
 
     basic_arguments = [run_id]
 
     if endpoint_id:
-        basic_arguments.insert(0, f'--endpoint-id {endpoint_id}')
+        basic_arguments.insert(0, f"--endpoint-id {endpoint_id}")
 
     if context:
-        basic_arguments.insert(0, f'--context {context}')
+        basic_arguments.insert(0, f"--context {context}")
 
     if arguments:
         basic_arguments.extend(arguments)
 
-    click.secho(f'| {suggestion}:\n|\n'
-                f'|   dnastack alpha wes {command} {" ".join(basic_arguments)}\n|',
-                dim=True,
-                err=True)
+    click.secho(
+        f"| {suggestion}:\n|\n|   dnastack alpha wes {command} {' '.join(basic_arguments)}\n|", dim=True, err=True
+    )

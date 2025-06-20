@@ -12,11 +12,16 @@ from pydantic import BaseModel
 from dnastack import ServiceEndpoint
 from dnastack.client.factory import EndpointRepository
 from dnastack.client.workbench.ewes.client import EWesClient
-from dnastack.client.workbench.ewes.models import MinimalExtendedRun, ExtendedRunRequest, BatchRunResponse, \
-    BatchRunRequest, EngineParamPreset
-from dnastack.client.workbench.storage.models import StorageAccount, Provider
+from dnastack.client.workbench.ewes.models import (
+    BatchRunRequest,
+    BatchRunResponse,
+    EngineParamPreset,
+    ExtendedRunRequest,
+    MinimalExtendedRun,
+)
+from dnastack.client.workbench.storage.models import Provider, StorageAccount
 from dnastack.client.workbench.workflow.client import WorkflowClient
-from dnastack.client.workbench.workflow.models import Workflow, WorkflowCreate, WorkflowVersion, WorkflowTransformation
+from dnastack.client.workbench.workflow.models import Workflow, WorkflowCreate, WorkflowTransformation, WorkflowVersion
 from dnastack.common.environments import env
 from dnastack.http.session import HttpSession
 from tests.exam_helper import WithTestUserTestCase
@@ -76,53 +81,48 @@ class ExecutionEngine(BaseModel):
 
 
 class BaseWorkbenchTestCase(WithTestUserTestCase):
-    _wallet_base_uri = env(
-        'E2E_WORKBENCH_WALLET_BASE_URI',
-        required=False,
-        default='http://localhost:8081')
+    _wallet_base_uri = env("E2E_WORKBENCH_WALLET_BASE_URI", required=False, default="http://localhost:8081")
     _wallet_admin_client_id = env(
-        'E2E_WORKBENCH_WALLET_CLIENT_ID',
-        required=False,
-        default='workbench-frontend-e2e-test'
+        "E2E_WORKBENCH_WALLET_CLIENT_ID", required=False, default="workbench-frontend-e2e-test"
     )
     _wallet_admin_client_secret = env(
-        'E2E_WORKBENCH_WALLET_CLIENT_SECRET',
-        required=False,
-        default='dev-secret-never-use-in-prod'
+        "E2E_WORKBENCH_WALLET_CLIENT_SECRET", required=False, default="dev-secret-never-use-in-prod"
     )
 
-    workbench_base_url = env('E2E_WORKBENCH_BASE_URL', required=False, default='http://localhost:9191')
-    ewes_service_base_url = env('E2E_EWES_SERVICE_BASE_URL', required=False, default='http://localhost:9095')
-    workflow_service_base_url = env('E2E_WORKFLOW_SERVICE_BASE_URL', required=False, default='http://localhost:9192')
+    workbench_base_url = env("E2E_WORKBENCH_BASE_URL", required=False, default="http://localhost:9191")
+    ewes_service_base_url = env("E2E_EWES_SERVICE_BASE_URL", required=False, default="http://localhost:9095")
+    workflow_service_base_url = env("E2E_WORKFLOW_SERVICE_BASE_URL", required=False, default="http://localhost:9192")
     execution_engine: ExecutionEngine = ExecutionEngine(
-        **json.loads(env('E2E_WORKBENCH_EXECUTION_ENGINE_JSON',
-                         required=False,
-                         default=ExecutionEngine(
-                             name='Cromwell on Local',
-                             provider='LOCAL',
-                             region='local',
-                             default=True,
-                             engine_adapter_configuration=EngineAdapterConfiguration(
-                                 type='WES_ON_CROMWELL',
-                                 url='http://localhost:8090',
-                                 oauth_config=EngineOAuthConfig(
-                                     clientId='ewes-service',
-                                     clientSecret='dev-secret-never-use-in-prod',
-                                     tokenUri='http://localhost:8081/oauth/token',
-                                     resource='http://localhost:8090/',
-                                     scope='wes'
-                                 )
-                             )
-                         ).json())))
+        **json.loads(
+            env(
+                "E2E_WORKBENCH_EXECUTION_ENGINE_JSON",
+                required=False,
+                default=ExecutionEngine(
+                    name="Cromwell on Local",
+                    provider="LOCAL",
+                    region="local",
+                    default=True,
+                    engine_adapter_configuration=EngineAdapterConfiguration(
+                        type="WES_ON_CROMWELL",
+                        url="http://localhost:8090",
+                        oauth_config=EngineOAuthConfig(
+                            clientId="ewes-service",
+                            clientSecret="dev-secret-never-use-in-prod",
+                            tokenUri="http://localhost:8081/oauth/token",
+                            resource="http://localhost:8090/",
+                            scope="wes",
+                        ),
+                    ),
+                ).json(),
+            )
+        )
+    )
     namespace: str = None
     hello_world_workflow: Workflow = None
     engine_params = {
         "id": "presetId",
         "name": "presetName",
-        "preset_values": {
-            "key1": "value1",
-            "key2": "value2"
-        },
+        "preset_values": {"key1": "value1", "key2": "value2"},
         "default": True,
     }
     health_checks = {
@@ -142,14 +142,13 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
         self.platform = None
         self.storage_account = None
 
-
     @classmethod
     def get_factory(cls) -> EndpointRepository:
         return cls.get_context_manager().use(cls.get_context_urls()[0], no_auth=True)
 
     @classmethod
     def get_context_urls(cls) -> List[str]:
-        return [f'{cls.workbench_base_url}/api/service-registry']
+        return [f"{cls.workbench_base_url}/api/service-registry"]
 
     @classmethod
     def get_app_url(cls) -> str:
@@ -162,19 +161,23 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
         # Wait for the namespace to be created and initialized
         time.sleep(1)
 
-        with cls._get_wallet_helper().log_in_with_personal_token(app_base_url=cls.workbench_base_url,
-                                                                 email=cls.test_user.email,
-                                                                 personal_access_token=cls.test_user.personalAccessToken) as session:
+        with cls._get_wallet_helper().log_in_with_personal_token(
+            app_base_url=cls.workbench_base_url,
+            email=cls.test_user.email,
+            personal_access_token=cls.test_user.personalAccessToken,
+        ) as session:
             cls.execution_engine = cls._create_execution_engine(session)
             cls.engine_params = cls._add_execution_engine_parameter(session, cls.execution_engine.id)
-            cls._base_logger.info(f'Class {cls.__name__}: Created execution engine: {cls.execution_engine}')
+            cls._base_logger.info(f"Class {cls.__name__}: Created execution engine: {cls.execution_engine}")
 
     @classmethod
     def do_on_teardown_class(cls) -> None:
-        with cls._get_wallet_helper().log_in_with_personal_token(app_base_url=cls.workbench_base_url,
-                                                                 email=cls.test_user.email,
-                                                                 personal_access_token=cls.test_user.personalAccessToken) as session:
-            cls._base_logger.info(f'Class {cls.__name__}: Cleaning up namespace: {cls.namespace}')
+        with cls._get_wallet_helper().log_in_with_personal_token(
+            app_base_url=cls.workbench_base_url,
+            email=cls.test_user.email,
+            personal_access_token=cls.test_user.personalAccessToken,
+        ) as session:
+            cls._base_logger.info(f"Class {cls.__name__}: Cleaning up namespace: {cls.namespace}")
             cls._cleanup_namespace(session)
 
         # Delete test user and policy as last
@@ -185,21 +188,17 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
         # noinspection PyUnresolvedReferences
         factory: EndpointRepository = cls.get_factory()
 
-        return [
-            endpoint
-            for endpoint in factory.all()
-            if endpoint.type in EWesClient.get_supported_service_types()
-        ]
+        return [endpoint for endpoint in factory.all() if endpoint.type in EWesClient.get_supported_service_types()]
 
     @classmethod
     def get_ewes_client(cls, index: int = 0) -> Optional[EWesClient]:
         compatible_endpoints = cls._get_ewes_service_endpoints()
 
         if not compatible_endpoints:
-            raise RuntimeError('No ewes-service compatible endpoints for this test')
+            raise RuntimeError("No ewes-service compatible endpoints for this test")
 
         if index >= len(compatible_endpoints):
-            raise RuntimeError(f'Requested ewes-service compatible endpoint #{index} but it does not exist.')
+            raise RuntimeError(f"Requested ewes-service compatible endpoint #{index} but it does not exist.")
 
         compatible_endpoint = compatible_endpoints[index]
 
@@ -210,21 +209,17 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
         # noinspection PyUnresolvedReferences
         factory: EndpointRepository = cls.get_factory()
 
-        return [
-            endpoint
-            for endpoint in factory.all()
-            if endpoint.type in WorkflowClient.get_supported_service_types()
-        ]
+        return [endpoint for endpoint in factory.all() if endpoint.type in WorkflowClient.get_supported_service_types()]
 
     @classmethod
     def get_workflows_client(cls, index: int = 0) -> Optional[WorkflowClient]:
         compatible_endpoints = cls._get_workflows_service_endpoints()
 
         if not compatible_endpoints:
-            raise RuntimeError('No workflow-service compatible endpoints for this test')
+            raise RuntimeError("No workflow-service compatible endpoints for this test")
 
         if index >= len(compatible_endpoints):
-            raise RuntimeError(f'Requested workflow-service compatible endpoint #{index} but it does not exist.')
+            raise RuntimeError(f"Requested workflow-service compatible endpoint #{index} but it does not exist.")
 
         compatible_endpoint = compatible_endpoints[index]
 
@@ -232,34 +227,40 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
 
     @classmethod
     def _create_execution_engine(cls, session: HttpSession) -> ExecutionEngine:
-        response = session.post(urljoin(cls.workbench_base_url, f'/services/ewes-service/{cls.namespace}/engines'),
-                                json=cls.execution_engine.dict())
+        response = session.post(
+            urljoin(cls.workbench_base_url, f"/services/ewes-service/{cls.namespace}/engines"),
+            json=cls.execution_engine.dict(),
+        )
         return ExecutionEngine(**response.json())
 
     @classmethod
     def _add_execution_engine_parameter(cls, session: HttpSession, engine_id: str) -> EngineParamPreset:
-        response = session.post(urljoin(cls.workbench_base_url,
-                                        f'/services/ewes-service/{cls.namespace}/engines/{engine_id}/param-presets'),
-                                json=cls.engine_params)
+        response = session.post(
+            urljoin(
+                cls.workbench_base_url, f"/services/ewes-service/{cls.namespace}/engines/{engine_id}/param-presets"
+            ),
+            json=cls.engine_params,
+        )
         return EngineParamPreset(**response.json())
 
     @classmethod
     def _cleanup_namespace(cls, session: HttpSession) -> None:
-        access_token = cls._get_wallet_helper().get_access_token(f'{cls.ewes_service_base_url}/', 'namespace')
-        session.delete(urljoin(cls.ewes_service_base_url, cls.namespace),
-                       headers={'Authorization': f'Bearer {access_token}'})
-        access_token = cls._get_wallet_helper().get_access_token(f'{cls.workflow_service_base_url}/', 'namespace')
-        session.delete(urljoin(cls.workflow_service_base_url, cls.namespace),
-                       headers={'Authorization': f'Bearer {access_token}'})
+        access_token = cls._get_wallet_helper().get_access_token(f"{cls.ewes_service_base_url}/", "namespace")
+        session.delete(
+            urljoin(cls.ewes_service_base_url, cls.namespace), headers={"Authorization": f"Bearer {access_token}"}
+        )
+        access_token = cls._get_wallet_helper().get_access_token(f"{cls.workflow_service_base_url}/", "namespace")
+        session.delete(
+            urljoin(cls.workflow_service_base_url, cls.namespace), headers={"Authorization": f"Bearer {access_token}"}
+        )
 
     def create_hello_world_workflow(self) -> None:
         workflow_client: WorkflowClient = self.get_workflows_client()
-        with open('main.wdl', 'w') as main_wdl_file:
+        with open("main.wdl", "w") as main_wdl_file:
             main_wdl_file.write(HELLO_WORLD_WORKFLOW)
-        self.hello_world_workflow = workflow_client.create_workflow(WorkflowCreate(
-            entrypoint="main.wdl",
-            files=[Path("main.wdl")]
-        ))
+        self.hello_world_workflow = workflow_client.create_workflow(
+            WorkflowCreate(entrypoint="main.wdl", files=[Path("main.wdl")])
+        )
 
     def get_hello_world_workflow_url(self) -> str:
         if not self.hello_world_workflow:
@@ -268,41 +269,35 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
 
     def submit_hello_world_workflow_run(self) -> MinimalExtendedRun:
         ewes_client: EWesClient = self.get_ewes_client()
-        return ewes_client.submit_run(ExtendedRunRequest(
-            workflow_url=self.get_hello_world_workflow_url(),
-            workflow_type='WDL',
-            workflow_type_version='draft-2',
-            workflow_params={
-                'test.hello.name': 'foo'
-            }
-        ))
+        return ewes_client.submit_run(
+            ExtendedRunRequest(
+                workflow_url=self.get_hello_world_workflow_url(),
+                workflow_type="WDL",
+                workflow_type_version="draft-2",
+                workflow_params={"test.hello.name": "foo"},
+            )
+        )
 
     def submit_hello_world_workflow_batch(self) -> BatchRunResponse:
         if not self.hello_world_workflow:
             self.create_hello_world_workflow()
         ewes_client: EWesClient = self.get_ewes_client()
-        return ewes_client.submit_batch(BatchRunRequest(
-            workflow_url=self.get_hello_world_workflow_url(),
-            workflow_type='WDL',
-            workflow_type_version='draft-2',
-            run_requests=[
-                ExtendedRunRequest(
-                    workflow_params={
-                        'test.hello.name': 'foo'
-                    }
-                ),
-                ExtendedRunRequest(
-                    workflow_params={
-                        'test.hello.name': 'bar'
-                    }
-                )
-            ]
-        ))
+        return ewes_client.submit_batch(
+            BatchRunRequest(
+                workflow_url=self.get_hello_world_workflow_url(),
+                workflow_type="WDL",
+                workflow_type_version="draft-2",
+                run_requests=[
+                    ExtendedRunRequest(workflow_params={"test.hello.name": "foo"}),
+                    ExtendedRunRequest(workflow_params={"test.hello.name": "bar"}),
+                ],
+            )
+        )
 
     @staticmethod
     def _create_workflow_files():
         main_wdl_filename = "main.wdl"
-        with open(main_wdl_filename, 'w') as main_wdl_file:
+        with open(main_wdl_filename, "w") as main_wdl_file:
             main_wdl_file.write("""
             version 1.0
 
@@ -313,32 +308,45 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
                 }
             }
             """)
-        with zipfile.ZipFile('workflow.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile("workflow.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
             zipf.write(main_wdl_filename)
 
     @staticmethod
     def _create_description_file():
-        with open('description.md', 'w') as description_file:
+        with open("description.md", "w") as description_file:
             description_file.write("""
             TITLE
             DESCRIPTION
             """)
 
     def _create_workflow(self, use_zip_file: bool = False) -> Workflow:
-        return Workflow(**self.simple_invoke(
-            'workbench', 'workflows', 'create',
-            '--entrypoint', "main.wdl",
-            'workflow.zip' if use_zip_file else "main.wdl",
-        ))
+        return Workflow(
+            **self.simple_invoke(
+                "workbench",
+                "workflows",
+                "create",
+                "--entrypoint",
+                "main.wdl",
+                "workflow.zip" if use_zip_file else "main.wdl",
+            )
+        )
 
     def _create_workflow_version(self, workflow_id, name, use_zip_file: bool = False) -> WorkflowVersion:
-        return WorkflowVersion(**self.simple_invoke(
-            'workbench', 'workflows', 'versions', 'create',
-            '--workflow', workflow_id,
-            '--name', name,
-            '--entrypoint', "main.wdl",
-            'workflow.zip' if use_zip_file else "main.wdl",
-        ))
+        return WorkflowVersion(
+            **self.simple_invoke(
+                "workbench",
+                "workflows",
+                "versions",
+                "create",
+                "--workflow",
+                workflow_id,
+                "--name",
+                name,
+                "--entrypoint",
+                "main.wdl",
+                "workflow.zip" if use_zip_file else "main.wdl",
+            )
+        )
 
     @staticmethod
     def _create_inputs_json_file():
@@ -349,7 +357,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
     @staticmethod
     def _create_inputs_text_file():
         with tempfile.NamedTemporaryFile(delete=False) as input_text_fp:
-            input_text_fp.write(b'bar')
+            input_text_fp.write(b"bar")
             return input_text_fp.name
 
     @staticmethod
@@ -368,55 +376,96 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
             service_account_file.write(service_account_json.encode())
             return service_account_file.name
 
-    def _create_workflow_transformation(self, workflow_id, version_id,
-                                        script_from_file: bool = False) -> WorkflowTransformation:
-
+    def _create_workflow_transformation(
+        self, workflow_id, version_id, script_from_file: bool = False
+    ) -> WorkflowTransformation:
         if script_from_file:
             transformation_script = self._create_transformation_script_file()
 
-        return WorkflowTransformation(**self.simple_invoke(
-            'workbench', 'workflows','versions', 'transformations', 'create',
-            '--workflow', workflow_id,
-            '--version', version_id,
-            '--label', "test",
-            '--label', "can-be-deleted",
-            f'@{transformation_script}' if script_from_file else "(context) => { return { 'foo': 'bar' } }"
-        ))
+        return WorkflowTransformation(
+            **self.simple_invoke(
+                "workbench",
+                "workflows",
+                "versions",
+                "transformations",
+                "create",
+                "--workflow",
+                workflow_id,
+                "--version",
+                version_id,
+                "--label",
+                "test",
+                "--label",
+                "can-be-deleted",
+                f"@{transformation_script}" if script_from_file else "(context) => { return { 'foo': 'bar' } }",
+            )
+        )
 
     def _create_storage_account(self, provider: Provider, id=None) -> StorageAccount:
         if not id:
-            id = f'test-storage-account-{random.randint(0, 100000)}'
+            id = f"test-storage-account-{random.randint(0, 100000)}"
 
         if provider == provider.aws:
-            return StorageAccount(**self.simple_invoke(
-                'workbench', 'storage', 'add', 'aws',
-                id,
-                '--name', 'Test AWS Storage Account',
-                '--bucket', env('E2E_AWS_BUCKET', default='s3://dnastack-workbench-sample-service-e2e-test', required=False),
-                '--access-key-id', env('E2E_AWS_ACCESS_KEY_ID', required=True),
-                '--secret-access-key', env('E2E_AWS_SECRET_ACCESS_KEY', required=True),
-                '--region', env('E2E_AWS_REGION', default='ca-central-1'),
-                ))
+            return StorageAccount(
+                **self.simple_invoke(
+                    "workbench",
+                    "storage",
+                    "add",
+                    "aws",
+                    id,
+                    "--name",
+                    "Test AWS Storage Account",
+                    "--bucket",
+                    env("E2E_AWS_BUCKET", default="s3://dnastack-workbench-sample-service-e2e-test", required=False),
+                    "--access-key-id",
+                    env("E2E_AWS_ACCESS_KEY_ID", required=True),
+                    "--secret-access-key",
+                    env("E2E_AWS_SECRET_ACCESS_KEY", required=True),
+                    "--region",
+                    env("E2E_AWS_REGION", default="ca-central-1"),
+                )
+            )
         elif provider == provider.gcp:
-            service_account_json_file = self._create_service_account_json_file(env('E2E_GCP_SERVICE_ACCOUNT', required=True))
-            return StorageAccount(**self.simple_invoke(
-                'workbench', 'storage', 'add', 'gcp',
-                id,
-                '--name', 'Test GCP Storage Account',
-                '--bucket', env('E2E_GCP_BUCKET', default='s3://dnastack-workbench-sample-service-e2e-test', required=False),
-                '--project-id', env('E2E_GCP_PROJECT_ID', default='striking-effort-817', required=False),
-                '--service-account', f'@{service_account_json_file}',
-                '--region', env('E2E_GCP_REGION', default='us-east1'),
-                ))
+            service_account_json_file = self._create_service_account_json_file(
+                env("E2E_GCP_SERVICE_ACCOUNT", required=True)
+            )
+            return StorageAccount(
+                **self.simple_invoke(
+                    "workbench",
+                    "storage",
+                    "add",
+                    "gcp",
+                    id,
+                    "--name",
+                    "Test GCP Storage Account",
+                    "--bucket",
+                    env("E2E_GCP_BUCKET", default="s3://dnastack-workbench-sample-service-e2e-test", required=False),
+                    "--project-id",
+                    env("E2E_GCP_PROJECT_ID", default="striking-effort-817", required=False),
+                    "--service-account",
+                    f"@{service_account_json_file}",
+                    "--region",
+                    env("E2E_GCP_REGION", default="us-east1"),
+                )
+            )
         elif provider == provider.azure:
-            return StorageAccount(**self.simple_invoke(
-                'workbench', 'storage', 'add', 'azure',
-                id,
-                '--name', 'Test GCP Storage Account',
-                '--storage-account-name', env('E2E_AZURE_STORAGE_ACCOUNT_NAME', default='workbenchdevelopment', required=False),
-                '--container', env('E2E_AZURE_CONTAINER', default='workbench-dnastack-client-e2e-tests', required=False),
-                '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
-                ))
+            return StorageAccount(
+                **self.simple_invoke(
+                    "workbench",
+                    "storage",
+                    "add",
+                    "azure",
+                    id,
+                    "--name",
+                    "Test GCP Storage Account",
+                    "--storage-account-name",
+                    env("E2E_AZURE_STORAGE_ACCOUNT_NAME", default="workbenchdevelopment", required=False),
+                    "--container",
+                    env("E2E_AZURE_CONTAINER", default="workbench-dnastack-client-e2e-tests", required=False),
+                    "--access-key",
+                    env("E2E_AZURE_ACCESS_KEY", required=True),
+                )
+            )
 
     def _get_or_create_storage_account(self, provider: Provider) -> StorageAccount:
         if not self.storage_account:

@@ -1,45 +1,45 @@
 import os
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import AbstractContextManager
 from datetime import datetime
 from enum import Enum
 from io import TextIOWrapper
-from typing import Optional, List, Dict
-from urllib.parse import urlparse, urljoin
+from typing import Dict, List, Optional
+from urllib.parse import urljoin, urlparse
 
 import urllib3
 from pydantic import BaseModel, Field
 
+from ..common.events import Event
+from ..common.logger import get_logger
+from ..http.session import HttpError, HttpSession
 from .base_client import BaseServiceClient
 from .models import ServiceEndpoint
 from .service_registry.models import ServiceType
-from ..common.events import Event
-from ..common.logger import get_logger
-from ..http.session import HttpSession, HttpError
 
-DRS_TYPE_V1_1 = ServiceType(group='org.ga4gh', artifact='drs', version='1.1.0')
+DRS_TYPE_V1_1 = ServiceType(group="org.ga4gh", artifact="drs", version="1.1.0")
 
 
 class MissingOptionalRequirementError(RuntimeError):
-    """ Raised when a optional requirement is not available """
+    """Raised when a optional requirement is not available"""
 
 
 class InvalidFileStreamingResponse(RuntimeError):
-    """ Raised when the response is invalid for file streaming """
+    """Raised when the response is invalid for file streaming"""
 
 
 class InvalidDrsUrlError(ValueError):
-    """ Raised when the DRS URL is invalid """
+    """Raised when the DRS URL is invalid"""
 
 
 class DrsApiError(RuntimeError):
-    """ Raised when the DRS server responds an error """
+    """Raised when the DRS server responds an error"""
 
 
 class NoUsableAccessMethodError(RuntimeError):
-    """ Raised when there is no usable access methods """
+    """Raised when there is no usable access methods"""
 
 
 class DRSException(RuntimeError):
@@ -67,7 +67,7 @@ class DRSDownloadException(RuntimeError):
         self.errors = errors
 
     def __repr__(self):
-        error_msg = f"Downloads failed:\n"
+        error_msg = "Downloads failed:\n"
         for err in self.errors:
             error_msg += f"{err}\n"
         return error_msg
@@ -84,7 +84,7 @@ class DrsMinimalMetadata:
     :raises ValueError if url is not a valid DRS url
     """
 
-    __RE_VALID_DRS_OBJECT_ID = re.compile(r'^[^/#?]+$')
+    __RE_VALID_DRS_OBJECT_ID = re.compile(r"^[^/#?]+$")
 
     def __init__(self, url: str):
         try:
@@ -115,18 +115,19 @@ class DrsMinimalMetadata:
         :return: The associated HTTPS server url
         """
         parsed_url = urlparse(self.url)
-        return urljoin(f'https://{parsed_url.netloc}{"/".join(parsed_url.path.split("/")[:-1])}', 'ga4gh/drs/v1/')
+        return urljoin(f"https://{parsed_url.netloc}{'/'.join(parsed_url.path.split('/')[:-1])}", "ga4gh/drs/v1/")
 
     @classmethod
     def assert_valid_drs_url(cls, url: str):
         """Returns true if url is a valid DRS url"""
         parsed_url = urlparse(url)
-        assert parsed_url.scheme == r'drs', \
-            f'The scheme of the given URL ({url}) is invalid.'
-        assert len(parsed_url.path) > 2 and parsed_url.path.startswith(r'/'), \
-            f'The ID is not specified in the URL ({url}).'
-        assert cls.__RE_VALID_DRS_OBJECT_ID.search(parsed_url.path[1:]), \
-            f'The format of the ID ({parsed_url.path[1:]}) is not valid.'
+        assert parsed_url.scheme == r"drs", f"The scheme of the given URL ({url}) is invalid."
+        assert len(parsed_url.path) > 2 and parsed_url.path.startswith(r"/"), (
+            f"The ID is not specified in the URL ({url})."
+        )
+        assert cls.__RE_VALID_DRS_OBJECT_ID.search(parsed_url.path[1:]), (
+            f"The format of the ID ({parsed_url.path[1:]}) is not valid."
+        )
 
 
 class DrsObjectAccessUrl(BaseModel):
@@ -151,6 +152,7 @@ class DrsObject(BaseModel):
 
     NOTE: This could be partial mapping.
     """
+
     id: str
     name: str
     access_methods: Optional[List[DrsObjectAccessMethod]] = Field(default_factory=list)
@@ -163,23 +165,22 @@ class DrsObject(BaseModel):
     def __init__(self, **kwargs):
         # There is an issue in the API where a `[null]` value can be returned in place of the checksums list
         # This is a workaround to remove the `[null]` value
-        kwargs['checksums'] = [checksum for checksum in kwargs.get('checksums', []) if checksum]
+        kwargs["checksums"] = [checksum for checksum in kwargs.get("checksums", []) if checksum]
         super().__init__(**kwargs)
-
 
 
 class DownloadOkEvent(Event):
     @property
     def drs_url(self):
-        return self.details.get('drs_url')
+        return self.details.get("drs_url")
 
     @property
     def content(self):
-        return self.details.get('content')
+        return self.details.get("content")
 
     @property
     def output_file_path(self):
-        return self.details.get('output_file_path')
+        return self.details.get("output_file_path")
 
     @classmethod
     def make(cls, **kwargs):
@@ -189,15 +190,15 @@ class DownloadOkEvent(Event):
 class DownloadProgressEvent(Event):
     @property
     def drs_url(self):
-        return self.details.get('drs_url')
+        return self.details.get("drs_url")
 
     @property
     def read_byte_count(self):
-        return self.details.get('read_byte_count')
+        return self.details.get("read_byte_count")
 
     @property
     def total_byte_count(self):
-        return self.details.get('total_byte_count')
+        return self.details.get("total_byte_count")
 
     @classmethod
     def make(cls, **kwargs):
@@ -207,15 +208,15 @@ class DownloadProgressEvent(Event):
 class DownloadFailureEvent(Event):
     @property
     def drs_url(self):
-        return self.details.get('drs_url')
+        return self.details.get("drs_url")
 
     @property
     def reason(self):
-        return self.details.get('reason')
+        return self.details.get("reason")
 
     @property
     def error(self):
-        return self.details.get('error')
+        return self.details.get("error")
 
     @classmethod
     def make(cls, **kwargs):
@@ -231,7 +232,7 @@ class DownloadStatus(Enum):
 
 class Blob(AbstractContextManager):
     def __init__(self, drs_url: str, session: HttpSession):
-        self._logger = get_logger(f'{type(self).__name__}/{drs_url}')
+        self._logger = get_logger(f"{type(self).__name__}/{drs_url}")
         self.__drs_url = drs_url
         self.__metadata = DrsMinimalMetadata(self.__drs_url)
         self.__object: Optional[DrsObject] = None
@@ -266,7 +267,7 @@ class Blob(AbstractContextManager):
     @property
     def _connection(self) -> urllib3.HTTPResponse:
         if not self.__connection or self.__connection.closed:
-            self.__connection = self._pool.request('GET', self.get_download_url(), preload_content=False)
+            self.__connection = self._pool.request("GET", self.get_download_url(), preload_content=False)
         return self.__connection
 
     @property
@@ -278,7 +279,7 @@ class Blob(AbstractContextManager):
 
     @property
     def name(self) -> str:
-        return urlparse(self.get_download_url()).path.split(r'/')[-1]
+        return urlparse(self.get_download_url()).path.split(r"/")[-1]
 
     def close(self):
         if self.__connection and not self.__connection.closed:
@@ -287,11 +288,11 @@ class Blob(AbstractContextManager):
             self.__pool.clear()
 
     def get_object(self) -> DrsObject:
-        """ Get the DRS Access URL Object """
+        """Get the DRS Access URL Object"""
         if self.__object:
             return self.__object
         else:
-            api_url = urljoin(self.__metadata.drs_server_url, f'objects/{self.__metadata.object_id}')
+            api_url = urljoin(self.__metadata.drs_server_url, f"objects/{self.__metadata.object_id}")
 
             try:
                 object_info_response = self.__session.get(api_url)
@@ -299,9 +300,9 @@ class Blob(AbstractContextManager):
                 object_info_status_code = e.response.status_code
 
                 if object_info_status_code == 404:
-                    raise DrsApiError(f'DRS object does not exist (HTTP 404 on {api_url})')
+                    raise DrsApiError(f"DRS object does not exist (HTTP 404 on {api_url})")
                 elif object_info_status_code == 403:
-                    raise DrsApiError(f'Access Denied (HTTP 403 on {api_url}')
+                    raise DrsApiError(f"Access Denied (HTTP 403 on {api_url}")
                 else:
                     raise DrsApiError("There was an error getting object info from the DRS Client")
 
@@ -312,9 +313,9 @@ class Blob(AbstractContextManager):
             return self.__object
 
     def get_access_url_object(self) -> DrsObjectAccessUrl:
-        """ Get the DRS Access URL Object """
+        """Get the DRS Access URL Object"""
         drs_obj = self.get_object()
-        self._logger.debug(f'DRS Object:\n\n{drs_obj.json(indent=2)}\n')
+        self._logger.debug(f"DRS Object:\n\n{drs_obj.json(indent=2)}\n")
 
         if drs_obj.access_methods:
             for access_method in drs_obj.access_methods:
@@ -323,10 +324,12 @@ class Blob(AbstractContextManager):
                     return access_method.access_url
                 elif access_method.access_id:
                     # try to use the access_id to get the download url
-                    if access_method.type == 'https':
+                    if access_method.type == "https":
                         object_access_response = self.__session.get(
-                            urljoin(self.__metadata.drs_server_url,
-                                    f'objects/{self.__metadata.object_id}/access/{access_method.access_id}')
+                            urljoin(
+                                self.__metadata.drs_server_url,
+                                f"objects/{self.__metadata.object_id}/access/{access_method.access_id}",
+                            )
                         )
                         return DrsObjectAccessUrl(**object_access_response.json())
                     else:
@@ -338,7 +341,7 @@ class Blob(AbstractContextManager):
             raise NoUsableAccessMethodError()  # next page token, just return
 
     def get_download_url(self) -> str:
-        """ Get the URL to download the DRS object """
+        """Get the URL to download the DRS object"""
         return self.get_access_url_object().url
 
 
@@ -353,11 +356,11 @@ class DrsClient(BaseServiceClient):
         # lock to prevent race conditions for file output
         self.__exit_code_lock = threading.Lock()
 
-        self._events.add_fixed_types('download-ok', 'download-progress', 'download-failure')
+        self._events.add_fixed_types("download-ok", "download-progress", "download-failure")
 
     @staticmethod
     def get_adapter_type():
-        return 'drs'
+        return "drs"
 
     @staticmethod
     def get_supported_service_types() -> List[ServiceType]:
@@ -378,45 +381,43 @@ class DrsClient(BaseServiceClient):
             with self.__exit_code_lock:
                 exit_codes[status][url] = message
 
-    def get_blob(self,
-                 id_or_url: Optional[str] = None,
-                 id: Optional[str] = None,
-                 url: Optional[str] = None,
-                 no_auth: bool = False) -> Blob:
+    def get_blob(
+        self,
+        id_or_url: Optional[str] = None,
+        id: Optional[str] = None,
+        url: Optional[str] = None,
+        no_auth: bool = False,
+    ) -> Blob:
         assert id_or_url or id or url, 'Please at least specify either "id_or_url" (first argument), "id", or "url".'
 
-        method_logger = get_logger(f'{self._logger.name}/get_blob')
-        method_logger.debug('Invoked with (id_or_url={id_or_url}, id={id}, url={url}, no_auth={no_auth})')
+        method_logger = get_logger(f"{self._logger.name}/get_blob")
+        method_logger.debug("Invoked with (id_or_url={id_or_url}, id={id}, url={url}, no_auth={no_auth})")
 
         if id_or_url:
-            method_logger.debug('Using implicit argument')
-            if id_or_url.startswith('drs://'):
-                method_logger.debug('Assume to be a DRS URL')
+            method_logger.debug("Using implicit argument")
+            if id_or_url.startswith("drs://"):
+                method_logger.debug("Assume to be a DRS URL")
                 # It is assumed to be a DRS URL.
                 drs_url = id_or_url
             else:
-                method_logger.debug('Assume to be a DRS ID')
+                method_logger.debug("Assume to be a DRS ID")
                 # It is assumed to be a DRS ID.
                 parsed_base_url = urlparse(self.endpoint.url)
-                drs_url = f'drs://{parsed_base_url.netloc}/{id_or_url}'
+                drs_url = f"drs://{parsed_base_url.netloc}/{id_or_url}"
         elif id:
-            method_logger.debug('Using explicit argument (id)')
+            method_logger.debug("Using explicit argument (id)")
             # This is an explicit option for directly using the given ID as DRS ID.
             parsed_base_url = urlparse(self.endpoint.url)
-            drs_url = f'drs://{parsed_base_url.netloc}/{id}'
+            drs_url = f"drs://{parsed_base_url.netloc}/{id}"
         else:
-            method_logger.debug('Using explicit argument (url)')
+            method_logger.debug("Using explicit argument (url)")
             # This is an explicit option for directly using the given URL as DRS URL.
             drs_url = url
 
         return Blob(drs_url, self.create_http_session(no_auth=no_auth))
 
     def __download_file(
-            self,
-            drs_id_or_url: str,
-            output_dir: str,
-            exit_codes: Optional[dict] = None,
-            no_auth: bool = False
+        self, drs_id_or_url: str, output_dir: str, exit_codes: Optional[dict] = None, no_auth: bool = False
     ) -> None:
         # TODO #182443607 Move this method to dnastack.cli.drs
         try:
@@ -424,27 +425,27 @@ class DrsClient(BaseServiceClient):
                 output_file_path = os.path.join(output_dir, output.name)
                 output_connection = output._connection
                 output_headers = output_connection.headers
-                host_service = output_headers.get("Server") or 'Known'
+                host_service = output_headers.get("Server") or "Known"
 
                 if output_connection.status != 200:
-                    self._logger.error(f'Response/URL: {drs_id_or_url}')
-                    self._logger.error(f'Response/Service: {host_service}')
-                    self._logger.error(f'Response/Status: {output_connection.status}')
-                    self._logger.error(f'Response/Body: {output_connection.read().decode()}')
+                    self._logger.error(f"Response/URL: {drs_id_or_url}")
+                    self._logger.error(f"Response/Service: {host_service}")
+                    self._logger.error(f"Response/Status: {output_connection.status}")
+                    self._logger.error(f"Response/Body: {output_connection.read().decode()}")
 
                     raise InvalidFileStreamingResponse(
-                        f'The server ({host_service}) responded with HTTP {output_connection.status}.'
+                        f"The server ({host_service}) responded with HTTP {output_connection.status}."
                     )
 
-                if 'Content-Length' not in output_headers:
-                    self._logger.error(f'Response/URL: {drs_id_or_url}')
-                    self._logger.error(f'Response/Service: {host_service}')
-                    self._logger.error(f'Response/Status: {output_connection.status}')
-                    self._logger.error(f'Response/Body: {output_connection.read().decode()}')
+                if "Content-Length" not in output_headers:
+                    self._logger.error(f"Response/URL: {drs_id_or_url}")
+                    self._logger.error(f"Response/Service: {host_service}")
+                    self._logger.error(f"Response/Status: {output_connection.status}")
+                    self._logger.error(f"Response/Body: {output_connection.read().decode()}")
 
                     raise InvalidFileStreamingResponse(
-                        f'The server ({host_service}) did not provide the length of the content. '
-                        f'(headers = {output_headers})'
+                        f"The server ({host_service}) did not provide the length of the content. "
+                        f"(headers = {output_headers})"
                     )
 
                 with open(output_file_path, "wb+") as dest:
@@ -453,31 +454,32 @@ class DrsClient(BaseServiceClient):
                     for chunk in output._connection.stream(1024):
                         read_byte_count += len(chunk)
                         dest.write(chunk)
-                        self._events.dispatch('download-progress',
-                                              DownloadProgressEvent.make(drs_url=drs_id_or_url,
-                                                                         read_byte_count=read_byte_count,
-                                                                         total_byte_count=stream_size)
-                                              )
-                self._events.dispatch('download-progress',
-                                      DownloadProgressEvent.make(drs_url=drs_id_or_url,
-                                                                 read_byte_count=read_byte_count,
-                                                                 total_byte_count=stream_size)
-                                      )
-                self._events.dispatch('download-ok',
-                                      DownloadOkEvent.make(drs_url=output.drs_url,
-                                                           output_file_path=output_file_path))
+                        self._events.dispatch(
+                            "download-progress",
+                            DownloadProgressEvent.make(
+                                drs_url=drs_id_or_url, read_byte_count=read_byte_count, total_byte_count=stream_size
+                            ),
+                        )
+                self._events.dispatch(
+                    "download-progress",
+                    DownloadProgressEvent.make(
+                        drs_url=drs_id_or_url, read_byte_count=read_byte_count, total_byte_count=stream_size
+                    ),
+                )
+                self._events.dispatch(
+                    "download-ok", DownloadOkEvent.make(drs_url=output.drs_url, output_file_path=output_file_path)
+                )
 
             self.exit_download(drs_id_or_url, DownloadStatus.SUCCESS, "Download Successful", exit_codes)
         except InvalidDrsUrlError as e:
-            self._logger.info(f'failed to download from {drs_id_or_url}: {type(e).__name__}: {e}')
-            self._events.dispatch('download-progress',
-                                  DownloadProgressEvent.make(drs_url=drs_id_or_url,
-                                                             read_byte_count=1,
-                                                             total_byte_count=1)
-                                  )
-            self._events.dispatch('download-failure',
-                                  DownloadFailureEvent.make(drs_url=drs_id_or_url,
-                                                            reason='Invalid DRS URL'))
+            self._logger.info(f"failed to download from {drs_id_or_url}: {type(e).__name__}: {e}")
+            self._events.dispatch(
+                "download-progress",
+                DownloadProgressEvent.make(drs_url=drs_id_or_url, read_byte_count=1, total_byte_count=1),
+            )
+            self._events.dispatch(
+                "download-failure", DownloadFailureEvent.make(drs_url=drs_id_or_url, reason="Invalid DRS URL")
+            )
             self.exit_download(
                 drs_id_or_url,
                 DownloadStatus.FAIL,
@@ -485,10 +487,10 @@ class DrsClient(BaseServiceClient):
                 exit_codes,
             )
         except NoUsableAccessMethodError as e:
-            self._logger.info(f'failed to download from {drs_id_or_url}: {type(e).__name__}: {e}')
-            self._events.dispatch('download-failure',
-                                  DownloadFailureEvent.make(drs_url=drs_id_or_url,
-                                                            reason='No access method'))
+            self._logger.info(f"failed to download from {drs_id_or_url}: {type(e).__name__}: {e}")
+            self._events.dispatch(
+                "download-failure", DownloadFailureEvent.make(drs_url=drs_id_or_url, reason="No access method")
+            )
             self.exit_download(
                 drs_id_or_url,
                 DownloadStatus.FAIL,
@@ -496,11 +498,13 @@ class DrsClient(BaseServiceClient):
                 exit_codes,
             )
         except DrsApiError as e:
-            self._logger.info(f'failed to download from {drs_id_or_url}: {type(e).__name__}: {e}')
-            self._events.dispatch('download-failure',
-                                  DownloadFailureEvent.make(drs_url=drs_id_or_url,
-                                                            reason='Unexpected error while communicating with DRS API',
-                                                            error=e))
+            self._logger.info(f"failed to download from {drs_id_or_url}: {type(e).__name__}: {e}")
+            self._events.dispatch(
+                "download-failure",
+                DownloadFailureEvent.make(
+                    drs_url=drs_id_or_url, reason="Unexpected error while communicating with DRS API", error=e
+                ),
+            )
             self.exit_download(
                 drs_id_or_url,
                 DownloadStatus.FAIL,
@@ -508,11 +512,10 @@ class DrsClient(BaseServiceClient):
                 exit_codes,
             )
         except Exception as e:
-            self._logger.info(f'failed to download from {drs_id_or_url}: {type(e).__name__}: {e}')
-            self._events.dispatch('download-failure',
-                                  DownloadFailureEvent.make(drs_url=drs_id_or_url,
-                                                            reason='Unexpected error',
-                                                            error=e))
+            self._logger.info(f"failed to download from {drs_id_or_url}: {type(e).__name__}: {e}")
+            self._events.dispatch(
+                "download-failure", DownloadFailureEvent.make(drs_url=drs_id_or_url, reason="Unexpected error", error=e)
+            )
             self.exit_download(
                 drs_id_or_url,
                 DownloadStatus.FAIL,
@@ -520,12 +523,7 @@ class DrsClient(BaseServiceClient):
                 exit_codes,
             )
 
-    def _download_files(
-            self,
-            id_or_urls: List[str],
-            output_dir: str = os.getcwd(),
-            no_auth: bool = False
-    ) -> None:
+    def _download_files(self, id_or_urls: List[str], output_dir: str = os.getcwd(), no_auth: bool = False) -> None:
         # TODO #182443607 Move this method to dnastack.cli.drs
         exit_codes = {status: {} for status in DownloadStatus}
         unique_urls = set(id_or_urls)
@@ -547,7 +545,7 @@ class DrsClient(BaseServiceClient):
                     drs_id_or_url=url,
                     output_dir=output_dir,
                     exit_codes=exit_codes,
-                    no_auth=no_auth
+                    no_auth=no_auth,
                 )
                 future_to_url_map[future] = url
 
@@ -556,17 +554,14 @@ class DrsClient(BaseServiceClient):
             future.result()
 
         # at least one download failed, create exceptions
-        failed_downloads = [
-            DRSException(msg=msg, url=url)
-            for url, msg in exit_codes.get(DownloadStatus.FAIL).items()
-        ]
+        failed_downloads = [DRSException(msg=msg, url=url) for url, msg in exit_codes.get(DownloadStatus.FAIL).items()]
 
         if len(unique_urls) == len(failed_downloads):
-            self._logger.error(f'All of {len(unique_urls)} download(s) failed unexpectedly')
+            self._logger.error(f"All of {len(unique_urls)} download(s) failed unexpectedly")
             raise DRSDownloadException(failed_downloads)
         elif len(failed_downloads) > 0:
-            self._logger.warning(f'{len(failed_downloads)} out of {len(unique_urls)} download(s) failed unexpectedly')
+            self._logger.warning(f"{len(failed_downloads)} out of {len(unique_urls)} download(s) failed unexpectedly")
             index = 0
             for failed_download in failed_downloads:
-                self._logger.warning(f'Failure #{index}: {failed_download}')
+                self._logger.warning(f"Failure #{index}: {failed_download}")
                 index += 1

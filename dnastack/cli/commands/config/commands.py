@@ -10,21 +10,12 @@ from dnastack.configuration.models import Configuration
 
 
 def init_config_commands(group: Group):
-    @formatted_command(
-        group=group,
-        name='schema',
-        specs=[]
-    )
+    @formatted_command(group=group, name="schema", specs=[])
     def config_schema():
         """Show the schema of the configuration file"""
         click.echo(json.dumps(Configuration.schema(), indent=2, sort_keys=True))
 
-
-    @formatted_command(
-        group=group,
-        name='reset',
-        specs=[]
-    )
+    @formatted_command(group=group, name="reset", specs=[])
     def reset():
         """Reset the configuration file"""
         manager: ConfigurationManager = container.get(ConfigurationManager)

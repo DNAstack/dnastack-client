@@ -1,18 +1,23 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 import click
 from click import Group
 
 from dnastack.cli.commands.dataconnect.utils import DECIMAL_POINT_OUTPUT_ARG, handle_query
-from dnastack.cli.commands.publisher.collections.utils import _filter_collection_fields, _get_collection_service_client, \
-    _transform_to_public_collection, COLLECTION_ID_ARG, _switch_to_data_connect, \
-    _get_context
+from dnastack.cli.commands.publisher.collections.utils import (
+    COLLECTION_ID_ARG,
+    _filter_collection_fields,
+    _get_collection_service_client,
+    _get_context,
+    _switch_to_data_connect,
+    _transform_to_public_collection,
+)
 from dnastack.cli.core.command import formatted_command
-from dnastack.cli.core.command_spec import ArgumentSpec, RESOURCE_OUTPUT_ARG, DATA_OUTPUT_ARG, ArgumentType
-from dnastack.cli.helpers.exporter import to_json, normalize
+from dnastack.cli.core.command_spec import DATA_OUTPUT_ARG, RESOURCE_OUTPUT_ARG, ArgumentSpec, ArgumentType
+from dnastack.cli.helpers.exporter import normalize, to_json
 from dnastack.cli.helpers.iterator_printer import show_iterator
-from dnastack.client.collections.model import Collection, Tag, CollectionValidationStatus, CollectionStatus
+from dnastack.client.collections.model import Collection, CollectionStatus, CollectionValidationStatus, Tag
 from dnastack.common.json_argument_parser import FileOrValue
 from dnastack.common.tracing import Span
 from dnastack.http.session import ClientError
@@ -21,93 +26,85 @@ from dnastack.http.session import ClientError
 def init_collections_commands(group: Group):
     @formatted_command(
         group=group,
-        name='list',
+        name="list",
         specs=[
             RESOURCE_OUTPUT_ARG,
-        ]
+        ],
     )
     def list_collections(output: Optional[str] = None):
-        """ List collections """
+        """List collections"""
         span = Span()
-        show_iterator(output,
-                      [
-                          _filter_collection_fields(collection=collection)
-                          for collection in _get_collection_service_client().list_collections(trace=span)
-                      ],
-                      transform=_transform_to_public_collection)
+        show_iterator(
+            output,
+            [
+                _filter_collection_fields(collection=collection)
+                for collection in _get_collection_service_client().list_collections(trace=span)
+            ],
+            transform=_transform_to_public_collection,
+        )
 
-    
     @formatted_command(
         group=group,
-        name='query',
+        name="query",
         specs=[
             ArgumentSpec(
-                name='query',
+                name="query",
                 arg_type=ArgumentType.POSITIONAL,
-                help='The SQL query.',
+                help="The SQL query.",
                 required=True,
             ),
             COLLECTION_ID_ARG,
             DECIMAL_POINT_OUTPUT_ARG,
             DATA_OUTPUT_ARG,
-        ]
+        ],
     )
-    def query_collection(collection: str,
-                         query: str,
-                         decimal_as: str = 'string',
-                         no_auth: bool = False,
-                         output: Optional[str] = None):
-        """ Query data """
-        trace = Span(origin='cli.collections.query')
+    def query_collection(
+        collection: str, query: str, decimal_as: str = "string", no_auth: bool = False, output: Optional[str] = None
+    ):
+        """Query data"""
+        trace = Span(origin="cli.collections.query")
         client = _switch_to_data_connect(_get_context(), _get_collection_service_client(), collection, no_auth=no_auth)
-        return handle_query(client, query,
-                            decimal_as=decimal_as,
-                            no_auth=no_auth,
-                            output_format=output,
-                            trace=trace)
-
+        return handle_query(client, query, decimal_as=decimal_as, no_auth=no_auth, output_format=output, trace=trace)
 
     @formatted_command(
         group=group,
-        name='create',
+        name="create",
         specs=[
             ArgumentSpec(
-                name='name',
-                arg_names=['--name'],
-                help='The name of the collection you want to create or manage.',
+                name="name",
+                arg_names=["--name"],
+                help="The name of the collection you want to create or manage.",
                 required=True,
             ),
             ArgumentSpec(
-                name='description',
-                arg_names=['--description'],
-                help='A short summary or explanation of the purpose or contents of the collection. '
-                     'Use @<path> to load from file.',
+                name="description",
+                arg_names=["--description"],
+                help="A short summary or explanation of the purpose or contents of the collection. "
+                "Use @<path> to load from file.",
                 type=FileOrValue,
                 required=True,
             ),
             ArgumentSpec(
-                name='slug',
-                arg_names=['--slug'],
-                help='A unique identifier for the collection, often used in URLs for easy reference.',
+                name="slug",
+                arg_names=["--slug"],
+                help="A unique identifier for the collection, often used in URLs for easy reference.",
                 required=True,
             ),
             ArgumentSpec(
-                name='tags',
-                arg_names=['--tags'],
-                help='A comma-separated list of tags to categorize and organize the collection.',
+                name="tags",
+                arg_names=["--tags"],
+                help="A comma-separated list of tags to categorize and organize the collection.",
                 required=False,
             ),
-        ]
+        ],
     )
-    def create_collection(name: str,
-                         description: FileOrValue,
-                         slug: str,
-                         tags: Optional[str] = None):
-        """ Create a new collection """
+    def create_collection(name: str, description: FileOrValue, slug: str, tags: Optional[str] = None):
+        """Create a new collection"""
+
         def parse_tags(tags: Optional[str]) -> Optional[List[Tag]]:
             if not tags:
                 return None
-            return [Tag(label=tag.strip()) for tag in tags.split(',')]
+            return [Tag(label=tag.strip()) for tag in tags.split(",")]
 
         def handle_collection_error(error: ClientError, name: str, slug: str) -> str:
             if error.response.status_code == 409:
@@ -115,23 +112,18 @@ def init_collections_commands(group: Group):
 
             elif error.response.status_code == 400:
                 error_body = error.response.json()
-                error_message = error_body.get('message', '')
-                return f'Error: Invalid input - {error_message}'
+                error_message = error_body.get("message", "")
+                return f"Error: Invalid input - {error_message}"
 
             elif error.response.status_code == 401:
-                return 'Error: Authentication required. Please check your credentials.'
+                return "Error: Authentication required. Please check your credentials."
 
             elif error.response.status_code == 403:
-                return 'Error: You do not have permission to create collections.'
+                return "Error: You do not have permission to create collections."
 
-            return f'Error: Failed to create collection. Server returned status {error.response.status_code}'
+            return f"Error: Failed to create collection. Server returned status {error.response.status_code}"
 
-        collection = Collection(
-            name=name,
-            description=description.value(),
-            slugName=slug,
-            tags=parse_tags(tags)
-        )
+        collection = Collection(name=name, description=description.value(), slugName=slug, tags=parse_tags(tags))
 
         try:
             client = _get_collection_service_client()
@@ -139,25 +131,24 @@ def init_collections_commands(group: Group):
             click.echo(to_json(normalize(response)))
         except ClientError as e:
             error_message = handle_collection_error(e, name, slug)
-            click.echo(click.style(error_message, fg='red'), err=True)
+            click.echo(click.style(error_message, fg="red"), err=True)
             exit(1)
-
 
     @formatted_command(
         group=group,
-        name='describe',
+        name="describe",
         specs=[
             ArgumentSpec(
-                name='id_or_slugs',
+                name="id_or_slugs",
                 arg_type=ArgumentType.POSITIONAL,
-                help='The ID or slug name of the target collection',
+                help="The ID or slug name of the target collection",
                 required=True,
                 multiple=True,
             ),
-        ]
+        ],
     )
     def describe_collection(id_or_slugs: List[str]):
-        """ View details of a specific collection """
+        """View details of a specific collection"""
         client = _get_collection_service_client()
         # Get unique collections by id, with the last occurrence taking precedence
         unique_collections = {
@@ -168,24 +159,22 @@ def init_collections_commands(group: Group):
 
         click.echo(to_json(normalize(list(unique_collections.values()))))
 
-
     @formatted_command(
         group=group,
-        name='status',
+        name="status",
         specs=[
             COLLECTION_ID_ARG,
             ArgumentSpec(
-                name='missing_items',
-                arg_names=['--missing-items'],
-                help='To find missing files and/or folders while adding or removing to the collection.',
+                name="missing_items",
+                arg_names=["--missing-items"],
+                help="To find missing files and/or folders while adding or removing to the collection.",
                 type=bool,
                 required=False,
             ),
-        ]
+        ],
     )
-    def get_collection_status(collection: str,
-                            missing_items: Optional[bool] = False):
-        """ Check status of a collection """
+    def get_collection_status(collection: str, missing_items: Optional[bool] = False):
+        """Check status of a collection"""
 
         def format_datetime(dt: Optional[datetime]) -> str:
             """Format datetime in the required format"""
@@ -199,7 +188,7 @@ def init_collections_commands(group: Group):
                 CollectionValidationStatus.VALIDATED: "Validation Complete. All items added/removed.",
                 CollectionValidationStatus.VALIDATION_STOPPED: "Validation Stopped",
                 CollectionValidationStatus.VALIDATION_IN_PROGRESS: "Validation in Progress",
-                CollectionValidationStatus.MISSING_ITEMS: "Some items are missing"
+                CollectionValidationStatus.MISSING_ITEMS: "Some items are missing",
             }
             return status_messages.get(status, str(status))
 

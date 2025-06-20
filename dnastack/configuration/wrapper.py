@@ -6,7 +6,7 @@ from dnastack.client.service_registry.models import ServiceType
 from dnastack.common.logger import get_logger
 from dnastack.common.simple_stream import SimpleStream
 from dnastack.configuration.exceptions import MissingEndpointError
-from dnastack.configuration.models import Configuration, DEFAULT_CONTEXT
+from dnastack.configuration.models import DEFAULT_CONTEXT, Configuration
 from dnastack.context.models import Context
 from dnastack.feature_flags import currently_in_debug_mode
 
@@ -20,7 +20,7 @@ class UnknownContextError(RuntimeError):
 
 
 class ConfigurationWrapper:
-    _logger = get_logger('Configuration')
+    _logger = get_logger("Configuration")
 
     def __init__(self, configuration: Configuration, context_name: Optional[str] = None):
         self.__config = configuration
@@ -60,10 +60,12 @@ class ConfigurationWrapper:
     def get_endpoint_by_id(self, id: str) -> ServiceEndpoint:
         return SimpleStream(self.current_context.endpoints).filter(lambda e: e.id == id).find_first()
 
-    def _get_all_endpoints_by(self,
-                              adapter_type: Optional[str] = None,
-                              service_types: List[ServiceType] = None,
-                              endpoint_id: Optional[str] = None) -> List[ServiceEndpoint]:
+    def _get_all_endpoints_by(
+        self,
+        adapter_type: Optional[str] = None,
+        service_types: List[ServiceType] = None,
+        endpoint_id: Optional[str] = None,
+    ) -> List[ServiceEndpoint]:
         endpoints = []
 
         for endpoint in self.endpoints:
@@ -71,29 +73,30 @@ class ConfigurationWrapper:
             if endpoint_id:
                 if endpoint.id == endpoint_id:
                     endpoints.append(endpoint)
-                    self.__debug_message(f'_get_all_endpoints_by: E/{endpoint.id}: HIT (endpoint.id)')
+                    self.__debug_message(f"_get_all_endpoints_by: E/{endpoint.id}: HIT (endpoint.id)")
                 continue
             else:
                 if endpoint.dnastack_schema_version == 2.0:
                     if service_types and endpoint.type not in service_types:
-                        self.__debug_message(f'_get_all_endpoints_by: E/{endpoint.id}: MISSED: type is not matched')
+                        self.__debug_message(f"_get_all_endpoints_by: E/{endpoint.id}: MISSED: type is not matched")
                         continue
                 elif endpoint.dnastack_schema_version == 1.0:
                     if adapter_type and endpoint.adapter_type != adapter_type:
-                        self.__debug_message(f'_get_all_endpoints_by: E/{endpoint.id}: MISSED: adapter_type is not matched')
+                        self.__debug_message(
+                            f"_get_all_endpoints_by: E/{endpoint.id}: MISSED: adapter_type is not matched"
+                        )
                         continue
                 else:
-                    raise UnsupportedModelVersionError(f'{type(endpoint).__name__}/{endpoint.dnastack_schema_version}')
+                    raise UnsupportedModelVersionError(f"{type(endpoint).__name__}/{endpoint.dnastack_schema_version}")
 
-                self.__debug_message(f'_get_all_endpoints_by: E/{endpoint.id}: HIT')
+                self.__debug_message(f"_get_all_endpoints_by: E/{endpoint.id}: HIT")
                 endpoints.append(endpoint)
 
         return endpoints
 
-    def get_endpoint(self,
-                     adapter_type: str,
-                     service_types: List[ServiceType],
-                     endpoint_id: Optional[str] = None) -> ServiceEndpoint:
+    def get_endpoint(
+        self, adapter_type: str, service_types: List[ServiceType], endpoint_id: Optional[str] = None
+    ) -> ServiceEndpoint:
         endpoints: List[ServiceEndpoint] = self._get_all_endpoints_by(adapter_type, service_types, endpoint_id)
         endpoint: Optional[ServiceEndpoint] = endpoints[0] if endpoints else None
 
@@ -104,8 +107,8 @@ class ConfigurationWrapper:
         return endpoint
 
     def __debug_message(self, msg: str):
-        if currently_in_debug_mode() and 'unittest' in sys.modules:
-            sys.stderr.write(msg + '\n')
+        if currently_in_debug_mode() and "unittest" in sys.modules:
+            sys.stderr.write(msg + "\n")
             sys.stderr.flush()
         else:
             self._logger.debug(msg)

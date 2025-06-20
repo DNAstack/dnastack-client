@@ -5,7 +5,8 @@ from dnastack.cli.core.group import formatted_group
 
 @formatted_group("data-connect", aliases=["dataconnect", "dc"])
 def data_connect_command_group():
-    """ Interact with Data Connect Service """
+    """Interact with Data Connect Service"""
+
 
 # Initialize all commands
 init_data_connect_commands(data_connect_command_group)

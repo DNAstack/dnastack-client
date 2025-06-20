@@ -4,7 +4,7 @@ from typing import List
 from google.api_core.exceptions import NotFound
 
 try:
-    from google.cloud.secretmanager_v1 import SecretManagerServiceClient, SecretVersion, Secret
+    from google.cloud.secretmanager_v1 import Secret, SecretManagerServiceClient, SecretVersion
 except ImportError:
     raise RuntimeError('Please install "google-cloud-secret-manager" and try again.')
 
@@ -28,10 +28,10 @@ class SecretRepository:
         self.client = SecretManagerServiceClient()
 
     def create(self, secret_id: str) -> Secret:
-        parent_id = f'projects/{self.project_id}'
-        return self.client.create_secret(request=dict(parent=parent_id,
-                                               secret_id=secret_id,
-                                               secret=dict(replication=dict(automatic=dict()))))
+        parent_id = f"projects/{self.project_id}"
+        return self.client.create_secret(
+            request=dict(parent=parent_id, secret_id=secret_id, secret=dict(replication=dict(automatic=dict())))
+        )
 
     def create_if_not_exist(self, secret_id: str) -> List[SecretVersion]:
         try:
@@ -54,8 +54,7 @@ class SecretRepository:
         response = self.client.add_secret_version(
             request={
                 "parent": parent_id,
-                "payload": {"data": payload_in_bytes,
-                            "data_crc32c": int(crc32c.hexdigest(), 16)},
+                "payload": {"data": payload_in_bytes, "data_crc32c": int(crc32c.hexdigest(), 16)},
             }
         )
 

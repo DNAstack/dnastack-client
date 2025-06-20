@@ -1,21 +1,21 @@
 import json
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from time import time, sleep
-from typing import Dict, List, Any, Optional, Union
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from time import sleep, time
+from typing import Any, Dict, List, Optional, Union
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock
 
+from pydantic import BaseModel, Field
+from requests import Request, Response, Session
+
 from dnastack import ServiceEndpoint
 from dnastack.common.tracing import Span
-from dnastack.http.authenticators.abstract import Authenticator, AuthenticationRequired
+from dnastack.http.authenticators.abstract import Authenticator
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
-from dnastack.http.session import HttpSession, ClientError
-from dnastack.http.session_info import InMemorySessionStorage, SessionManager, SessionInfo
-from requests import Session, Response, Request
-from pydantic import BaseModel, Field
-
+from dnastack.http.session import ClientError, HttpSession
+from dnastack.http.session_info import InMemorySessionStorage, SessionInfo, SessionManager
 from tests.exam_helper import make_mock_response
 
 
@@ -38,55 +38,48 @@ class MockWebHandler(BaseHTTPRequestHandler):
 
     @classmethod
     def reset_collected_data(cls):
-        """ Reset the collected data. """
+        """Reset the collected data."""
         cls._data_collection.reset()
 
     @classmethod
     def get_collected_data(cls) -> DataCollection:
-        """ Provide a copy of the collected data. """
+        """Provide a copy of the collected data."""
         return cls._data_collection.copy(deep=True)
 
     def _collect_request_data(self):
-        """ Collect the information on the incoming request """
+        """Collect the information on the incoming request"""
         request_url = "localhost:8000" + self.path
         self._data_collection.handled_requests.append(
-            HandledRequest(
-                path=request_url,
-                headers={
-                    name: value
-                    for name, value in self.headers.items()
-                }
-            )
+            HandledRequest(path=request_url, headers={name: value for name, value in self.headers.items()})
         )
 
     def do_GET(self):
         self._collect_request_data()
         self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header("Content-Type", "application/json")
         self.end_headers()
 
-        response = {'message': 'Test response'}
-        self.wfile.write(json.dumps(response).encode('utf-8'))
+        response = {"message": "Test response"}
+        self.wfile.write(json.dumps(response).encode("utf-8"))
 
     def do_POST(self):
         self._collect_request_data()
         self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header("Content-Type", "application/json")
         self.end_headers()
 
         response = dict(
-            access_token='test_access_token',
-            refresh_token='test_refresh_token',
-            token_type='test_token_type',
+            access_token="test_access_token",
+            refresh_token="test_refresh_token",
+            token_type="test_token_type",
             expires_in=60,
         )
-        self.wfile.write(json.dumps(response).encode('utf-8'))
+        self.wfile.write(json.dumps(response).encode("utf-8"))
 
 
 class TestHttpSession(TestCase):
-
     def test_handle_midflight_reauthentication(self):
-        mock_session_id = 'foxtrot'
+        mock_session_id = "foxtrot"
         mock_session_storage = InMemorySessionStorage()
         mock_session_manager = SessionManager(mock_session_storage)
         mock_session_manager.save(mock_session_id, self._make_mock_session_info(ttl=1))
@@ -104,7 +97,7 @@ class TestHttpSession(TestCase):
                 return self._session_id
 
             def authenticate(self, trace_context: Span) -> SessionInfo:
-                raise RuntimeError('Unexpected authentication')
+                raise RuntimeError("Unexpected authentication")
 
             def restore_session(self) -> SessionInfo:
                 return self._session_manager.restore(self._session_id)
@@ -124,7 +117,7 @@ class TestHttpSession(TestCase):
                 self._session_manager.save(session_id, session_info)
 
             def refresh(self, trace_context: Optional[Span] = None) -> SessionInfo:
-                raise RuntimeError('refresh triggered')
+                raise RuntimeError("refresh triggered")
 
         mock_authenticator = MockAuthenticator(mock_session_manager, mock_session_id)
 
@@ -142,22 +135,22 @@ class TestHttpSession(TestCase):
         mock_resource_session.get.side_effect = mock_resource_session_get
 
         # ##### Initiate the test #####
-        test_http_session = HttpSession(authenticators=[mock_authenticator], session=mock_resource_session,
-                                        suppress_error=False)
+        test_http_session = HttpSession(
+            authenticators=[mock_authenticator], session=mock_resource_session, suppress_error=False
+        )
         # Expected a "not implemented" error.
         # NOTE: We use this error type as the indicator that the refre
-        with self.assertRaisesRegex(RuntimeError, 'refresh triggered'):
-            test_http_session.get('https://juliet.november')
+        with self.assertRaisesRegex(RuntimeError, "refresh triggered"):
+            test_http_session.get("https://juliet.november")
 
     def _make_mock_session_info(self, ttl: int) -> SessionInfo:
-        return SessionInfo(access_token='at',
-                           refresh_token='rt',
-                           issued_at=time(),
-                           valid_until=time() + ttl,
-                           token_type='faux')
+        return SessionInfo(
+            access_token="at", refresh_token="rt", issued_at=time(), valid_until=time() + ttl, token_type="faux"
+        )
 
-    def _make_mock_response(self, status_code: int, headers: Optional[Dict] = None, text: Any = None,
-                            json: Any = None) -> Response:
+    def _make_mock_response(
+        self, status_code: int, headers: Optional[Dict] = None, text: Any = None, json: Any = None
+    ) -> Response:
         mock_response = MagicMock(Response)
         mock_response.headers = headers or dict()
         mock_response.status_code = status_code
@@ -170,7 +163,7 @@ class TestHttpSession(TestCase):
             mock_response.text = Mock(return_value=json.dumps(json))
             mock_response.json = Mock(return_value=json)
         else:
-            mock_response.text = ''
+            mock_response.text = ""
 
         return mock_response
 
@@ -198,7 +191,7 @@ class TestHttpSession(TestCase):
     def setUp(self):
         # Start the HTTP server
         MockWebHandler.reset_collected_data()
-        self.server = HTTPServer(('localhost', 8000), MockWebHandler)
+        self.server = HTTPServer(("localhost", 8000), MockWebHandler)
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
 
@@ -215,22 +208,22 @@ class TestHttpSession(TestCase):
         session = Session()
 
         auth_info = dict(
-            type='oauth2',
-            client_id='client_id',
-            client_secret='client_secret',
-            grant_type='client_credentials',
-            resource_url='http://localhost:8000',
-            token_endpoint='http://localhost:8000',
+            type="oauth2",
+            client_id="client_id",
+            client_secret="client_secret",
+            grant_type="client_credentials",
+            resource_url="http://localhost:8000",
+            token_endpoint="http://localhost:8000",
         )
 
         service_endpoint = ServiceEndpoint(
-            id='test_endpoint',
-            adapter_type='test_adapter',
-            url='http://localhost:8000',
+            id="test_endpoint",
+            adapter_type="test_adapter",
+            url="http://localhost:8000",
             authentication=auth_info,
         )
 
-        url = 'http://localhost:8000/'
+        url = "http://localhost:8000/"
 
         test_authenticator = OAuth2Authenticator(service_endpoint, auth_info, session_manager, adapter_factory)
 
@@ -238,7 +231,7 @@ class TestHttpSession(TestCase):
         response = http_session.submit("get", url)
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(response.json()['message'], 'Test response')
+        self.assertEqual(response.json()["message"], "Test response")
 
         collected_request_data = MockWebHandler.get_collected_data().handled_requests
 

@@ -1,8 +1,10 @@
 """
 Client-specific test configuration and fixtures.
 """
-import pytest
+
 from unittest.mock import Mock
+
+import pytest
 
 
 @pytest.fixture
@@ -19,8 +21,5 @@ def mock_base_client():
 def mock_service_endpoint():
     """Mock service endpoint."""
     from dnastack.client.models import ServiceEndpoint
-    return ServiceEndpoint(
-        id="test-endpoint",
-        url="https://test.example.com",
-        type="test-service"
-    )
+
+    return ServiceEndpoint(id="test-endpoint", url="https://test.example.com", type="test-service")

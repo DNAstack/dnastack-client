@@ -33,6 +33,9 @@ format: check-uv
 	uv run ruff check --fix .
 	uv run ruff format .
 
+.PHONY: lint-fix
+lint-fix: format
+
 .PHONY: typecheck
 typecheck: check-uv
 	uv run mypy dnastack

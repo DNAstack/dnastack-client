@@ -1,19 +1,19 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import click
-from click import style
 
-from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_WIDTH, TOTAL_WIDTH, OPTION_PADDING
-from dnastack.cli.core.formatting_utils import wrap_text, get_visual_length
+from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_PADDING, OPTION_WIDTH, TOTAL_WIDTH
+from dnastack.cli.core.formatting_utils import get_visual_length, wrap_text
 from dnastack.cli.core.styling import styler
 
 
 class FormattedHelpGroup(click.Group):
     """Group class that provides formatted and colored help output."""
+
     def __init__(self, *args, aliases: Optional[List[str]] = None, **kwargs):
-        kwargs['context_settings'] = {
-            'help_option_names': ['-h', '--help'],
-            'token_normalize_func': lambda x: x.lower(),
+        kwargs["context_settings"] = {
+            "help_option_names": ["-h", "--help"],
+            "token_normalize_func": lambda x: x.lower(),
         }
         super().__init__(*args, **kwargs)
         self.aliases = aliases or []
@@ -31,7 +31,7 @@ class FormattedHelpGroup(click.Group):
         # For sub-commands, check their aliases
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
-            if hasattr(cmd, 'aliases') and cmd_name in cmd.aliases:
+            if hasattr(cmd, "aliases") and cmd_name in cmd.aliases:
                 return cmd
 
         return None
@@ -39,40 +39,35 @@ class FormattedHelpGroup(click.Group):
     def format_command_path(self, ctx: click.Context) -> str:
         """Format the command path correctly"""
         parts = ctx.command_path.split()
-        if len(parts) > 0 and parts[0].endswith('__main__.py'):
-            return APP_NAME + ' ' + ' '.join(parts[1:])
-        return ' '.join(parts)
+        if len(parts) > 0 and parts[0].endswith("__main__.py"):
+            return APP_NAME + " " + " ".join(parts[1:])
+        return " ".join(parts)
 
     def get_help(self, ctx: click.Context) -> str:
         """Override get_help to customize and colorize the help output."""
         # Extract the command description
-        description = self.help or ''
+        description = self.help or ""
 
         # Get properly formatted command path
         command_display = self.format_command_path(ctx)
 
         # Build the new help text
         new_help = [
-            styler.usage_command_name("Usage:") + " " +
-            styler.usage_command_help(command_display) + " " +
-            styler.command_name("[COMMAND]")
+            styler.usage_command_name("Usage:")
+            + " "
+            + styler.usage_command_help(command_display)
+            + " "
+            + styler.command_name("[COMMAND]")
         ]
 
         # Add description
         if description:
-            new_help.extend([
-                '',
-                styler.command_help(description)
-            ])
+            new_help.extend(["", styler.command_help(description)])
 
         # Add commands section
         commands = self.list_commands(ctx)
         if commands:
-            new_help.extend([
-                '',
-                styler.command_header('Commands:'),
-                styler.command_divider('_', len('Commands:'))
-            ])
+            new_help.extend(["", styler.command_header("Commands:"), styler.command_divider("_", len("Commands:"))])
 
             # Process and format all commands first
             formatted_commands = []
@@ -82,10 +77,10 @@ class FormattedHelpGroup(click.Group):
                     continue
 
                 # Get command help and process it
-                cmd_help = cmd_obj.get_short_help_str() or ''
+                cmd_help = cmd_obj.get_short_help_str() or ""
 
                 # Option 1: Aliases on the same line
-                if hasattr(cmd_obj, 'aliases') and cmd_obj.aliases:
+                if hasattr(cmd_obj, "aliases") and cmd_obj.aliases:
                     alias_text = f"({', '.join(cmd_obj.aliases)})"
                     cmd_name = f"{cmd} {styler.command_alias(alias_text)}"
                 else:
@@ -119,17 +114,21 @@ class FormattedHelpGroup(click.Group):
                 else:
                     # Add wrapped lines aligned with the first help text
                     help_lines = [first_line]
-                    description_padding = ' ' * description_start
+                    description_padding = " " * description_start
                     help_lines.extend(f"{description_padding}{part}" for part in help_parts[1:])
-                    new_help.append('\n'.join(help_lines))
+                    new_help.append("\n".join(help_lines))
 
         # Add usage hint
         command_path = self.format_command_path(ctx)
-        new_help.extend([
-            '',
-            styler.example_command_header('Examples:'),
-            styler.example_command_divider('-', len('Examples:')),
-            styler.example_command_help(f'  $ {command_path}') + styler.command_name(' COMMAND ') + styler.option_optional_name('--help'),
-        ])
+        new_help.extend(
+            [
+                "",
+                styler.example_command_header("Examples:"),
+                styler.example_command_divider("-", len("Examples:")),
+                styler.example_command_help(f"  $ {command_path}")
+                + styler.command_name(" COMMAND ")
+                + styler.option_optional_name("--help"),
+            ]
+        )
 
-        return '\n'.join(new_help)
+        return "\n".join(new_help)

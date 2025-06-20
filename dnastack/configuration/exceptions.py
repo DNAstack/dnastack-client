@@ -1,10 +1,10 @@
 class ConfigurationError(RuntimeError):
-    """ General Error. """
+    """General Error."""
 
 
 class MissingEndpointError(ConfigurationError):
-    """ Raised when a request endpoint is not registered. """
+    """Raised when a request endpoint is not registered."""
 
 
 class UnknownClientShortTypeError(ConfigurationError):
-    """ Raised when a given short service type is not recognized """
+    """Raised when a given short service type is not recognized"""

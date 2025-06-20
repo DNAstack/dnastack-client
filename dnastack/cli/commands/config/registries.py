@@ -17,42 +17,42 @@ from dnastack.configuration.wrapper import ConfigurationWrapper
 from dnastack.feature_flags import dev_mode
 
 
-@formatted_group('registries', hidden=not dev_mode, aliases=['reg'])
+@formatted_group("registries", hidden=not dev_mode, aliases=["reg"])
 def registry_command_group():
-    """ Manage service registries """
+    """Manage service registries"""
     # The design of the command structure is inspired by "git remote"
 
 
-@formatted_command(
-    group=registry_command_group,
-    name='list',
-    specs=[]
-)
+@formatted_command(group=registry_command_group, name="list", specs=[])
 def list_registries():
-    """ List registered service registries """
-    click.echo(to_json([
-        endpoint.dict(exclude_none=True)
-        for endpoint in ServiceRegistryCommandHandler().get_registry_endpoint_iterator()
-    ]))
+    """List registered service registries"""
+    click.echo(
+        to_json(
+            [
+                endpoint.dict(exclude_none=True)
+                for endpoint in ServiceRegistryCommandHandler().get_registry_endpoint_iterator()
+            ]
+        )
+    )
 
 
 @formatted_command(
     group=registry_command_group,
-    name='add',
+    name="add",
     specs=[
         ArgumentSpec(
-            name='registry_endpoint_id',
+            name="registry_endpoint_id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         ArgumentSpec(
-            name='registry_url',
+            name="registry_url",
             arg_type=ArgumentType.POSITIONAL,
-            help='The URL of the service registry.',
+            help="The URL of the service registry.",
             required=True,
         ),
-    ]
+    ],
 )
 def add(registry_endpoint_id: str, registry_url: str):
     """
@@ -65,40 +65,40 @@ def add(registry_endpoint_id: str, registry_url: str):
     If the registry URL is already registered, then throw an error.
     """
     ServiceRegistryCommandHandler().add_registry_and_import_endpoints(registry_endpoint_id, registry_url)
-    click.secho('Import completed', fg='green')
+    click.secho("Import completed", fg="green")
 
 
 @formatted_command(
     group=registry_command_group,
-    name='remove',
+    name="remove",
     specs=[
         ArgumentSpec(
-            name='registry_endpoint_id',
+            name="registry_endpoint_id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
-    ]
+    ],
 )
 def remove(registry_endpoint_id: str):
     """
     Remove the entry of the service registry from the configuration and remove all endpoints registered with it.
     """
     ServiceRegistryCommandHandler().remove_endpoints_associated_to(registry_endpoint_id)
-    click.secho('Removal completed', fg='green')
+    click.secho("Removal completed", fg="green")
 
 
 @formatted_command(
     group=registry_command_group,
-    name='sync',
+    name="sync",
     specs=[
         ArgumentSpec(
-            name='registry_endpoint_id',
+            name="registry_endpoint_id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
-    ]
+    ],
 )
 def sync(registry_endpoint_id: str):
     """
@@ -108,42 +108,46 @@ def sync(registry_endpoint_id: str):
     with the given service registry.
     """
     ServiceRegistryCommandHandler().synchronize_endpoints(registry_endpoint_id)
-    click.secho('Synchronization completed', fg='green')
+    click.secho("Synchronization completed", fg="green")
 
 
 @formatted_command(
     group=registry_command_group,
-    name='list-endpoints',
+    name="list-endpoints",
     specs=[
         ArgumentSpec(
-            name='registry_endpoint_id',
+            name="registry_endpoint_id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
-    ]
+    ],
 )
 def list_endpoints(registry_endpoint_id: str):
-    """ List all service endpoints imported from given registry """
-    click.echo(to_json([
-        endpoint.dict(exclude_none=True)
-        for endpoint in ServiceRegistryCommandHandler().list_endpoints_associated_to(registry_endpoint_id)
-    ]))
+    """List all service endpoints imported from given registry"""
+    click.echo(
+        to_json(
+            [
+                endpoint.dict(exclude_none=True)
+                for endpoint in ServiceRegistryCommandHandler().list_endpoints_associated_to(registry_endpoint_id)
+            ]
+        )
+    )
 
 
 class ServiceRegistryCommandHandler:
     __emoji_map = {
-        'add': '+',
-        'update': '●',
-        'keep': 'o',
-        'remove': 'x',
+        "add": "+",
+        "update": "●",
+        "keep": "o",
+        "remove": "x",
     }
 
     __output_color_map = {
-        'add': 'green',
-        'update': 'magenta',
-        'keep': 'yellow',
-        'remove': 'red',
+        "add": "green",
+        "update": "magenta",
+        "keep": "yellow",
+        "remove": "red",
     }
 
     def __init__(self):
@@ -151,7 +155,7 @@ class ServiceRegistryCommandHandler:
         self.__config_manager: ConfigurationManager = container.get(ConfigurationManager)
         self.__config = self.__config_manager.load()
         self.__manager = ServiceRegistryManager(context=ConfigurationWrapper(self.__config).current_context)
-        self.__manager.events.on('endpoint-sync', self.__handle_sync_event)
+        self.__manager.events.on("endpoint-sync", self.__handle_sync_event)
 
     def get_endpoint_iterator(self) -> Iterator[ServiceEndpoint]:
         return self.__manager.get_endpoint_iterator()
@@ -175,13 +179,13 @@ class ServiceRegistryCommandHandler:
         return self.__manager.list_endpoints_associated_to(registry_endpoint_id)
 
     def __handle_sync_event(self, event: Event):
-        action: str = event.details['action']
-        endpoint: ServiceEndpoint = event.details['endpoint']
+        action: str = event.details["action"]
+        endpoint: ServiceEndpoint = event.details["endpoint"]
 
         echo_result(
-            'Endpoint',
+            "Endpoint",
             self.__output_color_map[action],
             action,
-            f'{endpoint.id} ({endpoint.type.group}:{endpoint.type.artifact}:{endpoint.type.version}) at {endpoint.url}',
-            self.__emoji_map[action]
+            f"{endpoint.id} ({endpoint.type.group}:{endpoint.type.artifact}:{endpoint.type.version}) at {endpoint.url}",
+            self.__emoji_map[action],
         )

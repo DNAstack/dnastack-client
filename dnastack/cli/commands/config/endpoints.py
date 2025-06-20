@@ -1,12 +1,12 @@
 import re
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 from imagination import container
 from pydantic import BaseModel
 
 from dnastack.cli.core.command import formatted_command
-from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, RESOURCE_OUTPUT_ARG, CONTEXT_ARG
+from dnastack.cli.core.command_spec import CONTEXT_ARG, RESOURCE_OUTPUT_ARG, ArgumentSpec, ArgumentType
 from dnastack.cli.core.group import formatted_group
 from dnastack.cli.helpers.exporter import to_json
 from dnastack.cli.helpers.iterator_printer import show_iterator
@@ -21,125 +21,117 @@ from dnastack.configuration.wrapper import ConfigurationWrapper, UnknownContextE
 from dnastack.context.models import Context
 from dnastack.feature_flags import dev_mode
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
-from dnastack.json_path import JsonPath, BrokenPropertyPathError
+from dnastack.json_path import BrokenPropertyPathError, JsonPath
 
 
-@formatted_group('endpoints', hidden=not dev_mode)
+@formatted_group("endpoints", hidden=not dev_mode)
 def endpoint_command_group():
-    """ Manage service endpoints """
+    """Manage service endpoints"""
 
 
-@formatted_command(
-    group=endpoint_command_group,
-    name='available-properties',
-    specs=[]
-)
+@formatted_command(group=endpoint_command_group, name="available-properties", specs=[])
 def list_available_properties():
-    """ List all available configuration property """
+    """List all available configuration property"""
     config_properties = EndpointCommandHandler().list_available_properties()
 
-    echo_header('General Configuration')
+    echo_header("General Configuration")
 
-    SimpleStream(config_properties) \
-        .filter(lambda p: not p.startswith('authentication.')) \
-        .for_each(__show_config_property)
+    SimpleStream(config_properties).filter(lambda p: not p.startswith("authentication.")).for_each(
+        __show_config_property
+    )
 
-    echo_header('Authentication Configuration')
+    echo_header("Authentication Configuration")
 
     # List the authentication info properties.
     # NOTE: While we still support the PAT flow, we are not advertising that method.
-    SimpleStream(config_properties) \
-        .filter(lambda p: p.startswith('authentication.')) \
-        .filter(lambda p: not p.startswith('authentication.personal_access_')) \
-        .for_each(__show_config_property)
+    SimpleStream(config_properties).filter(lambda p: p.startswith("authentication.")).filter(
+        lambda p: not p.startswith("authentication.personal_access_")
+    ).for_each(__show_config_property)
 
 
 def __show_config_property(config_property: str):
-    click.secho('● ', dim=False, fg='blue', nl=False)
+    click.secho("● ", dim=False, fg="blue", nl=False)
     click.secho(config_property)
 
-    example_config_value = '...'
-    if config_property.endswith('url') or config_property.endswith('endpoint'):
-        example_config_value = 'https://...'
-    if config_property.endswith('version'):
-        example_config_value = '1.23.456'
+    example_config_value = "..."
+    if config_property.endswith("url") or config_property.endswith("endpoint"):
+        example_config_value = "https://..."
+    if config_property.endswith("version"):
+        example_config_value = "1.23.456"
 
-    click.secho('  Examples:', dim=True, bold=True)
-    click.secho(f'   ● dnastack endpoints get <ID> {config_property}', dim=True)
+    click.secho("  Examples:", dim=True, bold=True)
+    click.secho(f"   ● dnastack endpoints get <ID> {config_property}", dim=True)
     click.secho(f'   ● dnastack endpoints set <ID> {config_property} "{example_config_value}"', dim=True)
-    click.secho(f'   ● dnastack endpoints unset <ID> {config_property}', dim=True)
+    click.secho(f"   ● dnastack endpoints unset <ID> {config_property}", dim=True)
     print()
 
 
-@formatted_command(
-    group=endpoint_command_group,
-    name='schema',
-    specs=[]
-)
+@formatted_command(group=endpoint_command_group, name="schema", specs=[])
 def show_schema():
     """
     Show the schema of the endpoint configuration
 
     This is mainly for development.
     """
-    echo_header('Service Endpoint')
+    echo_header("Service Endpoint")
     click.echo(to_json(ServiceEndpoint.schema()))
 
-    echo_header('OAuth2 Authentication Information')
+    echo_header("OAuth2 Authentication Information")
     click.echo(to_json(OAuth2Authentication.schema()))
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='list',
+    name="list",
     specs=[
         ArgumentSpec(
-            name='short_or_full_type',
-            arg_names=['-t', '--type'],
-            help='Short of full service type, e.g., "data_connect" or "org.ga4gh:data-connect:1.0"'
+            name="short_or_full_type",
+            arg_names=["-t", "--type"],
+            help='Short of full service type, e.g., "data_connect" or "org.ga4gh:data-connect:1.0"',
         ),
         RESOURCE_OUTPUT_ARG,
         CONTEXT_ARG,
-    ]
+    ],
 )
-def list_endpoints(context: Optional[str],
-                   short_or_full_type: Optional[str] = None,
-                   output: Optional[str] = None):
-    """ List all registered service endpoint """
+def list_endpoints(context: Optional[str], short_or_full_type: Optional[str] = None, output: Optional[str] = None):
+    """List all registered service endpoint"""
     handler = EndpointCommandHandler(context_name=context)
     full_type = handler.parse_given_service_type(short_or_full_type)[1] if short_or_full_type else None
-    show_iterator(output_format=output, iterator=[
-        endpoint.dict(exclude_none=True)
-        for endpoint in handler.list_endpoints()
-        if not full_type or endpoint.type == full_type
-    ])
+    show_iterator(
+        output_format=output,
+        iterator=[
+            endpoint.dict(exclude_none=True)
+            for endpoint in handler.list_endpoints()
+            if not full_type or endpoint.type == full_type
+        ],
+    )
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='add',
+    name="add",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         ArgumentSpec(
-            name='service_type',
-            arg_names=['-t', '--type'],
-            help=(f'The short type ({", ".join([t.get_adapter_type() for t in ALL_SERVICE_CLIENT_CLASSES])}) '
-                  'or the full type, e.g., org.ga4gh:wes:1.0, of the service endpoint'),
+            name="service_type",
+            arg_names=["-t", "--type"],
+            help=(
+                f"The short type ({', '.join([t.get_adapter_type() for t in ALL_SERVICE_CLIENT_CLASSES])}) "
+                "or the full type, e.g., org.ga4gh:wes:1.0, of the service endpoint"
+            ),
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def add_endpoint(context: Optional[str],
-                 id: str,
-                 service_type: str):
+def add_endpoint(context: Optional[str], id: str, service_type: str):
     """
     Add a new endpoint
-    
+
     The argument SERVICE_TYPE is either:
 
      - the short type, e.g., collections, data_connect, drs, and registry,
@@ -153,129 +145,121 @@ def add_endpoint(context: Optional[str],
 
 @formatted_command(
     group=endpoint_command_group,
-    name='remove',
+    name="remove",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def remove_endpoint(context: Optional[str],
-                    id: str):
-    """ Remove an endpoint """
+def remove_endpoint(context: Optional[str], id: str):
+    """Remove an endpoint"""
     EndpointCommandHandler(context_name=context).remove_endpoint(id)
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='set',
+    name="set",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         ArgumentSpec(
-            name='config_property',
+            name="config_property",
             arg_type=ArgumentType.POSITIONAL,
-            help='The config property to set.',
+            help="The config property to set.",
             required=True,
         ),
         ArgumentSpec(
-            name='config_value',
+            name="config_value",
             arg_type=ArgumentType.POSITIONAL,
-            help='The value of the property.',
+            help="The value of the property.",
             required=True,
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def set_endpoint_property(context: Optional[str],
-                          id: str,
-                          config_property: str,
-                          config_value: str):
-    """ Set the endpoint property """
+def set_endpoint_property(context: Optional[str], id: str, config_property: str, config_value: str):
+    """Set the endpoint property"""
     EndpointCommandHandler(context_name=context).set_endpoint_property(id, config_property, config_value)
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='unset',
+    name="unset",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         ArgumentSpec(
-            name='config_property',
+            name="config_property",
             arg_type=ArgumentType.POSITIONAL,
-            help='The config property to unset.',
+            help="The config property to unset.",
             required=True,
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def unset_endpoint_property(context: Optional[str],
-                            id: str,
-                            config_property: str):
-    """ Unset the endpoint property """
+def unset_endpoint_property(context: Optional[str], id: str, config_property: str):
+    """Unset the endpoint property"""
     EndpointCommandHandler(context_name=context).set_endpoint_property(id, config_property, None)
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='get-defaults',
+    name="get-defaults",
     specs=[
         CONTEXT_ARG,
-    ]
+    ],
 )
 def get_defaults(context: Optional[str]):
-    """ Get the command-group-to-default-endpoint-id map """
+    """Get the command-group-to-default-endpoint-id map"""
     click.echo(to_json(EndpointCommandHandler(context_name=context).get_defaults()))
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='set-default',
+    name="set-default",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def set_default(context: Optional[str],
-                id: str):
-    """ Set the given endpoint as the default for its type """
+def set_default(context: Optional[str], id: str):
+    """Set the given endpoint as the default for its type"""
     EndpointCommandHandler(context_name=context).set_default(id)
 
 
 @formatted_command(
     group=endpoint_command_group,
-    name='unset-default',
+    name="unset-default",
     specs=[
         ArgumentSpec(
-            name='id',
+            name="id",
             arg_type=ArgumentType.POSITIONAL,
-            help='The id of the endpoint.',
+            help="The id of the endpoint.",
             required=True,
         ),
         CONTEXT_ARG,
-    ]
+    ],
 )
-def unset_default(context: Optional[str],
-                  id: str):
-    """ Unset the given endpoint as the default for its type """
+def unset_default(context: Optional[str], id: str):
+    """Unset the given endpoint as the default for its type"""
     EndpointCommandHandler(context_name=context).unset_default(id)
 
 
@@ -326,22 +310,24 @@ class EndpointCommandHandler:
         self.__config_manager.save(self.__wrapper.original)
 
     def list_available_properties(self) -> List[str]:
-        """ List all available configuration property """
-        return SimpleStream(self.__list_all_json_path(self.__schema)) \
-            .filter(lambda path: path not in ['id', 'adapter_type', 'mode', 'model_version']) \
+        """List all available configuration property"""
+        return (
+            SimpleStream(self.__list_all_json_path(self.__schema))
+            .filter(lambda path: path not in ["id", "adapter_type", "mode", "model_version"])
             .to_list()
+        )
 
     def list_endpoints(self):
-        """ List all registered service endpoint """
+        """List all registered service endpoint"""
         return self.__wrapper.endpoints
 
     def parse_given_service_type(self, short_or_full_type: str) -> Tuple[Optional[str], Optional[ServiceType]]:
         short_type: Optional[str] = None
         full_type: Optional[ServiceType] = None
 
-        if re.search(r'^[^:]+:[^:]+:[^:]+$', short_or_full_type):
+        if re.search(r"^[^:]+:[^:]+:[^:]+$", short_or_full_type):
             # This is the string representation of the full type.
-            group, artifact, version = short_or_full_type.split(':')
+            group, artifact, version = short_or_full_type.split(":")
             full_type = ServiceType(group=group, artifact=artifact, version=version)
         else:
             # This is the short type.
@@ -353,13 +339,15 @@ class EndpointCommandHandler:
                     break
 
             if not full_type:
-                raise RuntimeError(f'The given type "{short_or_full_type}" is not recognized. Perhaps, you can try with'
-                                   ' the full service type (<group>:<artifact>:<version>), e.g., "org.ga4gh:wes:1.0"')
+                raise RuntimeError(
+                    f'The given type "{short_or_full_type}" is not recognized. Perhaps, you can try with'
+                    ' the full service type (<group>:<artifact>:<version>), e.g., "org.ga4gh:wes:1.0"'
+                )
 
         return (short_type, full_type)
 
     def add_endpoint(self, id: str, short_or_full_type: str):
-        """ Add a new endpoint """
+        """Add a new endpoint"""
         short_type, full_type = self.parse_given_service_type(short_or_full_type)
 
         wrapper = self.__wrapper
@@ -373,10 +361,10 @@ class EndpointCommandHandler:
         # Check the existing endpoint.
         first_existing_endpoint = wrapper.get_endpoint_by_id(id)
         if first_existing_endpoint:
-            raise EndpointAlreadyExists(f'{id} ({first_existing_endpoint.type})')
+            raise EndpointAlreadyExists(f"{id} ({first_existing_endpoint.type})")
 
         # Add a new endpoint with the first full service type.
-        context.endpoints.append(ServiceEndpoint(id=id, type=full_type, url=''))
+        context.endpoints.append(ServiceEndpoint(id=id, type=full_type, url=""))
 
         # Set the default if the default is not defined.
         if short_type and short_type not in context.defaults:
@@ -386,7 +374,7 @@ class EndpointCommandHandler:
         self.__config_manager.save(self.__config)
 
     def set_endpoint_property(self, id: str, config_property: str, config_value: Optional[str]):
-        """ Set the endpoint property """
+        """Set the endpoint property"""
         wrapper = self.__wrapper
 
         # Get the target context.
@@ -406,10 +394,10 @@ class EndpointCommandHandler:
         try:
             JsonPath.set(endpoint, config_property, config_value)
         except BrokenPropertyPathError as __:
-            self.__logger.debug(f'set_endpoint: BROKEN PATH: endpoint => {endpoint}')
-            self.__logger.debug(f'set_endpoint: BROKEN PATH: config_property => {config_property}')
+            self.__logger.debug(f"set_endpoint: BROKEN PATH: endpoint => {endpoint}")
+            self.__logger.debug(f"set_endpoint: BROKEN PATH: config_property => {config_property}")
             # Attempt to repair the broken config_property.
-            parent_path = '.'.join(config_property.split('.')[:-1])
+            parent_path = ".".join(config_property.split(".")[:-1])
             self.__repair_path(endpoint, parent_path)
 
             # Then, try again.
@@ -419,7 +407,7 @@ class EndpointCommandHandler:
         self.__config_manager.save(self.__config)
 
     def remove_endpoint(self, id: str):
-        """ Remove an endpoint """
+        """Remove an endpoint"""
         # Get the target context.
         target_context_name = self.__config.current_context
         context = self.__config.contexts.get(target_context_name)
@@ -448,155 +436,136 @@ class EndpointCommandHandler:
     def __repair_path(self, obj, path: str, overridden_path_defaults: Dict[str, Any] = None):
         overridden_path_defaults = overridden_path_defaults or dict()
 
-        selectors = path.split(r'.')
+        selectors = path.split(r".")
         visited = []
 
-        self.__logger.debug(f'__repair_path: ENTER: type(obj) => {type(obj).__name__}')
-        self.__logger.debug(f'__repair_path: ENTER: obj => {obj}')
-        self.__logger.debug(f'__repair_path: ENTER: path => {path}')
+        self.__logger.debug(f"__repair_path: ENTER: type(obj) => {type(obj).__name__}")
+        self.__logger.debug(f"__repair_path: ENTER: obj => {obj}")
+        self.__logger.debug(f"__repair_path: ENTER: path => {path}")
 
         for selector in selectors:
             visited.append(selector)
-            route = '.'.join(visited)
+            route = ".".join(visited)
 
-            self.__logger.debug(f'__repair_path: LOOP: route = {route}')
+            self.__logger.debug(f"__repair_path: LOOP: route = {route}")
 
             try:
                 JsonPath.get(obj, route, raise_error_on_null=True)
                 break
             except BrokenPropertyPathError as e:
-                visited_nodes = e.visited_path.split(r'.')
+                visited_nodes = e.visited_path.split(r".")
                 last_visited_node = visited_nodes[-1]
 
                 node = e.parent or obj
 
-                self.__logger.debug(f'__repair_path: LOOP: ***** Broken Path Detected *****')
-                self.__logger.debug(f'__repair_path: LOOP: type(e.parent) => {type(e.parent).__name__}')
-                self.__logger.debug(f'__repair_path: LOOP: e.parent => {e.parent}')
-                self.__logger.debug(f'__repair_path: LOOP: last_visited_node => {last_visited_node}')
+                self.__logger.debug("__repair_path: LOOP: ***** Broken Path Detected *****")
+                self.__logger.debug(f"__repair_path: LOOP: type(e.parent) => {type(e.parent).__name__}")
+                self.__logger.debug(f"__repair_path: LOOP: e.parent => {e.parent}")
+                self.__logger.debug(f"__repair_path: LOOP: last_visited_node => {last_visited_node}")
 
                 annotation = node.__annotations__[last_visited_node]
 
                 if hasattr(node, last_visited_node) and getattr(node, last_visited_node):
-                    self.__logger.debug(f'__repair_path: LOOP: No repair')
-                elif str(annotation).startswith('typing.Union[') or str(annotation).startswith("typing.Optional["):
+                    self.__logger.debug("__repair_path: LOOP: No repair")
+                elif str(annotation).startswith("typing.Union[") or str(annotation).startswith("typing.Optional["):
                     # Dealing with Union/Optional
-                    self.__logger.debug(f'__repair_path: LOOP: Handling union and optional')
-                    self.__logger.debug(f'__repair_path: LOOP: annotation.__args__ => {annotation.__args__}')
+                    self.__logger.debug("__repair_path: LOOP: Handling union and optional")
+                    self.__logger.debug(f"__repair_path: LOOP: annotation.__args__ => {annotation.__args__}")
                     self.__initialize_default_value(node, last_visited_node, annotation.__args__[0])
                 else:
                     self.__initialize_default_value(node, last_visited_node, annotation)
 
-                self.__logger.debug(f'__repair_path: LOOP: node = {getattr(node, last_visited_node)}')
+                self.__logger.debug(f"__repair_path: LOOP: node = {getattr(node, last_visited_node)}")
 
         if path in overridden_path_defaults:
             JsonPath.set(obj, path, overridden_path_defaults.get(path))
 
-        self.__logger.debug(f'__repair_path: EXIT: obj => {obj}')
+        self.__logger.debug(f"__repair_path: EXIT: obj => {obj}")
 
     def __initialize_default_value(self, node, property_name: str, annotation):
         if hasattr(node, property_name) and getattr(node, property_name) is not None:
             return
-        elif str(annotation).startswith('typing.Dict['):
+        elif str(annotation).startswith("typing.Dict["):
             setattr(node, property_name, dict())
-        elif str(annotation).startswith('typing.List['):
+        elif str(annotation).startswith("typing.List["):
             setattr(node, property_name, list())
         elif issubclass(annotation, BaseModel):
-            required_properties = annotation.schema().get('required') or []
-            placeholders = {
-                p: self.__get_place_holder(annotation.__annotations__[p])
-                for p in required_properties
-            }
+            required_properties = annotation.schema().get("required") or []
+            placeholders = {p: self.__get_place_holder(annotation.__annotations__[p]) for p in required_properties}
             setattr(node, property_name, annotation(**placeholders))
         else:
             setattr(node, property_name, annotation())
 
     def __get_place_holder(self, cls):
-        if cls == str:
-            return ''
-        elif cls == int or cls == float:
+        if cls is str:
+            return ""
+        elif cls is int or cls is float:
             return 0
-        elif cls == bool:
+        elif cls is bool:
             return False
         else:
             raise NotImplementedError(cls)
 
     def __list_all_json_path(self, obj: Dict[str, Any], prefix_path: List[str] = None) -> List[str]:
-        properties = obj.get('properties') or dict()
+        properties = obj.get("properties") or dict()
         paths = []
 
         prefix_path = prefix_path or list()
 
-        if len(prefix_path) == 1 and prefix_path[0] == 'authentication':
+        if len(prefix_path) == 1 and prefix_path[0] == "authentication":
             return [
-                f'{prefix_path[0]}.{oauth2_path}'
+                f"{prefix_path[0]}.{oauth2_path}"
                 for oauth2_path in self.__list_all_json_path(OAuth2Authentication.schema())
             ]
         else:
-            if obj['type'] == 'object':
+            if obj["type"] == "object":
                 for property_name, obj_property in properties.items():
-                    if 'anyOf' in obj_property:
-                        for property_to_resolve in obj_property['anyOf']:
+                    if "anyOf" in obj_property:
+                        for property_to_resolve in obj_property["anyOf"]:
                             paths.extend(
                                 self.__list_all_json_path(
-                                    self.__fetch_json_reference(
-                                        property_to_resolve['$ref'],
-                                        self.__schema
-                                    ),
-                                    prefix_path + [property_name]
+                                    self.__fetch_json_reference(property_to_resolve["$ref"], self.__schema),
+                                    prefix_path + [property_name],
                                 )
                             )
-                    elif obj_property['type'] == 'object':
+                    elif obj_property["type"] == "object":
+                        paths.extend(self.__list_all_json_path(obj_property, prefix_path + [property_name]))
+                    elif obj_property["type"] == "array":
+                        paths.extend(self.__list_all_json_path(obj_property["items"], prefix_path + [property_name]))
                         paths.extend(
-                            self.__list_all_json_path(
-                                obj_property,
-                                prefix_path + [property_name]
-                            )
-                        )
-                    elif obj_property['type'] == 'array':
-                        paths.extend(
-                            self.__list_all_json_path(
-                                obj_property['items'],
-                                prefix_path + [property_name]
-                            )
-                        )
-                        paths.extend(
-                            self.__list_all_json_path(
-                                obj_property['items'],
-                                prefix_path + [property_name + '[i]']
-                            )
+                            self.__list_all_json_path(obj_property["items"], prefix_path + [property_name + "[i]"])
                         )
                     else:
-                        prefix_path_string = '.'.join(prefix_path)
-                        paths.append(f'{prefix_path_string}{"." if prefix_path_string else ""}{property_name}')
+                        prefix_path_string = ".".join(prefix_path)
+                        paths.append(f"{prefix_path_string}{'.' if prefix_path_string else ''}{property_name}")
 
         return sorted(paths)
 
     def __resolve_json_reference(self, obj: Dict[str, Any], root: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         root = root or obj
-        properties = obj.get('properties') or dict()
+        properties = obj.get("properties") or dict()
         for property_name, obj_property in properties.items():
-            if obj_property.get('$ref'):
-                properties[property_name] = self.__fetch_json_reference(obj_property.get('$ref'), root)
+            if obj_property.get("$ref"):
+                properties[property_name] = self.__fetch_json_reference(obj_property.get("$ref"), root)
             # Deal with array
-            if obj_property.get('items') and obj_property.get('items').get('$ref'):
-                obj_property['items'] = self.__fetch_json_reference(obj_property.get('items').get('$ref'), root)
+            if obj_property.get("items") and obj_property.get("items").get("$ref"):
+                obj_property["items"] = self.__fetch_json_reference(obj_property.get("items").get("$ref"), root)
 
         return obj
 
     def __fetch_json_reference(self, reference_url: str, root: Dict[str, Any]):
-        if reference_url.startswith('#/'):
-            ref_path = reference_url[2:].split(r'/')
+        if reference_url.startswith("#/"):
+            ref_path = reference_url[2:].split(r"/")
             local_reference = root
             try:
                 while ref_path:
                     property_name = ref_path.pop(0)
                     local_reference = local_reference[property_name]
-            except KeyError as e:
-                raise RuntimeError(f'The reference {reference_url} for the configuration is undefined.')
+            except KeyError:
+                raise RuntimeError(f"The reference {reference_url} for the configuration is undefined.")
             return self.__resolve_json_reference(local_reference, root)
 
-        raise NotImplementedError('Resolving an external reference is not supported.')
+        raise NotImplementedError("Resolving an external reference is not supported.")
 
     def __get_short_type(self, endpoint: ServiceEndpoint) -> str:
         def filter_by_type(cls: SERVICE_CLIENT_CLASS) -> bool:
@@ -605,13 +574,17 @@ class EndpointCommandHandler:
             elif endpoint.dnastack_schema_version == 2.0:
                 return endpoint.type in cls.get_supported_service_types()
             else:
-                raise RuntimeError(f'The endpoint {endpoint.id} with model version {endpoint.dnastack_schema_version} is not '
-                                   f'supported. Please check your configuration or contact technical support.')
+                raise RuntimeError(
+                    f"The endpoint {endpoint.id} with model version {endpoint.dnastack_schema_version} is not "
+                    f"supported. Please check your configuration or contact technical support."
+                )
 
-        return SimpleStream(ALL_SERVICE_CLIENT_CLASSES) \
-            .filter(filter_by_type) \
-            .map(lambda c: c.get_adapter_type()) \
+        return (
+            SimpleStream(ALL_SERVICE_CLIENT_CLASSES)
+            .filter(filter_by_type)
+            .map(lambda c: c.get_adapter_type())
             .find_first()
+        )
 
 
 class EndpointNotFound(RuntimeError):

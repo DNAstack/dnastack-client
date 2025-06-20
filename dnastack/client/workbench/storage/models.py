@@ -1,10 +1,9 @@
 from enum import Enum
-from typing import Optional, List, Any, Literal, Union
+from typing import Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel
 
-from dnastack.client.workbench.models import BaseListOptions
-from dnastack.client.workbench.models import PaginatedResource
+from dnastack.client.workbench.models import BaseListOptions, PaginatedResource
 
 
 class CaseInsensitiveEnum(Enum):
@@ -27,14 +26,14 @@ class PlatformType(str, CaseInsensitiveEnum):
 
 
 class AwsStorageAccountCredentials(BaseModel):
-    type: Literal['AWS_ACCESS_KEY'] = 'AWS_ACCESS_KEY'
+    type: Literal["AWS_ACCESS_KEY"] = "AWS_ACCESS_KEY"
     access_key_id: Optional[str]
     secret_access_key: Optional[str]
     region: Optional[str]
 
 
 class GcpStorageAccountCredentials(BaseModel):
-    type: Literal['GCP_SERVICE_ACCOUNT'] = 'GCP_SERVICE_ACCOUNT'
+    type: Literal["GCP_SERVICE_ACCOUNT"] = "GCP_SERVICE_ACCOUNT"
     service_account_json: Optional[str]
     region: Optional[str]
     project_id: Optional[str]
@@ -47,7 +46,7 @@ class AzureCredentialsType(str, CaseInsensitiveEnum):
 
 
 class AzureStorageAccountCredentials(BaseModel):
-    type: Literal['AZURE_CREDENTIALS'] = 'AZURE_CREDENTIALS'
+    type: Literal["AZURE_CREDENTIALS"] = "AZURE_CREDENTIALS"
     sas_url: Optional[str]
     access_key: Optional[str]
     tenant_id: Optional[str]
@@ -66,7 +65,9 @@ class StorageAccount(BaseModel):
     created_at: Optional[str]
     last_updated_at: Optional[str]
     bucket: Optional[str]
-    credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]]
+    credentials: Optional[
+        Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]
+    ]
 
 
 class StorageListOptions(BaseListOptions):
@@ -79,4 +80,3 @@ class StorageListResponse(PaginatedResource):
 
     def items(self) -> List[Any]:
         return self.accounts
-

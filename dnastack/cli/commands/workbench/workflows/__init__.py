@@ -3,9 +3,10 @@ from dnastack.cli.commands.workbench.workflows.versions import workflows_version
 from dnastack.cli.core.group import formatted_group
 
 
-@formatted_group('workflows')
+@formatted_group("workflows")
 def workflows_command_group():
-    """ Create and interact with workflows"""
+    """Create and interact with workflows"""
+
 
 # Initialize all commands
 init_workflows_commands(workflows_command_group)

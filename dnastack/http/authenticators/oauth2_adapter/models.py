@@ -7,6 +7,7 @@ from dnastack.common.model_mixin import JsonModelMixin as HashableModel
 
 class OAuth2Authentication(BaseModel, HashableModel):
     """OAuth2 Authentication Information"""
+
     authorization_endpoint: Optional[str]
     client_id: Optional[str]
     client_secret: Optional[str]
@@ -19,4 +20,4 @@ class OAuth2Authentication(BaseModel, HashableModel):
     resource_url: str
     scope: Optional[str]
     token_endpoint: Optional[str]
-    type: str = 'oauth2'
+    type: str = "oauth2"

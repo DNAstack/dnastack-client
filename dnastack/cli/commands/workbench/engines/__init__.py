@@ -4,9 +4,10 @@ from dnastack.cli.commands.workbench.engines.parameters import engine_parameters
 from dnastack.cli.core.group import formatted_group
 
 
-@formatted_group('engines')
+@formatted_group("engines")
 def engines_command_group():
-    """ Interact with engines """
+    """Interact with engines"""
+
 
 # Initialize all commands
 init_engines_commands(engines_command_group)

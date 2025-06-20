@@ -12,9 +12,11 @@ __DEBUG_LOG_ACTIVATION_NOTIFIED = False
 
 
 def get_log_level(level_name: str) -> int:
-    return getattr(logging, level_name.upper()) \
-        if level_name and level_name.upper() in ('DEBUG', 'INFO', 'WARNING', 'ERROR') \
+    return (
+        getattr(logging, level_name.upper())
+        if level_name and level_name.upper() in ("DEBUG", "INFO", "WARNING", "ERROR")
         else logging.WARNING
+    )
 
 
 def reconfigure_logger_on_debug_mode_change(in_debug_mode):
@@ -24,9 +26,11 @@ def reconfigure_logger_on_debug_mode_change(in_debug_mode):
 
     if in_debug_mode:
         if not __DEBUG_LOG_ACTIVATION_NOTIFIED:
-            logging.warning('🚨 WARNING: The DEFAULT log level is set to DEBUG. At this level, it may display highly '
-                            'sensitive information, such as an access token, a refresh token, a JWT. You can set the '
-                            'environment variable "DNASTACK_LOG_LEVEL" to "INFO", "WARNING", or "ERROR".')
+            logging.warning(
+                "🚨 WARNING: The DEFAULT log level is set to DEBUG. At this level, it may display highly "
+                "sensitive information, such as an access token, a refresh token, a JWT. You can set the "
+                'environment variable "DNASTACK_LOG_LEVEL" to "INFO", "WARNING", or "ERROR".'
+            )
 
             __DEBUG_LOG_ACTIVATION_NOTIFIED = True
 
@@ -44,13 +48,13 @@ def reconfigure_logger_on_debug_mode_change(in_debug_mode):
     requests_log.propagate = in_debug_mode
 
 
-logging_format = '[ %(asctime)s | %(levelname)s ] %(name)s: %(message)s'
+logging_format = "[ %(asctime)s | %(levelname)s ] %(name)s: %(message)s"
 logging.basicConfig(format=logging_format)
 
 overriding_logging_level_name = env(
-    'DNASTACK_LOG_LEVEL',
-    description='Default CLI/library log level. In the debug mode, the log level will be overridden to DEBUG',
-    required=False
+    "DNASTACK_LOG_LEVEL",
+    description="Default CLI/library log level. In the debug mode, the log level will be overridden to DEBUG",
+    required=False,
 )
 default_logging_level_in_non_debugging_mode = get_log_level(overriding_logging_level_name)
 default_logging_level = default_logging_level_in_non_debugging_mode
@@ -69,7 +73,7 @@ class TraceableLogger(logging.Logger):
 
         # Override the name of the logger.
         if self.trace_id and self.span_id:
-            self.name = f'{self.actual_name},{self.trace_id},{self.span_id}'
+            self.name = f"{self.actual_name},{self.trace_id},{self.span_id}"
 
     def fork(self, level: Optional[int] = None, trace_id: Optional[str] = None, span_id: Optional[str] = None):
         return self.make(self.actual_name, level or self.level, trace_id, span_id)
@@ -108,21 +112,20 @@ def get_logger(name: str, level: Optional[int] = None) -> TraceableLogger:
     return TraceableLogger.make(name, level)
 
 
-def get_logger_for(ref: object,
-                   level: Optional[int] = None) -> TraceableLogger:
-    """ Shortcut for creating a logger of a class/object
+def get_logger_for(ref: object, level: Optional[int] = None) -> TraceableLogger:
+    """Shortcut for creating a logger of a class/object
 
-        Set use_fqcn to True if you want the name of the logger to be the fully qualified class name.
-        Otherwise, it will use just the class name by default.
+    Set use_fqcn to True if you want the name of the logger to be the fully qualified class name.
+    Otherwise, it will use just the class name by default.
 
-        Set metadata if you need to inject more information to the logger name.
+    Set metadata if you need to inject more information to the logger name.
     """
-    logger_name = f'{type(ref).__module__}.{type(ref).__name__}'
+    logger_name = f"{type(ref).__module__}.{type(ref).__name__}"
 
     return TraceableLogger.make(logger_name, level)
 
 
 def alert_for_deprecation(message: str):
-    l = get_logger('DEPRECATED')
-    l.warning(message)
+    logger = get_logger("DEPRECATED")
+    logger.warning(message)
     print_stack()

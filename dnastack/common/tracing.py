@@ -1,7 +1,7 @@
 import random
 import time
 from abc import ABC
-from typing import Dict, Optional, List, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 from dnastack.common.logger import TraceableLogger
 from dnastack.feature_flags import currently_in_debug_mode
@@ -37,18 +37,17 @@ def _generate_random_128bit_string() -> str:
 
 
 class _SpanInterface(ABC):
-    """ Interface for Distributed Tracing Span """
+    """Interface for Distributed Tracing Span"""
+
     def __init__(self):
         self._active: bool = True
         self._started_at = time.time()
         self._finished_at: Optional[float] = None
 
-        local_logger_name = f'Span(origin={self.origin})' if self.origin else 'Span'
+        local_logger_name = f"Span(origin={self.origin})" if self.origin else "Span"
 
-        self._logger = TraceableLogger.make(local_logger_name,
-                                            trace_id=self.trace_id,
-                                            span_id=self.span_id)
-        self._logger.debug('Initialized')
+        self._logger = TraceableLogger.make(local_logger_name, trace_id=self.trace_id, span_id=self.span_id)
+        self._logger.debug("Initialized")
 
     @property
     def active(self) -> bool:
@@ -75,8 +74,8 @@ class _SpanInterface(ABC):
         raise NotImplementedError()
 
     def __enter__(self):
-        assert self._active is not False, 'This span has already been deactivated.'
-        self._logger.debug('Start')
+        assert self._active is not False, "This span has already been deactivated."
+        self._logger.debug("Start")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -86,10 +85,10 @@ class _SpanInterface(ABC):
         return {
             k: v
             for k, v in {
-                'X-B3-TraceId': self.trace_id,
-                'X-B3-ParentSpanId': self.parent.span_id if self.parent else None,
-                'X-B3-SpanId': self.span_id,
-                'X-B3-Sampled': '0',
+                "X-B3-TraceId": self.trace_id,
+                "X-B3-ParentSpanId": self.parent.span_id if self.parent else None,
+                "X-B3-SpanId": self.span_id,
+                "X-B3-Sampled": "0",
             }.items()
             if v is not None
         }
@@ -101,65 +100,62 @@ class _SpanInterface(ABC):
         self._active = False
         self._finished_at = time.time()
 
-        self._logger.debug('End')
+        self._logger.debug("End")
 
         if currently_in_debug_mode() and not self.parent:
             self.print_tree(use_logger=True)
 
-    def print_tree(self,
-                   print_root: bool = True,
-                   depth: int = 0,
-                   indent: int = 2,
-                   use_logger: bool = False):
+    def print_tree(self, print_root: bool = True, depth: int = 0, indent: int = 2, use_logger: bool = False):
         raise NotImplementedError()
 
     def __str__(self):
         attrs = [
-            f'{k}={v}'
+            f"{k}={v}"
             for k, v in [
-                ('trace_id', self.trace_id),
-                ('span_id', self.span_id),
-                ('parent_span_id', self.parent.span_id if self.parent else None),
-                ('origin', self.origin),
-                ('metadata', self.metadata),
-                ('duration_in_seconds', self._finished_at - self._started_at if self._finished_at else 'N/A')
+                ("trace_id", self.trace_id),
+                ("span_id", self.span_id),
+                ("parent_span_id", self.parent.span_id if self.parent else None),
+                ("origin", self.origin),
+                ("metadata", self.metadata),
+                ("duration_in_seconds", self._finished_at - self._started_at if self._finished_at else "N/A"),
             ]
             if v
         ]
-        return f'Span({", ".join(attrs)})'
+        return f"Span({', '.join(attrs)})"
 
     def __repr__(self):
         return self.__str__()
 
 
 class Span(_SpanInterface):
-    """ Distributed Tracing Span """
-    def __init__(self,
-                 trace_id: Optional[str] = None,
-                 span_id: Optional[str] = None,
-                 parent: Optional[_SpanInterface] = None,
-                 origin: Any = None,
-                 metadata: Optional[Dict[str, Any]] = None):
+    """Distributed Tracing Span"""
+
+    def __init__(
+        self,
+        trace_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+        parent: Optional[_SpanInterface] = None,
+        origin: Any = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
         self.__parent = parent
         self.__trace_id = (
-                              parent.trace_id
-                              if self.__parent is not None
-                              else trace_id
-                          ) or _generate_random_128bit_string()
+            parent.trace_id if self.__parent is not None else trace_id
+        ) or _generate_random_128bit_string()
         self.__span_id = span_id or _generate_random_64bit_string()
         self.__children: List[Span] = []
         self.__metadata = metadata
 
         # noinspection PyUnresolvedReferences
         self._origin = (
-            self.__parent.origin
-            if self.__parent
-            else (
-                origin
-                if isinstance(origin, str)
-                else f'{type(origin).__module__}.{type(origin).__name__}'
+            (
+                self.__parent.origin
+                if self.__parent
+                else (origin if isinstance(origin, str) else f"{type(origin).__module__}.{type(origin).__name__}")
             )
-        ) if origin else None
+            if origin
+            else None
+        )
 
         super().__init__()
 
@@ -188,22 +184,23 @@ class Span(_SpanInterface):
         self.__children.append(child_span)
         return child_span
 
-    def print_tree(self,
-                   print_root: bool = True,
-                   depth: int = 0,
-                   indent: int = 2,
-                   external_printer: Optional[Callable[[str], None]] = None,
-                   use_logger: bool = False):
+    def print_tree(
+        self,
+        print_root: bool = True,
+        depth: int = 0,
+        indent: int = 2,
+        external_printer: Optional[Callable[[str], None]] = None,
+        use_logger: bool = False,
+    ):
         printer = external_printer or (self._logger.debug if use_logger else print)
 
         if print_root:
-            printer(f'* {self}')
+            printer(f"* {self}")
 
         next_depth = depth + 1
 
         for child_span in self.__children:
-            printer((' ' * (next_depth * indent)) + f'* {child_span}')
-            child_span.print_tree(print_root=False,
-                                  depth=next_depth,
-                                  external_printer=external_printer,
-                                  use_logger=use_logger)
+            printer((" " * (next_depth * indent)) + f"* {child_span}")
+            child_span.print_tree(
+                print_root=False, depth=next_depth, external_printer=external_printer, use_logger=use_logger
+            )
