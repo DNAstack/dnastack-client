@@ -9,6 +9,11 @@ This is the DNAstack client library and CLI, a Python package that provides both
 ## Commit Guidelines
 - Each commit must begin with the Clickup task ID surrounded by square brackets. Example: [CU-86b53h2wv].
 - Branch names must includes the Clickup task ID.  E.g. upgrade_Datadog_Java_agent_version_to_v1490-CU-86b53h2wv
+- **IMPORTANT**: Before committing any code changes, you MUST run:
+  - `make lint` - Ensure all code passes linting checks
+  - `make test-unit` - Ensure all unit tests pass
+  - If linting fails, run `make format` or `make lint-fix` to auto-fix issues
+- NEVER commit code that fails linting or breaks unit tests
 
 ## Development Commands
 
@@ -19,7 +24,11 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - Alternatively, you can use `python -m dnastack cs list` to list all collections
 
 ### Testing
-- `make test-all` - Run all E2E tests using `.env` file for configuration
+- `make test-unit` - Run unit tests (MUST pass before committing)
+- `make test-unit-cov` - Run unit tests with coverage report
+- `make test-unit-watch` - Run unit tests in watch mode (auto-rerun on changes)
+- `make test-e2e` - Run end-to-end tests
+- `make test-all` - Run both unit and E2E tests
 - `make docker-test-all` - Run tests across multiple Python versions in Docker
 - `make docker-test-all-baseline` - Test with Python 3.8 (minimum supported version)
 - `make docker-test-all-stable` - Test with Python 3.11 (current stable)
@@ -28,12 +37,15 @@ This is the DNAstack client library and CLI, a Python package that provides both
 
 ### Linting
 - `make lint` - Run ruff linter to check code style and errors (zero-tolerance policy - all violations must be fixed)
-- `make lint-fix` - Auto-fix linting issues and format code with ruff
+- `make format` or `make lint-fix` - Auto-fix linting issues and format code with ruff
   - Runs `ruff check --fix .` to auto-fix violations where possible
   - Runs `ruff format .` to format code consistently
 - **Configuration**: Minimal setup in `pyproject.toml` with Python 3.8 target and 120 character line length
+  - Currently using only E (pycodestyle) and F (pyflakes) rules for essential error checking
+  - Additional rules can be added gradually as codebase improves
 - **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses `astral-sh/ruff-action@v3` for automated checks
-- **Version**: Fixed at ruff==0.11.13 in `tests/requirements-test.txt` for consistency across environments
+- **Version**: Using ruff>=0.8.0 with automatic updates to compatible versions
+- **Pre-commit requirement**: ALWAYS run `make lint` before committing - CI will fail if linting errors exist
 - **Development Notes**:
   - Avoid star imports (`from module import *`) - use explicit imports for better code clarity
   - When fixing linting violations in critical modules, add unit tests first to prevent regressions
