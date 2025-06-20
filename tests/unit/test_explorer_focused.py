@@ -1,7 +1,5 @@
 """Focused tests to push coverage above 80%"""
 import unittest
-from unittest.mock import Mock, patch, MagicMock
-import json
 
 
 class TestExplorerFocused(unittest.TestCase):

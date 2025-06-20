@@ -292,7 +292,7 @@ class TestExplorerClientWorking(unittest.TestCase):
         client = ExplorerClient(mock_endpoint)
         
         # Test list_federated_questions URL construction
-        result_iter = client.list_federated_questions()
+        _ = client.list_federated_questions()
         
         # Test ask_federated_question URL construction (without describe call)
         with patch.object(client, 'describe_federated_question') as mock_describe:
@@ -315,7 +315,7 @@ class TestExplorerClientWorking(unittest.TestCase):
             
             mock_describe.return_value = test_question
             
-            result_iter2 = client.ask_federated_question(
+            _ = client.ask_federated_question(
                 question_id="q1",
                 inputs={"param1": "value1"}
             )
