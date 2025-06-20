@@ -1,12 +1,12 @@
-""" Prototype Code """
+"""Prototype Code"""
+
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterable, Iterator, List, TypeVar
 
-from typing import TypeVar, Iterable, Callable, List, Dict, Any, Iterator
-
-T = TypeVar('T')
-X = TypeVar('X')
-Y = TypeVar('Y')
-Z = TypeVar('Z')
+T = TypeVar("T")
+X = TypeVar("X")
+Y = TypeVar("Y")
+Z = TypeVar("Z")
 
 
 class SimpleStream:
@@ -15,15 +15,15 @@ class SimpleStream:
         self._operations: List[Operation] = []
 
     def peek(self, executable: Callable[[X], None]):
-        self._operations.append(Operation(op='peek', executable=executable))
+        self._operations.append(Operation(op="peek", executable=executable))
         return self
 
     def filter(self, executable: Callable[[X], bool]):
-        self._operations.append(Operation(op='filter', executable=executable))
+        self._operations.append(Operation(op="filter", executable=executable))
         return self
 
     def map(self, executable: Callable[[X], Y]):
-        self._operations.append(Operation(op='map', executable=executable))
+        self._operations.append(Operation(op="map", executable=executable))
         return self
 
     def run(self):
@@ -66,11 +66,11 @@ class SimpleStream:
                 if not included:
                     continue
 
-                if operation.op == 'peak':
+                if operation.op == "peak":
                     operation.executable(item)
-                elif operation.op == 'filter':
+                elif operation.op == "filter":
                     included = operation.executable(result)
-                elif operation.op == 'map':
+                elif operation.op == "map":
                     result = operation.executable(result)
 
             if included:

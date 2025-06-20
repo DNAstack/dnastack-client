@@ -4,9 +4,10 @@ from dnastack.cli.commands.workbench.runs.tasks import tasks_command_group
 from dnastack.cli.core.group import formatted_group
 
 
-@formatted_group('runs')
+@formatted_group("runs")
 def runs_command_group():
     """Submit workflows for execution or interact with existing runs"""
+
 
 # Initialize all commands
 init_runs_commands(runs_command_group)

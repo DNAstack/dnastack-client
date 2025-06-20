@@ -1,7 +1,7 @@
 import json
 from abc import ABC
 from json import JSONDecodeError
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel
 from requests import Request, Session
@@ -16,29 +16,29 @@ from dnastack.http.session_info import SessionInfo
 
 
 class AuthenticationRequired(RuntimeError):
-    """ Raised when the client needs to initiate the authentication process for the first time """
+    """Raised when the client needs to initiate the authentication process for the first time"""
 
 
 class ReauthenticationRequired(RuntimeError):
-    """ Raised when the authenticator needs to initiate the re-authentication process """
+    """Raised when the authenticator needs to initiate the re-authentication process"""
 
     def __init__(self, message: str):
         super().__init__(message)
 
 
 class ReauthenticationRequiredDueToConfigChange(ReauthenticationRequired):
-    """ Raised when the authenticator needs to initiate the re-authentication process due to config change"""
+    """Raised when the authenticator needs to initiate the re-authentication process due to config change"""
 
 
 class RetryWithFallbackAuthentication(RuntimeError):
-    """ Raised when the authenticator needs to use a fallback authorization before retrying """
+    """Raised when the authenticator needs to use a fallback authorization before retrying"""
 
 
 class RefreshRequired(RuntimeError):
-    """ Raised when the authenticator needs to initiate the refresh process """
+    """Raised when the authenticator needs to initiate the refresh process"""
 
     def __init__(self, session: Optional[SessionInfo]):
-        super().__init__('Session refresh required')
+        super().__init__("Session refresh required")
         self.__session = session.copy(deep=True)
 
     @property
@@ -47,17 +47,17 @@ class RefreshRequired(RuntimeError):
 
 
 class NoRefreshToken(RuntimeError):
-    """ Raised when the authenticator attempts to refresh tokens but the refresh token is not defined """
+    """Raised when the authenticator attempts to refresh tokens but the refresh token is not defined"""
 
     def __init__(self):
-        super().__init__('No refresh token')
+        super().__init__("No refresh token")
 
 
 class FeatureNotAvailable(RuntimeError):
-    """ Raised when the authenticator does not support a particular feature. This can be safely ignored. """
+    """Raised when the authenticator does not support a particular feature. This can be safely ignored."""
 
     def __init__(self):
-        super().__init__('Feature not available')
+        super().__init__("Feature not available")
 
 
 class InvalidStateError(RuntimeError):
@@ -70,11 +70,7 @@ class InvalidStateError(RuntimeError):
         error_msg = self.__message
 
         try:
-            error_json = json.dumps({
-                k: v
-                for k, v in self.__details.items()
-                if v is not None
-            }, sort_keys=True)
+            error_json = json.dumps({k: v for k, v in self.__details.items() if v is not None}, sort_keys=True)
             error_msg = f"{error_msg} ({error_json})"
         except JSONDecodeError:
             pass
@@ -83,10 +79,10 @@ class InvalidStateError(RuntimeError):
 
 
 class AuthStateStatus:
-    READY = 'ready'
-    UNINITIALIZED = 'uninitialized'
-    REFRESH_REQUIRED = 'refresh-required'
-    REAUTH_REQUIRED = 'reauth-required'
+    READY = "ready"
+    UNINITIALIZED = "uninitialized"
+    REFRESH_REQUIRED = "refresh-required"
+    REAUTH_REQUIRED = "reauth-required"
 
 
 class AuthState(BaseModel):
@@ -99,20 +95,24 @@ class AuthState(BaseModel):
 
 class Authenticator(AuthBase, ABC):
     def __init__(self):
-        self._events = EventSource(['authentication-before',
-                                    'authentication-ok',
-                                    'authentication-failure',
-                                    'blocking-response-required',
-                                    'blocking-response-ok',
-                                    'blocking-response-failed',
-                                    'initialization-before',
-                                    'refresh-before',
-                                    'refresh-ok',
-                                    'refresh-failure',
-                                    'session-restored',
-                                    'session-not-restored',
-                                    'session-revoked'],
-                                   origin=self)
+        self._events = EventSource(
+            [
+                "authentication-before",
+                "authentication-ok",
+                "authentication-failure",
+                "blocking-response-required",
+                "blocking-response-ok",
+                "blocking-response-failed",
+                "initialization-before",
+                "refresh-before",
+                "refresh-ok",
+                "refresh-failure",
+                "session-restored",
+                "session-not-restored",
+                "session-revoked",
+            ],
+            origin=self,
+        )
         self._logger = get_logger_for(self, get_authenticator_log_level())
 
         # This is for caching and debugging.
@@ -125,7 +125,7 @@ class Authenticator(AuthBase, ABC):
     @property
     def fully_qualified_class_name(self):
         t = type(self)
-        return f'{t.__module__}.{t.__name__}'
+        return f"{t.__module__}.{t.__name__}"
 
     @property
     def class_name(self):
@@ -140,43 +140,43 @@ class Authenticator(AuthBase, ABC):
         return self._last_known_session_info
 
     def initialize(self, trace_context: Span) -> SessionInfo:
-        """ Initialize the authenticator """
-        self.events.dispatch('initialization-before', dict(origin=f'{self.class_name}'))
+        """Initialize the authenticator"""
+        self.events.dispatch("initialization-before", dict(origin=f"{self.class_name}"))
         logger = trace_context.create_span_logger(self._logger)
         try:
-            logger.debug('initialize: Restoring the session...')
+            logger.debug("initialize: Restoring the session...")
             info = self.restore_session()
             if not info:
-                logger.debug('initialize: Session is UNAVALIABLE.')
-                raise AuthenticationRequired('Session is not available')
+                logger.debug("initialize: Session is UNAVALIABLE.")
+                raise AuthenticationRequired("Session is not available")
             elif not info.is_valid():
-                logger.debug(f'initialize: Session is INVALID ({"expired" if info.access_token else "token revoked"}).')
+                logger.debug(f"initialize: Session is INVALID ({'expired' if info.access_token else 'token revoked'}).")
                 if info.refresh_token:
                     raise RefreshRequired(info)
                 else:
-                    raise ReauthenticationRequired('Session exists but invalid. Token refresh is also unavailable.')
+                    raise ReauthenticationRequired("Session exists but invalid. Token refresh is also unavailable.")
             else:
-                self.events.dispatch('session-restored', None)
-                logger.debug('initialize: Restored the session')
+                self.events.dispatch("session-restored", None)
+                logger.debug("initialize: Restored the session")
             self._last_known_session_info = info
             return self._last_known_session_info
         except (AuthenticationRequired, ReauthenticationRequired) as _:
-            logger.debug('initialize: Initiating the authentication...')
+            logger.debug("initialize: Initiating the authentication...")
             self._last_known_session_info = self.authenticate(trace_context)
             return self._last_known_session_info
         except RefreshRequired as _:
-            logger.debug('initialize: Initiating the token refresh...')
+            logger.debug("initialize: Initiating the token refresh...")
 
             try:
                 self._last_known_session_info = self.refresh(trace_context)
                 return self._last_known_session_info
             except ReauthenticationRequired as _:
-                logger.debug('initialize: Failed to refresh tokens. Initiating the re-authentication...')
+                logger.debug("initialize: Failed to refresh tokens. Initiating the re-authentication...")
                 self._last_known_session_info = self.authenticate(trace_context)
                 return self._last_known_session_info
 
     def authenticate(self, trace_context: Span) -> SessionInfo:
-        """ Force-initiate the authorization process """
+        """Force-initiate the authorization process"""
         raise NotImplementedError()
 
     def refresh(self, trace_context: Optional[Span] = None) -> SessionInfo:
@@ -218,16 +218,16 @@ class Authenticator(AuthBase, ABC):
 
     def before_request(self, r: Union[Request, Session], trace_context: Span):
         logger = trace_context.create_span_logger(self._logger)
-        logger.debug('before_request: BEGIN')
+        logger.debug("before_request: BEGIN")
         self.update_request(self.initialize(trace_context), r)
-        logger.debug('before_request: END')
+        logger.debug("before_request: END")
 
     def update_request(self, session: SessionInfo, r: Union[Request, Session]) -> Union[Request, Session]:
-        """ Update the session/request object with session info """
+        """Update the session/request object with session info"""
         raise NotImplementedError()
 
     def get_state(self) -> AuthState:
-        """ Retrieve the current state of the authenticator """
+        """Retrieve the current state of the authenticator"""
         raise NotImplementedError()
 
     def __call__(self, r: Request):

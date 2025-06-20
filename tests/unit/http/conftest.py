@@ -1,8 +1,10 @@
 """
 HTTP-specific test configuration and fixtures.
 """
+
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import Mock, MagicMock
 
 
 @pytest.fixture

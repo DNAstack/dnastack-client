@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from pprint import pformat
 from subprocess import call
 from threading import Lock, Thread
-from typing import Callable, List, Optional, Any, Dict, Type, Iterable
-from unittest import TestCase, SkipTest
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type
+from unittest import SkipTest, TestCase
 from unittest.mock import MagicMock, Mock
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
@@ -40,51 +40,57 @@ except ImportError:
     # For unit tests, we don't need selenium
     confirm_device_code = None
 
-from tests.wallet_hellper import WalletHelper, Policy, TestUser
+from tests.wallet_hellper import Policy, TestUser, WalletHelper
 
-_logger = get_logger('exam_helper')
+_logger = get_logger("exam_helper")
 
-publisher_client_id = env('E2E_PUBLISHER_CLIENT_ID', required=False)
-publisher_client_secret = env('E2E_PUBLISHER_CLIENT_SECRET', required=False)
+publisher_client_id = env("E2E_PUBLISHER_CLIENT_ID", required=False)
+publisher_client_secret = env("E2E_PUBLISHER_CLIENT_SECRET", required=False)
 
-passport_base_url = env('E2E_PASSPORT_BASE_URL', required=False, default='https://passport.alpha.rc.dnastack.com')
-device_code_endpoint = urljoin(passport_base_url, '/oauth/device/code')
-token_endpoint = urljoin(passport_base_url, '/oauth/token')
+passport_base_url = env("E2E_PASSPORT_BASE_URL", required=False, default="https://passport.alpha.rc.dnastack.com")
+device_code_endpoint = urljoin(passport_base_url, "/oauth/device/code")
+token_endpoint = urljoin(passport_base_url, "/oauth/token")
 
 
-def initialize_test_endpoint(resource_url: str,
-                             type: Optional[ServiceType] = None,
-                             secure: bool = True,
-                             overriding_auth: Optional[Dict[str, str]] = None) -> ServiceEndpoint:
+def initialize_test_endpoint(
+    resource_url: str,
+    type: Optional[ServiceType] = None,
+    secure: bool = True,
+    overriding_auth: Optional[Dict[str, str]] = None,
+) -> ServiceEndpoint:
     overriding_auth = overriding_auth or dict()
 
-    actual_client_id = overriding_auth.get('client_id') or env('E2E_CLIENT_ID', required=False)
+    actual_client_id = overriding_auth.get("client_id") or env("E2E_CLIENT_ID", required=False)
     if actual_client_id:
-        raise RuntimeError('The actual client_id must not be an empty string.')
+        raise RuntimeError("The actual client_id must not be an empty string.")
 
-    actual_client_secret = overriding_auth.get('client_secret') or env('E2E_CLIENT_SECRET', required=False)
+    actual_client_secret = overriding_auth.get("client_secret") or env("E2E_CLIENT_SECRET", required=False)
     if actual_client_secret:
-        raise RuntimeError('The actual client_secret must not be an empty string.')
+        raise RuntimeError("The actual client_secret must not be an empty string.")
 
-    actual_resource_url = overriding_auth.get('resource_url') or resource_url
+    actual_resource_url = overriding_auth.get("resource_url") or resource_url
     if actual_resource_url:
-        raise RuntimeError('The actual resource_url must not be an empty string.')
+        raise RuntimeError("The actual resource_url must not be an empty string.")
 
-    actual_token_endpoint = overriding_auth.get('token_endpoint') or token_endpoint
+    actual_token_endpoint = overriding_auth.get("token_endpoint") or token_endpoint
     if actual_token_endpoint:
-        raise RuntimeError('The actual token_endpoint must not be an empty string.')
+        raise RuntimeError("The actual token_endpoint must not be an empty string.")
 
-    auth_info = OAuth2Authentication(
-        type='oauth2',
-        client_id=actual_client_id,
-        client_secret=actual_client_secret,
-        grant_type='client_credentials',
-        resource_url=actual_resource_url,
-        token_endpoint=actual_token_endpoint,
-    ).dict() if secure else None
+    auth_info = (
+        OAuth2Authentication(
+            type="oauth2",
+            client_id=actual_client_id,
+            client_secret=actual_client_secret,
+            grant_type="client_credentials",
+            resource_url=actual_resource_url,
+            token_endpoint=actual_token_endpoint,
+        ).dict()
+        if secure
+        else None
+    )
 
     return ServiceEndpoint(
-        id=f'auto-test-{uuid4()}',
+        id=f"auto-test-{uuid4()}",
         url=resource_url,
         authentication=auth_info,
         type=type,
@@ -93,22 +99,21 @@ def initialize_test_endpoint(resource_url: str,
 
 @contextmanager
 def measure_runtime(description: str, log_level: str = None):
-    _logger = get_logger('timer')
-    log_level = log_level or 'debug'
+    _logger = get_logger("timer")
+    log_level = log_level or "debug"
     start_time = time.time()
     yield
-    getattr(_logger, log_level)(f'{description} ({time.time() - start_time:.3f}s)')
+    getattr(_logger, log_level)(f"{description} ({time.time() - start_time:.3f}s)")
 
 
 def assert_equal(expected: Any, given: Any):
     """Assert equality (to be used outside unittest.TestCase)"""
-    assert expected == given, f'Expected {pformat(expected)}, given {pformat(given)}'
+    assert expected == given, f"Expected {pformat(expected)}, given {pformat(given)}"
 
 
-def make_mock_response(status_code: int,
-                       headers: Optional[Dict] = None,
-                       text: Any = None,
-                       json_data: Any = None) -> Response:
+def make_mock_response(
+    status_code: int, headers: Optional[Dict] = None, text: Any = None, json_data: Any = None
+) -> Response:
     mock_response = MagicMock(Response)
     mock_response.headers = headers or dict()
     mock_response.status_code = status_code
@@ -121,12 +126,12 @@ def make_mock_response(status_code: int,
         mock_response.text = Mock(return_value=json.dumps(json_data))
         mock_response.json = Mock(return_value=json_data)
     else:
-        mock_response.text = ''
+        mock_response.text = ""
 
     return mock_response
 
 
-class CallableProxy():
+class CallableProxy:
     def __init__(self, operation: Callable, args, kwargs):
         self.operation = operation
         self.args = args
@@ -138,10 +143,10 @@ class CallableProxy():
 
 class BaseTestCase(TestCase):
     default_temp = tempfile.TemporaryDirectory()
-    _session_dir_path = env(key='DNASTACK_SESSION_DIR', default=f"{default_temp.name}/session.auto_testing")
-    _config_file_path = env(key='DNASTACK_CONFIG_FILE', default=f"{default_temp.name}/config.auto_testing.yml")
-    _config_overriding_allowed = flag('E2E_CONFIG_OVERRIDING_ALLOWED')
-    _base_logger = get_logger('BaseTestCase', logging.DEBUG if currently_in_debug_mode() else logging.INFO)
+    _session_dir_path = env(key="DNASTACK_SESSION_DIR", default=f"{default_temp.name}/session.auto_testing")
+    _config_file_path = env(key="DNASTACK_CONFIG_FILE", default=f"{default_temp.name}/config.auto_testing.yml")
+    _config_overriding_allowed = flag("E2E_CONFIG_OVERRIDING_ALLOWED")
+    _base_logger = get_logger("BaseTestCase", logging.DEBUG if currently_in_debug_mode() else logging.INFO)
     _states: Dict[str, Any] = dict(email=None, token=None)
 
     _user_verification_thread: Optional[Thread] = None
@@ -149,7 +154,7 @@ class BaseTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._logger = get_logger(f'{type(self).__name__}', self.log_level())
+        self._logger = get_logger(f"{type(self).__name__}", self.log_level())
         self._revert_operation_lock = Lock()
         self._revert_operations: List[CallableProxy] = list()
 
@@ -167,28 +172,32 @@ class BaseTestCase(TestCase):
 
     @classmethod
     def set_default_event_interceptors_for_factory(cls, factory: EndpointRepository) -> None:
-        factory.set_default_event_interceptors({
-            'blocking-response-required': cls.on_auth_user_verification_required,
-        })
+        factory.set_default_event_interceptors(
+            {
+                "blocking-response-required": cls.on_auth_user_verification_required,
+            }
+        )
 
     @classmethod
     def on_auth_user_verification_required(cls, event: Event):
-        cls._base_logger.info('Handling the user verification for the test account...')
+        cls._base_logger.info("Handling the user verification for the test account...")
 
         details = event.details
 
         if confirm_device_code is None:
-            raise RuntimeError("Selenium is required for device code authentication in E2E tests. "
-                               "Please install selenium to run E2E tests.")
-        confirm_device_code(details['url'], cls._states['email'], cls._states['token'])
+            raise RuntimeError(
+                "Selenium is required for device code authentication in E2E tests. "
+                "Please install selenium to run E2E tests."
+            )
+        confirm_device_code(details["url"], cls._states["email"], cls._states["token"])
         event.stop_propagation()
 
-        cls._base_logger.info('The test account should now be verified.')
+        cls._base_logger.info("The test account should now be verified.")
 
     @classmethod
     def get_context_manager(cls) -> BaseContextManager:
         cm: BaseContextManager = container.get(InMemoryContextManager)
-        cm.events.on('user-verification-required', cls.on_auth_user_verification_required)
+        cm.events.on("user-verification-required", cls.on_auth_user_verification_required)
 
         return cm
 
@@ -215,32 +224,32 @@ class BaseTestCase(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls._base_logger.debug(f'Class {cls.__name__}: Initialization: Begin')
+        cls._base_logger.debug(f"Class {cls.__name__}: Initialization: Begin")
 
         cls.set_default_event_interceptors_for_factory(cls.get_factory())
 
         cls.do_on_setup_class_before_auth()
 
         if cls.automatically_authenticate():
-            cls._base_logger.info(f'Class {cls.__name__}: Initialization: Auto-authorizing the test suite')
-            cls.prepare_for_device_code_flow(cls._states.get('email'), cls._states.get('token'))
+            cls._base_logger.info(f"Class {cls.__name__}: Initialization: Auto-authorizing the test suite")
+            cls.prepare_for_device_code_flow(cls._states.get("email"), cls._states.get("token"))
             cls.authenticate_with_device_code_flow(cls.get_context_urls())
-            cls._base_logger.info(f'Class {cls.__name__}: Initialization: Authorization OK')
+            cls._base_logger.info(f"Class {cls.__name__}: Initialization: Authorization OK")
         else:
-            cls._base_logger.info(f'Class {cls.__name__}: Initialization: No auto-authorization')
+            cls._base_logger.info(f"Class {cls.__name__}: Initialization: No auto-authorization")
 
-        cls._base_logger.debug(f'Class {cls.__name__}: Initialization: End')
+        cls._base_logger.debug(f"Class {cls.__name__}: Initialization: End")
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls._base_logger.debug(f'Class {cls.__name__}: Cleanup: Begin')
+        cls._base_logger.debug(f"Class {cls.__name__}: Cleanup: Begin")
 
         if not cls.reuse_session():
             cls.reset_session()
 
         cls.do_on_teardown_class()
 
-        cls._base_logger.debug(f'Class {cls.__name__}: Cleanup: End')
+        cls._base_logger.debug(f"Class {cls.__name__}: Cleanup: End")
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -258,7 +267,7 @@ class BaseTestCase(TestCase):
     def reset_session(cls):
         if os.path.exists(cls._session_dir_path):
             cls._base_logger.debug("Removing the test session directory...")
-            cls.execute(f'rm -r{"v" if currently_in_debug_mode() else ""} {cls._session_dir_path}')
+            cls.execute(f"rm -r{'v' if currently_in_debug_mode() else ''} {cls._session_dir_path}")
             cls._base_logger.debug("Removed the test session directory.")
 
     def assert_not_empty(self, obj, message: Optional[str] = None):
@@ -270,13 +279,13 @@ class BaseTestCase(TestCase):
         try:
             yield
             self.fail(
-                f'Expected an exception of class {exception_class.__module__}.{exception_class.__name__} thrown but'
-                ' the code within this context was unexpectedly executed without any error.'
+                f"Expected an exception of class {exception_class.__module__}.{exception_class.__name__} thrown but"
+                " the code within this context was unexpectedly executed without any error."
             )
         except BaseException as e:
-            self.assertIsInstance(e, exception_class, 'Unexpected error type')
+            self.assertIsInstance(e, exception_class, "Unexpected error type")
             if regex:
-                self.assertRegex(str(e), regex, 'Unexpected error message')
+                self.assertRegex(str(e), regex, "Unexpected error message")
 
     @contextmanager
     def assert_exception_raised_in_chain(self, exception_class: Type[BaseException]):
@@ -285,35 +294,38 @@ class BaseTestCase(TestCase):
         except BaseException as e:
             self._assert_exception_raised_in_chain(exception_class, e)
 
-    def _assert_exception_raised_in_chain(self, expected_exception_class: Type[BaseException],
-                                          exception: BaseException):
+    def _assert_exception_raised_in_chain(
+        self, expected_exception_class: Type[BaseException], exception: BaseException
+    ):
         exception_chain = []
 
         e = exception
         while True:
-            self._logger.debug(f' → #{len(exception_chain)}: {type(e).__name__}: {e}')
+            self._logger.debug(f" → #{len(exception_chain)}: {type(e).__name__}: {e}")
 
             exception_chain.append(e)
 
             if e.__cause__ is None:
-                self._logger.debug('No cause of the exception')
+                self._logger.debug("No cause of the exception")
                 break
 
             if e.__cause__ in exception_chain:
-                self._logger.debug('Detected circular exception chain')
+                self._logger.debug("Detected circular exception chain")
                 break
 
             e = e.__cause__
 
         if not exception_chain:
-            self.fail('Expected the code within the context to raise an exception.')
+            self.fail("Expected the code within the context to raise an exception.")
 
         for e in exception_chain:
             if isinstance(e, expected_exception_class):
                 return
 
-        self.fail(f'{len(exception_chain)} thrown exception{"s are" if len(exception_chain) != 1 else " is"} not of '
-                  f'type {expected_exception_class.__name__}.')
+        self.fail(
+            f"{len(exception_chain)} thrown exception{'s are' if len(exception_chain) != 1 else ' is'} not of "
+            f"type {expected_exception_class.__name__}."
+        )
 
     def skip_until(self, iso_date_string: str, reason: Optional[str] = None):
         expiry_time = datetime.date.fromisoformat(iso_date_string)
@@ -342,28 +354,30 @@ class BaseTestCase(TestCase):
                     time.sleep(10)
                     continue
                 else:
-                    raise RuntimeError(f'Still failed after {max_run_count} run(s)')
+                    raise RuntimeError(f"Still failed after {max_run_count} run(s)")
 
     @staticmethod
     def execute(command: str):
-        """ Execute a shell script via subprocess directly.
+        """Execute a shell script via subprocess directly.
 
-            This is for debugging only. Please use :method:`invoke` for testing.
+        This is for debugging only. Please use :method:`invoke` for testing.
         """
         call(command, shell=True)
 
     @staticmethod
-    def wait_until(callable_obj,
-                   args: Optional[List[Any]] = None,
-                   kwargs: Optional[Dict[str, Any]] = None,
-                   timeout: float = 30,
-                   pause_period: int = 1):
+    def wait_until(
+        callable_obj,
+        args: Optional[List[Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
+        timeout: float = 30,
+        pause_period: int = 1,
+    ):
         starting_time = time.time()
         while True:
             # noinspection PyBroadException
             try:
                 return callable_obj(*(args or tuple()), **(kwargs or dict()))
-            except:
+            except Exception:
                 if time.time() - starting_time < timeout:
                     time.sleep(pause_period)
                 else:
@@ -371,15 +385,14 @@ class BaseTestCase(TestCase):
 
     @classmethod
     def prepare_for_device_code_flow(cls, email: str, token: str):
-        if flag('E2E_WEBDRIVER_TESTS_DISABLED'):
-            raise SkipTest('All webdriver-related tests as disabled with E2E_WEBDRIVER_TESTS_DISABLED.')
+        if flag("E2E_WEBDRIVER_TESTS_DISABLED"):
+            raise SkipTest("All webdriver-related tests as disabled with E2E_WEBDRIVER_TESTS_DISABLED.")
 
         if not email or not token:
-            raise SkipTest(f'This device-code test requires both email ({email}) and personal '
-                           f'access token ({token}).')
+            raise SkipTest(f"This device-code test requires both email ({email}) and personal access token ({token}).")
 
-        cls._states['email'] = email
-        cls._states['token'] = token
+        cls._states["email"] = email
+        cls._states["token"] = token
 
     @classmethod
     def authenticate_with_device_code_flow(cls, context_urls: List[str]):
@@ -394,9 +407,9 @@ class BaseTestCase(TestCase):
 
     @classmethod
     def _temporarily_remove_existing_config(cls):
-        logger = get_logger(f'{cls.__name__}')
+        logger = get_logger(f"{cls.__name__}")
         config_file_path = cls._config_file_path
-        backup_path = config_file_path + '.backup'
+        backup_path = config_file_path + ".backup"
         if os.path.exists(config_file_path):
             logger.debug(f"Detected the existing configuration file {config_file_path}.")
             if cls._config_overriding_allowed:
@@ -405,13 +418,15 @@ class BaseTestCase(TestCase):
                 os.unlink(config_file_path)
                 logger.debug(f"Successfully moved {config_file_path} to {backup_path}.")
             else:
-                raise RuntimeError(f'{config_file_path} already exists. Please define DNASTACK_CONFIG_FILE ('
-                                   f'environment variable) to a different location or E2E_CONFIG_OVERRIDING_ALLOWED ('
-                                   f'environment variable) to allow the test to automatically backup the existing '
-                                   f'test configuration.')
+                raise RuntimeError(
+                    f"{config_file_path} already exists. Please define DNASTACK_CONFIG_FILE ("
+                    f"environment variable) to a different location or E2E_CONFIG_OVERRIDING_ALLOWED ("
+                    f"environment variable) to allow the test to automatically backup the existing "
+                    f"test configuration."
+                )
 
     def _restore_existing_config(self):
-        backup_path = self._config_file_path + '.backup'
+        backup_path = self._config_file_path + ".backup"
         if os.path.exists(backup_path):
             self._logger.debug(f"Restoring {self._config_file_path}...")
             shutil.copy(backup_path, self._config_file_path)
@@ -440,33 +455,32 @@ class WithTestUserTestCase(BaseTestCase):
             if cls._wallet_admin_client_id is None or cls._wallet_admin_client_secret is None:
                 raise NotImplementedError("Wallet credentials must be set by child class")
             cls._wallet_helper = WalletHelper(
-                cls._wallet_base_uri,
-                cls._wallet_admin_client_id,
-                cls._wallet_admin_client_secret
+                cls._wallet_base_uri, cls._wallet_admin_client_id, cls._wallet_admin_client_secret
             )
         return cls._wallet_helper
 
     @classmethod
     def do_on_setup_class_before_auth(cls) -> None:
-        cls.test_user = cls._get_wallet_helper().create_test_user(f'{cls.test_user_prefix}{uuid4()}')
-        cls._base_logger.info(f'Class {cls.__name__}: Created test user with ID {cls.test_user.id}')
+        cls.test_user = cls._get_wallet_helper().create_test_user(f"{cls.test_user_prefix}{uuid4()}")
+        cls._base_logger.info(f"Class {cls.__name__}: Created test user with ID {cls.test_user.id}")
 
-        cls._states['email'] = cls.test_user.email
-        cls._states['token'] = cls.test_user.personalAccessToken
+        cls._states["email"] = cls.test_user.email
+        cls._states["token"] = cls.test_user.personalAccessToken
 
         access_policy = cls.get_access_policy(cls.test_user)
         if access_policy and not cls.test_user_policy:
             cls.test_user_policy = cls._get_wallet_helper().create_access_policy(access_policy)
-            cls._base_logger.info(f'Class {cls.__name__}: Created access policy for the test user. '
-                                  f'Policy: {cls.test_user_policy}')
+            cls._base_logger.info(
+                f"Class {cls.__name__}: Created access policy for the test user. Policy: {cls.test_user_policy}"
+            )
 
-        cls._base_logger.debug(f'Class {cls.__name__}: Logging in to the app {cls.get_app_url()}')
+        cls._base_logger.debug(f"Class {cls.__name__}: Logging in to the app {cls.get_app_url()}")
         cls._get_wallet_helper().log_in_with_personal_token(
             app_base_url=cls.get_app_url(),
             email=cls.test_user.email,
-            personal_access_token=cls.test_user.personalAccessToken
+            personal_access_token=cls.test_user.personalAccessToken,
         )
-        cls._base_logger.debug(f'Class {cls.__name__}: Logged in')
+        cls._base_logger.debug(f"Class {cls.__name__}: Logged in")
 
     @classmethod
     def do_on_teardown_class(cls) -> None:
@@ -487,23 +501,27 @@ class WithTestUserTestCase(BaseTestCase):
 
 
 class DeprecatedBasePublisherTestCase(BaseTestCase):
-    _explorer_base_url = env('E2E_EXPLORER_BASE_URL', required=False, default='https://explorer.beta.rc.dnastack.com/')
+    _explorer_base_url = env("E2E_EXPLORER_BASE_URL", required=False, default="https://explorer.beta.rc.dnastack.com/")
     _explorer_hostname = urlparse(_explorer_base_url).netloc
-    _collection_service_url = env('E2E_COLLECTION_SERVICE_BASE_URL',
-                                  required=False,
-                                  default='https://collection-service.beta.rc.dnastack.com/')
+    _collection_service_url = env(
+        "E2E_COLLECTION_SERVICE_BASE_URL", required=False, default="https://collection-service.beta.rc.dnastack.com/"
+    )
     _collection_service_hostname = urlparse(_collection_service_url).netloc
-    _test_via_explorer = not flag('E2E_TEST_DIRECTLY_AGAINST_PUBLISHER_DATA_SERVICE')  # By default, this is TRUE.
-    _raw_explorer_urls = env('E2E_EXPLORER_BASE_URLS',
-                             required=False,
-                             default=','.join([
-                                 _explorer_hostname,
-                                 _collection_service_hostname,
-                             ]))
+    _test_via_explorer = not flag("E2E_TEST_DIRECTLY_AGAINST_PUBLISHER_DATA_SERVICE")  # By default, this is TRUE.
+    _raw_explorer_urls = env(
+        "E2E_EXPLORER_BASE_URLS",
+        required=False,
+        default=",".join(
+            [
+                _explorer_hostname,
+                _collection_service_hostname,
+            ]
+        ),
+    )
     _endpoint_repositories: Dict[str, EndpointRepository] = dict()
-    _base_logger = get_logger('BasePublisherTestCase')
+    _base_logger = get_logger("BasePublisherTestCase")
 
-    explorer_urls = _raw_explorer_urls.split(',')
+    explorer_urls = _raw_explorer_urls.split(",")
 
     @classmethod
     def get_factory(cls, registry_url_or_context_name: Optional[str] = None) -> EndpointRepository:
@@ -525,35 +543,38 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
 
     @classmethod
     def do_on_setup_class_before_auth(cls) -> None:
-        cls._states['email'] = env('E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_EMAIL')
-        cls._states['token'] = env('E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_TOKEN')
+        cls._states["email"] = env("E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_EMAIL")
+        cls._states["token"] = env("E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_TOKEN")
 
     @classmethod
     def do_on_teardown_class(cls) -> None:
         pass
 
     @classmethod
-    def _get_testable_collections(cls, cs: CollectionServiceClient, test_types: List[str] = None) \
-            -> List[Collection]:
-        testable_access_type_labels = {'Public', 'Registered'}
+    def _get_testable_collections(cls, cs: CollectionServiceClient, test_types: List[str] = None) -> List[Collection]:
+        testable_access_type_labels = {"Public", "Registered"}
         test_types = test_types or []
         collections = []
 
         for collection in cs.list_collections():
             # Only included a collection with public or registered access (if the model supports)
-            if hasattr(collection, 'accessTypeLabels'):
-                if (collection.accessTypeLabels.get('data-connect')
-                        and collection.accessTypeLabels.get('data-connect') not in testable_access_type_labels):
+            if hasattr(collection, "accessTypeLabels"):
+                if (
+                    collection.accessTypeLabels.get("data-connect")
+                    and collection.accessTypeLabels.get("data-connect") not in testable_access_type_labels
+                ):
                     continue
 
                 # Special case for blob tests
-                if ('blob' in test_types
-                        and collection.accessTypeLabels.get('drs')
-                        and collection.accessTypeLabels.get('drs') not in testable_access_type_labels):
+                if (
+                    "blob" in test_types
+                    and collection.accessTypeLabels.get("drs")
+                    and collection.accessTypeLabels.get("drs") not in testable_access_type_labels
+                ):
                     continue
 
             # Only included a collection with blobs listed (if the model supports)
-            if hasattr(collection, 'itemCounts'):
+            if hasattr(collection, "itemCounts"):
                 try:
                     for test_type in test_types:
                         assert (collection.itemCounts.get(test_type) or 0) > 0
@@ -564,29 +585,23 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
 
         return collections
 
-    def _get_collection_blob_items_map(self,
-                                       factory: EndpointRepository,
-                                       max_size: int) -> Dict[str, List[Dict[str, Any]]]:
+    def _get_collection_blob_items_map(
+        self, factory: EndpointRepository, max_size: int
+    ) -> Dict[str, List[Dict[str, Any]]]:
         cs: CollectionServiceClient = CollectionServiceClient.make(
-            [
-                e
-                for e in factory.all()
-                if e.type in CollectionServiceClient.get_supported_service_types()
-            ][0]
+            [e for e in factory.all() if e.type in CollectionServiceClient.get_supported_service_types()][0]
         )
 
         if not cs:
-            available_endpoints = ', '.join([
-                f'{endpoint.id} ({endpoint.type})'
-                for endpoint in factory.all()
-            ])
-            self.fail(f'The collection service is required for this test but unavailable. '
-                      f'(AVAILABLE: {available_endpoints})')
+            available_endpoints = ", ".join([f"{endpoint.id} ({endpoint.type})" for endpoint in factory.all()])
+            self.fail(
+                f"The collection service is required for this test but unavailable. (AVAILABLE: {available_endpoints})"
+            )
 
         items: Dict[str, List[Dict[str, Any]]] = dict()
         current_count = 0
 
-        for collection in self._get_testable_collections(cs):
+        for collection in self._get_testable_collections(cs, test_types=["blob"]):
             # At this point, we can safely assume that all selected items are accessible by the test suite.
             items[collection.id] = []
 
@@ -622,10 +637,9 @@ class DataConversionSample:
     expectations: List[Callable[[Any], None]]
 
     @classmethod
-    def make(cls, format: str, content: Any, expected_type: Type,
-             expectations: List[Callable[[Any], None]] = None):
+    def make(cls, format: str, content: Any, expected_type: Type, expectations: List[Callable[[Any], None]] = None):
         return cls(
-            f'{format}__{time.time()}'.replace(r' ', r'_').replace(r'.', r'_'),
+            f"{format}__{time.time()}".replace(r" ", r"_").replace(r".", r"_"),
             format,
             content,
             expected_type,
@@ -634,34 +648,34 @@ class DataConversionSample:
 
     @classmethod
     def date(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('date', content, datetime.date, expectations)
+        return cls.make("date", content, datetime.date, expectations)
 
     @classmethod
     def time(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('time', content, datetime.time, expectations)
+        return cls.make("time", content, datetime.time, expectations)
 
     @classmethod
     def time_with_time_zone(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('time with time zone', content, datetime.time, expectations)
+        return cls.make("time with time zone", content, datetime.time, expectations)
 
     @classmethod
     def timestamp(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('timestamp', content, datetime.datetime, expectations)
+        return cls.make("timestamp", content, datetime.datetime, expectations)
 
     @classmethod
     def timestamp_with_time_zone(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('timestamp with time zone', content, datetime.datetime, expectations)
+        return cls.make("timestamp with time zone", content, datetime.datetime, expectations)
 
     @classmethod
     def interval_year_to_month(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('interval year to month', content, str, expectations)
+        return cls.make("interval year to month", content, str, expectations)
 
     @classmethod
     def interval_day_to_second(cls, content: str, expectations: List[Callable[[Any], None]] = None):
-        return cls.make('interval day to second', content, datetime.timedelta, expectations)
+        return cls.make("interval day to second", content, datetime.timedelta, expectations)
 
     def get_schema(self) -> Dict[str, str]:
-        return dict(type='string', format=self.format)
+        return dict(type="string", format=self.format)
 
 
 @dataclass(frozen=True)

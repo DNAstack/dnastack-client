@@ -11,10 +11,11 @@ class Console:
 
     This class is a workaround to allow external processes capture the output through it.
     """
+
     def __init__(self):
         self.__output_lock = Lock()
 
-    def print(self, content, end='\n', to_stderr = False):
+    def print(self, content, end="\n", to_stderr=False):
         with self.__output_lock:
             if to_stderr:
                 sys.stderr.write(content + end)

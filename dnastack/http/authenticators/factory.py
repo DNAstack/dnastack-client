@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from dnastack.client.models import ServiceEndpoint
 from dnastack.common.model_mixin import JsonModelMixin
@@ -13,8 +13,9 @@ class UnsupportedAuthenticationInformationError(RuntimeError):
 
 class HttpAuthenticatorFactory:
     @staticmethod
-    def create_multiple_from(endpoint: Optional[ServiceEndpoint] = None,
-                             endpoints: Optional[List[ServiceEndpoint]] = None) -> List[Authenticator]:
+    def create_multiple_from(
+        endpoint: Optional[ServiceEndpoint] = None, endpoints: Optional[List[ServiceEndpoint]] = None
+    ) -> List[Authenticator]:
         iterating_endpoints: List[ServiceEndpoint] = []
 
         if endpoint:
@@ -30,8 +31,8 @@ class HttpAuthenticatorFactory:
 
     @staticmethod
     def _parse_auth_info(auth_info: Dict[str, Any]) -> Dict[str, Any]:
-        auth_type = auth_info.get('type') or 'oauth2'
-        if auth_type == 'oauth2':
+        auth_type = auth_info.get("type") or "oauth2"
+        if auth_type == "oauth2":
             # Use the model to validate the configuration.
             config = OAuth2Authentication(**auth_info)
 
@@ -49,4 +50,4 @@ class HttpAuthenticatorFactory:
             for auth_info in endpoint.get_authentications():
                 unique_auth_info_map[JsonModelMixin.hash(auth_info)] = auth_info
 
-        return sorted(unique_auth_info_map.values(), key=lambda a: a.get('resource_url') or a.get('type'))
+        return sorted(unique_auth_info_map.values(), key=lambda a: a.get("resource_url") or a.get("type"))

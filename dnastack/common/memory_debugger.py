@@ -4,21 +4,22 @@ import sys
 import tracemalloc
 
 
-def display_top(snapshot, key_type='lineno', limit=10):
-    snapshot = snapshot.filter_traces((
-        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
-        tracemalloc.Filter(False, "<unknown>"),
-    ))
+def display_top(snapshot, key_type="lineno", limit=10):
+    snapshot = snapshot.filter_traces(
+        (
+            tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+            tracemalloc.Filter(False, "<unknown>"),
+        )
+    )
     top_stats = snapshot.statistics(key_type)
 
     sys.stderr.write("Top %s lines\n" % limit)
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
-        sys.stderr.write("#%s: %s:%s: %.1f KiB\n"
-              % (index, frame.filename, frame.lineno, stat.size / 1024))
+        sys.stderr.write("#%s: %s:%s: %.1f KiB\n" % (index, frame.filename, frame.lineno, stat.size / 1024))
         line = linecache.getline(frame.filename, frame.lineno).strip()
         if line:
-            sys.stderr.write('    %s\n' % line)
+            sys.stderr.write("    %s\n" % line)
 
     other = top_stats[limit:]
     if other:

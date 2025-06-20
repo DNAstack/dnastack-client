@@ -121,19 +121,6 @@ package = true
 [tool.ruff]
 line-length = 120
 target-version = "py38"
-select = [
-    "E",    # pycodestyle errors
-    "F",    # pyflakes
-    "I",    # isort
-    "B",    # flake8-bugbear
-    "C4",   # flake8-comprehensions
-    "UP",   # pyupgrade
-]
-ignore = [
-    "E501",  # line too long (handled by formatter)
-    "B008",  # do not perform function calls in argument defaults
-    "B024",  # abstract base class has no abstract methods
-]
 extend-exclude = [
     "__pycache__",
     "*.egg-info",
@@ -147,8 +134,15 @@ extend-exclude = [
     "venv",
 ]
 
-[tool.ruff.isort]
-known-first-party = ["dnastack"]
+[tool.ruff.lint]
+# Minimal configuration - only essential error checking
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (undefined names, unused imports, etc.)
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

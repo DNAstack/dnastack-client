@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Optional, List
+from typing import List, Optional
 from uuid import uuid4
 
 from requests.auth import AuthBase
@@ -14,33 +14,37 @@ from dnastack.http.session import HttpSession
 
 
 class BaseServiceClient(ABC):
-    """ The base class for all DNAStack Clients """
+    """The base class for all DNAStack Clients"""
 
     def __init__(self, endpoint: ServiceEndpoint):
-        if not endpoint.url.endswith(r'/'):
-            endpoint.url = endpoint.url + r'/'
+        if not endpoint.url.endswith(r"/"):
+            endpoint.url = endpoint.url + r"/"
 
         self._uuid = str(uuid4())
         self._endpoint = endpoint
-        self._logger = get_logger(f'{type(self).__name__}/{self._endpoint.id}'
-                                  if currently_in_debug_mode()
-                                  else type(self).__name__)
+        self._logger = get_logger(
+            f"{type(self).__name__}/{self._endpoint.id}" if currently_in_debug_mode() else type(self).__name__
+        )
         self._current_authenticator: Optional[AuthBase] = None
-        self._events = EventSource(['authentication-before',
-                                    'authentication-ok',
-                                    'authentication-failure',
-                                    'authentication-ignored',
-                                    'blocking-response-required',
-                                    'blocking-response-ok',
-                                    'blocking-response-failed',
-                                    'initialization-before',
-                                    'refresh-before',
-                                    'refresh-ok',
-                                    'refresh-failure',
-                                    'session-restored',
-                                    'session-not-restored',
-                                    'session-revoked'],
-                                   origin=self)
+        self._events = EventSource(
+            [
+                "authentication-before",
+                "authentication-ok",
+                "authentication-failure",
+                "authentication-ignored",
+                "blocking-response-required",
+                "blocking-response-ok",
+                "blocking-response-failed",
+                "initialization-before",
+                "refresh-before",
+                "refresh-ok",
+                "refresh-failure",
+                "session-restored",
+                "session-not-restored",
+                "session-revoked",
+            ],
+            origin=self,
+        )
 
     @property
     def events(self) -> EventSource:
@@ -54,7 +58,7 @@ class BaseServiceClient(ABC):
         self.close()
 
     def close(self):
-        if hasattr(self, '_events'):
+        if hasattr(self, "_events"):
             self._events.clear()
 
     @staticmethod
@@ -64,9 +68,9 @@ class BaseServiceClient(ABC):
 
     @staticmethod
     def get_supported_service_types() -> List[ServiceType]:
-        """ The list of supported service types
+        """The list of supported service types
 
-            The first one is always regarded as the default type.
+        The first one is always regarded as the default type.
         """
         raise NotImplementedError()
 
@@ -82,14 +86,14 @@ class BaseServiceClient(ABC):
     def require_authentication(self) -> bool:
         return len(self._endpoint.get_authentications()) > 0
 
-    def create_http_session(self,
-                            suppress_error: bool = False,
-                            no_auth: bool = False) -> HttpSession:
+    def create_http_session(self, suppress_error: bool = False, no_auth: bool = False) -> HttpSession:
         """Create HTTP session wrapper"""
-        session = HttpSession(self._endpoint.id,
-                              HttpAuthenticatorFactory.create_multiple_from(endpoint=self._endpoint),
-                              suppress_error=suppress_error,
-                              enable_auth=(not no_auth))
+        session = HttpSession(
+            self._endpoint.id,
+            HttpAuthenticatorFactory.create_multiple_from(endpoint=self._endpoint),
+            suppress_error=suppress_error,
+            enable_auth=(not no_auth),
+        )
         self.events.set_passthrough(session.events)
         return session
 

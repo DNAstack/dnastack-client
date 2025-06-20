@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import List, Optional, Union, Any, Type
+from typing import Any, List, Optional, Type, Union
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +28,7 @@ class ArgumentSpec(BaseModel):
         choices: List of valid choices for the argument
         ignored: Whether to ignore this argument in command processing
     """
+
     name: str
     arg_names: Optional[List[str]] = Field(default_factory=list)
     arg_type: ArgumentType = ArgumentType.OPTION
@@ -48,43 +49,44 @@ class ArgumentSpec(BaseModel):
         # Generate argument names based on the argument type
         if self.arg_type == ArgumentType.POSITIONAL:
             # For positional arguments, just use the name (converted to kebab-case)
-            kebab_name = re.sub(r'_', '-', self.name)
+            kebab_name = re.sub(r"_", "-", self.name)
             return [kebab_name]
         else:
             # For options, create the long form
-            kebab_name = re.sub(r'_', '-', self.name)
+            kebab_name = re.sub(r"_", "-", self.name)
             return [f"--{kebab_name}"]
 
+
 CONTEXT_ARG = ArgumentSpec(
-    name='context',
-    arg_names=['--context'],
-    help='The context to use. If not provided, the default context will be used.',
+    name="context",
+    arg_names=["--context"],
+    help="The context to use. If not provided, the default context will be used.",
 )
 
 SINGLE_ENDPOINT_ID_ARG = ArgumentSpec(
-    name='endpoint_id',
-    arg_names=['--endpoint-id'],
-    help='Endpoint ID',
+    name="endpoint_id",
+    arg_names=["--endpoint-id"],
+    help="Endpoint ID",
 )
 
 MULTIPLE_ENDPOINT_ID_ARG = ArgumentSpec(
-    name='endpoint_id',
-    arg_names=['--endpoint-id'],
-    help='Endpoint IDs, separated by comma, e.g., --endpoint-id=s_1,s_2,...,s_n',
+    name="endpoint_id",
+    arg_names=["--endpoint-id"],
+    help="Endpoint IDs, separated by comma, e.g., --endpoint-id=s_1,s_2,...,s_n",
 )
 
 RESOURCE_OUTPUT_ARG = ArgumentSpec(
-    name='output',
-    arg_names=['--output', '-o'],
+    name="output",
+    arg_names=["--output", "-o"],
     choices=[OutputFormat.JSON, OutputFormat.YAML],
-    help='Output format',
+    help="Output format",
     default=OutputFormat.JSON,
 )
 
 DATA_OUTPUT_ARG = ArgumentSpec(
-    name='output',
-    arg_names=['--output', '-o'],
+    name="output",
+    arg_names=["--output", "-o"],
     choices=[OutputFormat.CSV, OutputFormat.JSON, OutputFormat.YAML],
-    help='Output format',
+    help="Output format",
     default=OutputFormat.JSON,
 )

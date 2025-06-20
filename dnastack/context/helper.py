@@ -11,9 +11,11 @@ class UnknownContextError(RuntimeError):
     pass
 
 
-def use(registry_hostname_or_url: str,
-        no_auth: Optional[bool] = False,
-        existing_context_manager: Optional[BaseContextManager] = None) -> EndpointRepository:
+def use(
+    registry_hostname_or_url: str,
+    no_auth: Optional[bool] = False,
+    existing_context_manager: Optional[BaseContextManager] = None,
+) -> EndpointRepository:
     """
     Initiate a client factory based on the given hostname, i.e., the name of the context.
 
@@ -25,7 +27,7 @@ def use(registry_hostname_or_url: str,
     set to "true", instead of loading the configuration from the configuration
     file, this method will use a dummy/blank configuration object.
     """
-    logger = get_logger('use')
+    logger = get_logger("use")
     manager: BaseContextManager = existing_context_manager or container.get(InMemoryContextManager)
     factory = manager.use(registry_hostname_or_url, no_auth=no_auth)
     if factory:

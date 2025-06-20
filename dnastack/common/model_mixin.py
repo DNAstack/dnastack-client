@@ -1,5 +1,4 @@
 import hashlib
-
 import json
 
 
@@ -11,6 +10,6 @@ class JsonModelMixin:
     @classmethod
     def hash(self, content):
         raw_config = json.dumps(content, sort_keys=True)
-        h = hashlib.new('sha256')
-        h.update(raw_config.encode('utf-8'))
+        h = hashlib.new("sha256")
+        h.update(raw_config.encode("utf-8"))
         return h.hexdigest()

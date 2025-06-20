@@ -1,4 +1,4 @@
-from typing import List, Optional, Iterator
+from typing import Iterator, List, Optional
 from urllib.parse import urljoin
 
 from dnastack import ServiceEndpoint
@@ -11,17 +11,21 @@ from dnastack.http.session import HttpSession
 
 
 class StorageAccountListResultLoader(WorkbenchResultLoader):
-    def __init__(self,
-                 service_url: str,
-                 http_session: HttpSession,
-                 trace: Optional[Span],
-                 list_options: Optional[StorageListOptions] = None,
-                 max_results: int = None):
-        super().__init__(service_url=service_url,
-                         http_session=http_session,
-                         list_options=list_options,
-                         max_results=max_results,
-                         trace=trace)
+    def __init__(
+        self,
+        service_url: str,
+        http_session: HttpSession,
+        trace: Optional[Span],
+        list_options: Optional[StorageListOptions] = None,
+        max_results: int = None,
+    ):
+        super().__init__(
+            service_url=service_url,
+            http_session=http_session,
+            list_options=list_options,
+            max_results=max_results,
+            trace=trace,
+        )
 
     def get_new_list_options(self) -> StorageListOptions:
         return StorageListOptions()
@@ -33,12 +37,12 @@ class StorageAccountListResultLoader(WorkbenchResultLoader):
 class StorageClient(BaseWorkbenchClient):
     @staticmethod
     def get_adapter_type() -> str:
-        return 'sample-service'
+        return "sample-service"
 
     @staticmethod
     def get_supported_service_types() -> List[ServiceType]:
         return [
-            ServiceType(group='com.dnastack.workbench', artifact='sample-service', version='1.0.0'),
+            ServiceType(group="com.dnastack.workbench", artifact="sample-service", version="1.0.0"),
         ]
 
     @classmethod
@@ -52,39 +56,46 @@ class StorageClient(BaseWorkbenchClient):
         """Create a new storage account."""
         with self.create_http_session() as session:
             response = session.post(
-                urljoin(self.endpoint.url, f'{self.namespace}/storage'),
-                json=storage_account.dict()
+                urljoin(self.endpoint.url, f"{self.namespace}/storage"), json=storage_account.dict()
             )
         return StorageAccount(**response.json())
 
-    def update_storage_account(self, storage_account_id: str, storage_account: StorageAccount, if_match: str) -> StorageAccount:
+    def update_storage_account(
+        self, storage_account_id: str, storage_account: StorageAccount, if_match: str
+    ) -> StorageAccount:
         """Update a storage account."""
         with self.create_http_session() as session:
-            response = session.submit("PUT",
-                                      urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'),
-                                      json=storage_account.dict(),
-                                      headers={"If-Match": if_match}
-                                      )
+            response = session.submit(
+                "PUT",
+                urljoin(self.endpoint.url, f"{self.namespace}/storage/{storage_account_id}"),
+                json=storage_account.dict(),
+                headers={"If-Match": if_match},
+            )
         return StorageAccount(**response.json())
 
     # Add method for deleting a storage account
     def delete_storage_account(self, storage_account_id: str) -> None:
         """Delete a storage account."""
         with self.create_http_session() as session:
-            session.delete(urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'))
+            session.delete(urljoin(self.endpoint.url, f"{self.namespace}/storage/{storage_account_id}"))
         return None
 
     def get_storage_account(self, storage_account_id: str) -> StorageAccount:
         """Get a storage account by its ID."""
         with self.create_http_session() as session:
-            response = session.get(urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'))
+            response = session.get(urljoin(self.endpoint.url, f"{self.namespace}/storage/{storage_account_id}"))
         return StorageAccount(**response.json())
 
-    def list_storage_accounts(self, list_options: Optional[StorageListOptions], max_results: int) -> Iterator[StorageAccount]:
+    def list_storage_accounts(
+        self, list_options: Optional[StorageListOptions], max_results: int
+    ) -> Iterator[StorageAccount]:
         """List storage accounts."""
-        return ResultIterator(StorageAccountListResultLoader(
-            service_url=urljoin(self.endpoint.url, f'{self.namespace}/storage'),
-            http_session=self.create_http_session(),
-            list_options=list_options,
-            trace=None,
-            max_results=max_results))
+        return ResultIterator(
+            StorageAccountListResultLoader(
+                service_url=urljoin(self.endpoint.url, f"{self.namespace}/storage"),
+                http_session=self.create_http_session(),
+                list_options=list_options,
+                trace=None,
+                max_results=max_results,
+            )
+        )

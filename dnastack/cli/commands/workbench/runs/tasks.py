@@ -1,27 +1,27 @@
 from typing import Optional
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, get_ewes_client
 from dnastack.cli.core.command import formatted_command
-from dnastack.cli.core.command_spec import ArgumentSpec, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
+from dnastack.cli.core.command_spec import CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG, ArgumentSpec
 from dnastack.cli.core.group import formatted_group
-from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
+from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
 from dnastack.client.workbench.ewes.models import TaskListOptions
 
 
-@formatted_group('tasks')
+@formatted_group("tasks")
 def tasks_command_group():
     """Interact with a run's tasks"""
 
 
 @formatted_command(
     group=tasks_command_group,
-    name='list',
+    name="list",
     specs=[
         ArgumentSpec(
-            name='run',
-            arg_names=['--run'],
-            help='Specify the run ID to list tasks for.',
+            name="run",
+            arg_names=["--run"],
+            help="Specify the run ID to list tasks for.",
             required=True,
         ),
         NAMESPACE_ARG,
@@ -30,15 +30,17 @@ def tasks_command_group():
         PAGINATION_PAGE_SIZE_ARG,
         CONTEXT_ARG,
         SINGLE_ENDPOINT_ID_ARG,
-    ]
+    ],
 )
-def list_tasks(context: Optional[str],
-               endpoint_id: Optional[str],
-               namespace: Optional[str],
-               max_results: Optional[int],
-               page: Optional[int],
-               page_size: Optional[int],
-               run: str):
+def list_tasks(
+    context: Optional[str],
+    endpoint_id: Optional[str],
+    namespace: Optional[str],
+    max_results: Optional[int],
+    page: Optional[int],
+    page_size: Optional[int],
+    run: str,
+):
     """
     List tasks for a run
 

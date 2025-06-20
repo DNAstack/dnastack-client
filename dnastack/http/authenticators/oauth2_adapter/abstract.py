@@ -20,7 +20,7 @@ class AuthException(RuntimeError):
         if self.url:
             return f"{self.url}: {self.msg or ''}"
         else:
-            return self.msg or ''
+            return self.msg or ""
 
     def __str__(self):
         return self.__repr__()
@@ -31,15 +31,14 @@ class OAuth2Adapter(ABC):
         self._auth_info = auth_info
         self._events = EventSource(
             fixed_types=[
-                'blocking-response-required',
-                'blocking-response-ok',
-                'blocking-response-failed',
+                "blocking-response-required",
+                "blocking-response-ok",
+                "blocking-response-failed",
             ],
-            origin=self
+            origin=self,
         )
         self._log_level = get_authenticator_log_level()
-        self._logger = get_logger(f'{type(self).__name__}/{self._auth_info.get_content_hash()[:8]}',
-                                  self._log_level)
+        self._logger = get_logger(f"{type(self).__name__}/{self._auth_info.get_content_hash()[:8]}", self._log_level)
 
     @property
     def events(self) -> EventSource:
@@ -61,7 +60,8 @@ class OAuth2Adapter(ABC):
 
         if missing_property_names:
             raise AssertionError(
-                f"{type(self).__module__}.{type(self).__name__}: {self._auth_info}: Missing {', '.join(missing_property_names)}")
+                f"{type(self).__module__}.{type(self).__name__}: {self._auth_info}: Missing {', '.join(missing_property_names)}"
+            )
 
     @classmethod
     def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
@@ -85,4 +85,4 @@ class OAuth2Adapter(ABC):
         raise NotImplementedError()
 
     def _prepare_resource_urls_for_request(self, original_resource_urls: str) -> str:
-        return ','.join(re.split(r'\s+', original_resource_urls))
+        return ",".join(re.split(r"\s+", original_resource_urls))

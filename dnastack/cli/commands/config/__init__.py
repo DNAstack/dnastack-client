@@ -7,7 +7,8 @@ from dnastack.cli.core.group import formatted_group
 
 @formatted_group("config")
 def config_command_group():
-    """ Manage global configuration """
+    """Manage global configuration"""
+
 
 # Initialize all commands
 init_config_commands(config_command_group)

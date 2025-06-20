@@ -1,16 +1,17 @@
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from unittest import TestCase
 from urllib.parse import urlparse
 
-from dnastack.client.drs import DrsApiError, Blob, DrsClient, DrsObject
+from dnastack.client.drs import Blob, DrsApiError, DrsClient, DrsObject
 from dnastack.client.factory import EndpointRepository
 from tests.exam_helper import DeprecatedBasePublisherTestCase
 
 
 class TestDrsClient(DeprecatedBasePublisherTestCase):
-    """ Test a client for DRS service"""
+    """Test a client for DRS service"""
+
     # Test-specified
     sample_size = 3
 
@@ -24,7 +25,7 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
     def setUp(self):
         super(TestDrsClient, self).setUp()
 
-        self.output_dir = os.path.join(os.path.dirname(__file__), 'tmp')
+        self.output_dir = os.path.join(os.path.dirname(__file__), "tmp")
         os.makedirs(self.output_dir, exist_ok=True)
 
         if not self.primary_factory:
@@ -32,15 +33,16 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
             self.set_default_event_interceptors_for_factory(self.primary_factory)
 
         if not self.collection_blob_items_map:
-            self.collection_blob_items_map.update(self._get_collection_blob_items_map(self.primary_factory,
-                                                                                      self.sample_size))
+            self.collection_blob_items_map.update(
+                self._get_collection_blob_items_map(self.primary_factory, self.sample_size)
+            )
 
-        self.drs_client: DrsClient = self.primary_factory.get('drs')
+        self.drs_client: DrsClient = self.primary_factory.get("drs")
 
     def tearDown(self) -> None:
         super(TestDrsClient, self).tearDown()
         for file_name in os.listdir(self.output_dir):
-            if file_name[0] == '.':
+            if file_name[0] == ".":
                 continue
             os.unlink(os.path.join(self.output_dir, file_name))
 
@@ -75,13 +77,13 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
                 #       change was introduced to simplify the access evaluation procedure. Until we can decide what
                 #       to do next to streamline the user experience, the test will extract the DRS ID from the
                 #       metabase URL to ensure the functionality.
-                parsed_url = urlparse(item['metadata_url'])
+                parsed_url = urlparse(item["metadata_url"])
                 drs_id = parsed_url.path[1:]
                 assert len(drs_id) > 0, f"LItem/{item['id']}: The metadata URL does not contain the object ID."
                 drs_ids.append(drs_id)
 
                 # Retrieve the DRS URL from the metadata URL.
-                drs_urls.append(item['metadata_url'])
+                drs_urls.append(item["metadata_url"])
 
         errors: Dict[str, Exception] = dict()
 
@@ -101,8 +103,8 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
 
         if len(errors) == len(drs_ids):
             for drs_id, e in errors.items():
-                self._logger.error(f'Failed to download B/{drs_id} ({e})')
-            self.fail('All expected samples fail')
+                self._logger.error(f"Failed to download B/{drs_id} ({e})")
+            self.fail("All expected samples fail")
 
         errors.clear()
 
@@ -120,12 +122,15 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
 
         if len(errors) == len(drs_ids):
             for drs_id, e in errors.items():
-                self._logger.error(f'Failed to download B/{drs_id} ({e})')
-            self.fail('All expected samples fail')
+                self._logger.error(f"Failed to download B/{drs_id} ({e})")
+            self.fail("All expected samples fail")
 
         # At this point, getting the blobs either by IDs or URLs should yield the same result.
-        self.assertEqual(len(id_blob_map_1), len(id_blob_map_2),
-                         'The number of accessible objects should be the same for both approaches.')
+        self.assertEqual(
+            len(id_blob_map_1),
+            len(id_blob_map_2),
+            "The number of accessible objects should be the same for both approaches.",
+        )
         for drs_id, blob_by_id in id_blob_map_1.items():
             try:
                 blob_by_url = id_blob_map_2[blob_by_id.drs_object.id]
@@ -138,7 +143,6 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
 
 
 class TestDrsModels(TestCase):
-
     def test_drs_model_loads_with_nulls_in_checksum(self):
         args = {
             "id": "id",
@@ -154,4 +158,3 @@ class TestDrsModels(TestCase):
         ## Test with checksum set to None
         args["checksums"] = [None]
         DrsObject(**args)
-

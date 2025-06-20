@@ -1,7 +1,7 @@
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 
 from dnastack.client.service_registry.models import ServiceType
 from dnastack.common.model_mixin import JsonModelMixin as HashableModel
@@ -20,7 +20,8 @@ class EndpointSource(BaseModel):
 
 class ServiceEndpoint(BaseModel, HashableModel):
     """API Service Endpoint"""
-    dnastack_schema_version: float = Field(alias='model_version', default=2.0)
+
+    dnastack_schema_version: float = Field(alias="model_version", default=2.0)
     """ Service Endpoint Configuration Specification Version """
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -59,7 +60,7 @@ class ServiceEndpoint(BaseModel, HashableModel):
     """ The source of the endpoint configuration (e.g., service registry) """
 
     def get_authentications(self) -> List[Dict[str, Any]]:
-        """ Get the list of authentication information """
+        """Get the list of authentication information"""
         raw_auths = []
 
         if self.authentication:
@@ -77,11 +78,11 @@ class ServiceEndpoint(BaseModel, HashableModel):
         elif isinstance(model, BaseModel):
             converted_model.update(model.dict())
         else:
-            raise NotImplementedError(f'No interpretation for {model}')
+            raise NotImplementedError(f"No interpretation for {model}")
 
         # Short-term backward-compatibility until May 2022
-        if 'oauth2' in converted_model:
-            converted_model = converted_model['oauth2']
-            converted_model['type'] = 'oauth2'
+        if "oauth2" in converted_model:
+            converted_model = converted_model["oauth2"]
+            converted_model["type"] = "oauth2"
 
         return converted_model

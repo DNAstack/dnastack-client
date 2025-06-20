@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from enum import Enum
 from time import time
-from typing import Optional, List, Any, Dict
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,16 +15,16 @@ class Tag(BaseModel):
 
 
 COLLECTION_READ_ONLY_PROPERTIES = (
-    'id',
-    'itemsQuery',
-    'tags',
-    'createdAt',
-    'updatedAt',
-    'dbSchemaName',
-    'itemsChangedAt',
-    'latestItemUpdatedTime',
-    'accessTypeLabels',
-    'itemCounts',
+    "id",
+    "itemsQuery",
+    "tags",
+    "createdAt",
+    "updatedAt",
+    "dbSchemaName",
+    "itemsChangedAt",
+    "latestItemUpdatedTime",
+    "accessTypeLabels",
+    "itemCounts",
 )
 
 
@@ -51,14 +51,10 @@ class Collection(BaseModel):
     itemCounts: Optional[Dict[str, int]] = Field(default_factory=dict)
 
     @classmethod
-    def make(cls,
-             name: str,
-             items_query: str,
-             slug_name: Optional[str] = None,
-             description: Optional[str] = None):
+    def make(cls, name: str, items_query: str, slug_name: Optional[str] = None, description: Optional[str] = None):
         if not slug_name:
-            slug_name = re.sub(r'[^a-z0-9-]', '-', name.lower()) + str(int(time()))
-            slug_name = re.sub(r'-+', '-', slug_name)
+            slug_name = re.sub(r"[^a-z0-9-]", "-", name.lower()) + str(int(time()))
+            slug_name = re.sub(r"-+", "-", slug_name)
         return cls(name=name, itemsQuery=items_query, slugName=slug_name, description=description)
 
 
@@ -77,6 +73,7 @@ class PaginatedResource(BaseModel):
 
     def items(self) -> List[Any]:
         pass
+
 
 class CollectionItem(BaseModel):
     id: str
@@ -120,10 +117,10 @@ class DeleteCollectionItemRequest(BaseModel):
 
 
 class CollectionValidationStatus(str, Enum):
-    VALIDATED = 'VALIDATED'
-    VALIDATION_STOPPED = 'VALIDATION_STOPPED'
-    VALIDATION_IN_PROGRESS = 'VALIDATION_IN_PROGRESS'
-    MISSING_ITEMS = 'MISSING_ITEMS'
+    VALIDATED = "VALIDATED"
+    VALIDATION_STOPPED = "VALIDATION_STOPPED"
+    VALIDATION_IN_PROGRESS = "VALIDATION_IN_PROGRESS"
+    MISSING_ITEMS = "MISSING_ITEMS"
 
 
 class CollectionValidationMissingItems(BaseModel):

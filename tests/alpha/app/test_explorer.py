@@ -21,7 +21,7 @@ def get_signed_url(collection, file_name):
 class TestEndToEnd(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.explorer_client = Explorer('viral.ai', no_auth=True)
+        cls.explorer_client = Explorer("viral.ai", no_auth=True)
 
     def test_drs(self):
         """
@@ -29,7 +29,7 @@ class TestEndToEnd(TestCase):
 
         This is based on Jim's demo code.
         """
-        logger = get_logger('Explorer.TestEndToEnd.test_drs')
+        logger = get_logger("Explorer.TestEndToEnd.test_drs")
 
         publisher = self.explorer_client
         registered_collections = publisher.list_collections()
@@ -40,11 +40,9 @@ class TestEndToEnd(TestCase):
             identical_blobs = collection.list_items(limit=10, kinds=[ItemType.BLOB])
 
             if blobs:
-                logger.debug(f'C/{collection_info.slugName}: Found some blobs for this test')
+                logger.debug(f"C/{collection_info.slugName}: Found some blobs for this test")
 
-                self.assertEqual(len(blobs),
-                                 len(identical_blobs),
-                                 'Both filter methods should yield the same result.')
+                self.assertEqual(len(blobs), len(identical_blobs), "Both filter methods should yield the same result.")
 
                 for blob in blobs:
                     signed_url = get_signed_url(collection, blob.name)
@@ -52,13 +50,15 @@ class TestEndToEnd(TestCase):
 
                 return
             else:
-                logger.info(f'C/{collection_info.slugName}: Not usable for this test. No blobs available.')
+                logger.info(f"C/{collection_info.slugName}: Not usable for this test. No blobs available.")
                 continue
             # end if
         # end for
 
-        self.fail(f'No usable collections out of {len(registered_collections)} for this test. A suitable collection '
-                  'must have at least one blob.')
+        self.fail(
+            f"No usable collections out of {len(registered_collections)} for this test. A suitable collection "
+            "must have at least one blob."
+        )
 
     def test_data_connect(self):
         """
@@ -66,7 +66,7 @@ class TestEndToEnd(TestCase):
 
         This is based on Jim's demo code.
         """
-        logger = get_logger('Explorer.TestEndToEnd.test_data_connect')
+        get_logger("Explorer.TestEndToEnd.test_data_connect")
 
         explorer = self.explorer_client
         registered_collections = explorer.list_collections()
@@ -80,19 +80,19 @@ class TestEndToEnd(TestCase):
             identical_tables = collection.list_items(limit=10, kinds=[ItemType.TABLE])
 
             if tables:
-                self.assertEqual(len(tables),
-                                 len(identical_tables),
-                                 'Both filter methods should yield the same result.')
+                self.assertEqual(
+                    len(tables), len(identical_tables), "Both filter methods should yield the same result."
+                )
 
                 for table in tables:
-                    self.assertRegex(table.name, r'^collections\.[^.]+\.[^.]+$')
+                    self.assertRegex(table.name, r"^collections\.[^.]+\.[^.]+$")
 
                     df = collection.query(
                         # language=sql
-                        f'SELECT * FROM {table.name} LIMIT 10'
+                        f"SELECT * FROM {table.name} LIMIT 10"
                     ).to_data_frame()
 
-                    self.assertGreaterEqual(len(df), 0, 'Failed to iterating the result.')
+                    self.assertGreaterEqual(len(df), 0, "Failed to iterating the result.")
 
                     return  # We only concern the first table that is available for testing.
                 # end: for
@@ -102,5 +102,7 @@ class TestEndToEnd(TestCase):
 
         # end: for
 
-        self.fail(f'No usable collections out of {len(registered_collections)} for this test. A suitable collection '
-                  'must have at least one table.')
+        self.fail(
+            f"No usable collections out of {len(registered_collections)} for this test. A suitable collection "
+            "must have at least one table."
+        )

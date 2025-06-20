@@ -8,9 +8,9 @@ from dnastack.cli.commands.workbench.workflows import workflows_command_group
 from dnastack.cli.core.group import formatted_group
 
 
-@formatted_group('workbench')
+@formatted_group("workbench")
 def workbench_command_group():
-    """ Interact with Workbench """
+    """Interact with Workbench"""
 
 
 workbench_command_group.add_command(runs_command_group)

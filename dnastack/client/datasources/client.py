@@ -1,17 +1,15 @@
-from pprint import pformat
 from typing import List, Optional
+
 from pydantic import BaseModel, ValidationError
+
 from dnastack.client.base_client import BaseServiceClient
-from dnastack.client.base_exceptions import (
-    UnauthenticatedApiAccessError, UnauthorizedApiAccessError
-)
-from dnastack.client.collections.client import STANDARD_COLLECTION_SERVICE_TYPE_V1_0, \
-    STANDARD_DATASOURCE_SERVICE_TYPE_V1_0
+from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError
+from dnastack.client.collections.client import STANDARD_DATASOURCE_SERVICE_TYPE_V1_0
 from dnastack.client.collections.model import PageableApiError
-from dnastack.client.datasources.model import DataSource, DataSourceListOptions
-from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
-from dnastack.http.session import HttpSession, HttpError
+from dnastack.client.datasources.model import DataSource
+from dnastack.client.result_iterator import InactiveLoaderError, ResultIterator, ResultLoader
 from dnastack.common.tracing import Span
+from dnastack.http.session import HttpError, HttpSession
 
 
 class DataSourcesResponse(BaseModel):
@@ -20,13 +18,20 @@ class DataSourcesResponse(BaseModel):
     def items(self) -> List[DataSource]:
         return self.connections
 
+
 class DataSourceListResultLoader(ResultLoader):
     """
     Result loader for handling data source fetching without pagination.
     """
 
-    def __init__(self, service_url: str, http_session: HttpSession, trace: Span,
-                 list_options: Optional[dict] = None, max_results: Optional[int] = None):
+    def __init__(
+        self,
+        service_url: str,
+        http_session: HttpSession,
+        trace: Span,
+        list_options: Optional[dict] = None,
+        max_results: Optional[int] = None,
+    ):
         self.__service_url = service_url
         self.__http_session = http_session
         self.__list_options = list_options or {}
@@ -53,11 +58,7 @@ class DataSourceListResultLoader(ResultLoader):
         with self.__http_session as session:
             try:
                 # Perform the GET request
-                response = session.get(
-                    self.__service_url,
-                    params=self.__list_options,
-                    trace_context=self.__trace
-                )
+                response = session.get(self.__service_url, params=self.__list_options, trace_context=self.__trace)
             except HttpError as e:
                 error_feedback = f"Failed to load data from {self.__service_url}: {e.response.text}"
                 if e.response.status_code == 401:
@@ -86,9 +87,10 @@ class DataSourceListResultLoader(ResultLoader):
 
             # Handle max_results constraint
             if self.__max_results and len(items) > self.__max_results:
-                return items[:self.__max_results]
+                return items[: self.__max_results]
 
             return items
+
 
 class DataSourceServiceClient(BaseServiceClient):
     """
@@ -97,17 +99,20 @@ class DataSourceServiceClient(BaseServiceClient):
 
     @staticmethod
     def get_adapter_type() -> str:
-        return 'datasources'
+        return "datasources"
 
     @classmethod
     def get_supported_service_types(cls) -> List[str]:
         """
         Returns supported service types.
         """
-        return [ STANDARD_DATASOURCE_SERVICE_TYPE_V1_0,]
+        return [
+            STANDARD_DATASOURCE_SERVICE_TYPE_V1_0,
+        ]
 
-    def list_datasources(self, type: Optional[str] = None, trace: Optional[Span] = None,
-                         max_results: Optional[int] = None) -> DataSourcesResponse:
+    def list_datasources(
+        self, type: Optional[str] = None, trace: Optional[Span] = None, max_results: Optional[int] = None
+    ) -> DataSourcesResponse:
         # Set up query parameters
         list_options = {}
         if type:
@@ -119,7 +124,7 @@ class DataSourceServiceClient(BaseServiceClient):
             http_session=self.create_http_session(),
             trace=trace,
             list_options=list_options,
-            max_results=max_results
+            max_results=max_results,
         )
         connections = list(ResultIterator(loader))
         return DataSourcesResponse(connections=connections)

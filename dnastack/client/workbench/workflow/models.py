@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -106,6 +106,7 @@ class WorkflowVersionListResponse(PaginatedResource):
     def items(self) -> List[Any]:
         return self.versions
 
+
 class ResolvedWorkflow(BaseModel):
     id: str
     internalId: str
@@ -117,6 +118,7 @@ class ResolvedWorkflow(BaseModel):
     version: Optional[WorkflowVersion]
     authors: Optional[List[str]]
     etag: Optional[str]
+
 
 class WorkflowDefaultsSelector(BaseModel):
     engine: Optional[str]

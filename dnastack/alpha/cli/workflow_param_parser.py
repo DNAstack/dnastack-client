@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any
+from typing import Any, Dict
 
 from dnastack.common.parser import DotPropertiesParser
 
@@ -13,11 +13,8 @@ class WorkflowParamParser(DotPropertiesParser):
                 key, value = param.split("=")
                 if re.search(r"^(.+)\/([^\/]+)$", value[1:]):
                     with open(value[1:]) as param_file:
-                        file_content = re.sub(r'[\n\t\s]', "", param_file.read())
+                        file_content = re.sub(r"[\n\t\s]", "", param_file.read())
                         params_list.append("=".join([key, file_content]))
             else:
                 params_list.append(param)
         return DotPropertiesParser.parse(self, "\n".join(params_list))
-
-
-
