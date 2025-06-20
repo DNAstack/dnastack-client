@@ -9,8 +9,8 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
     """Simple tests to improve Explorer coverage above 80%"""
 
     def test_commands_write_file_function(self):
-        """Test _write_results_to_file function directly"""
-        from dnastack.cli.commands.explorer.questions.commands import _write_results_to_file
+        """Test write_results_to_file function directly"""
+        from dnastack.cli.commands.explorer.questions.utils import write_results_to_file
         
         # Test JSON output
         test_data = [{"key": "value", "number": 42}]
@@ -18,7 +18,7 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
             tmp_name = tmp.name
         
         try:
-            _write_results_to_file(test_data, tmp_name, 'json')
+            write_results_to_file(test_data, tmp_name, 'json')
             with open(tmp_name, 'r') as f:
                 loaded = json.load(f)
                 self.assertEqual(loaded, test_data)
@@ -31,7 +31,7 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
             tmp_name = tmp.name
         
         try:
-            _write_results_to_file(test_data, tmp_name, 'csv')
+            write_results_to_file(test_data, tmp_name, 'csv')
             self.assertTrue(os.path.exists(tmp_name))
         finally:
             if os.path.exists(tmp_name):
@@ -42,7 +42,7 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
             tmp_name = tmp.name
         
         try:
-            _write_results_to_file(test_data, tmp_name, 'yaml')
+            write_results_to_file(test_data, tmp_name, 'yaml')
             self.assertTrue(os.path.exists(tmp_name))
         finally:
             if os.path.exists(tmp_name):
@@ -53,7 +53,7 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
             tmp_name = tmp.name
         
         try:
-            _write_results_to_file([], tmp_name, 'csv')
+            write_results_to_file([], tmp_name, 'csv')
             self.assertTrue(os.path.exists(tmp_name))
         finally:
             if os.path.exists(tmp_name):
@@ -62,7 +62,7 @@ class TestExplorerSimpleCoverage(unittest.TestCase):
         # Test directory creation
         with tempfile.TemporaryDirectory() as tmpdir:
             nested_path = os.path.join(tmpdir, "subdir", "file.json")
-            _write_results_to_file(test_data, nested_path, 'json')
+            write_results_to_file(test_data, nested_path, 'json')
             self.assertTrue(os.path.exists(nested_path))
 
     def test_client_static_methods_comprehensive(self):
