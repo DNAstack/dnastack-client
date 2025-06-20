@@ -1,19 +1,14 @@
 import unittest
-from unittest.mock import Mock, patch
-import tempfile
-import os
+from unittest.mock import Mock
 
 from dnastack.cli.commands.explorer.questions.commands import init_questions_commands
 from dnastack.cli.commands.explorer.questions.utils import (
-    get_explorer_client,
-    parse_collections_argument,
     format_question_parameters,
     format_question_collections,
     validate_question_parameters,
     flatten_result_for_export
 )
 from dnastack.cli.commands.explorer.questions.tables import (
-    format_question_list_table,
     format_question_detail_table,
     format_question_results_table,
     _flatten_dict

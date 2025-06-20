@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from dnastack.client.explorer.models import FederatedQuestion, QuestionParam, QuestionCollection
+from dnastack.client.explorer.models import FederatedQuestion
 
 
 def format_question_list_table(questions: List[FederatedQuestion]) -> List[Dict[str, Any]]:

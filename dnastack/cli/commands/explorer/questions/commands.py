@@ -146,7 +146,7 @@ def init_questions_commands(group: Group):
             raise click.Abort()
         
         if collection_ids is None:
-            collection_names = [col.name for col in question.collections]
+            pass  # No filtering needed, use all collections
         else:
             # Validate collection IDs exist in question
             available_ids = {col.id for col in question.collections}

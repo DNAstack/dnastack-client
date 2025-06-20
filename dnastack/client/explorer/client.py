@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Iterator, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from dnastack.client.explorer.models import FederatedQuestion
@@ -10,8 +10,7 @@ from dnastack.client.models import ServiceEndpoint
 from dnastack.client.explorer.models import (
     FederatedQuestion,
     FederatedQuestionListResponse,
-    FederatedQuestionQueryRequest,
-    QuestionQueryResult
+    FederatedQuestionQueryRequest
 )
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
 from dnastack.client.service_registry.models import ServiceType
