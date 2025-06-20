@@ -112,11 +112,6 @@ For more information, please check out [the documentation on service registries]
       * list
       * get
     * query
-  * [explorer](#explorer-service-endpoint)
-    * questions
-      * list
-      * describe
-      * ask
   * [files](#data-repository-service-endpoint) (aliases: `drs`)
     * download
   * [publisher](#publisher-service-endpoint) 
@@ -587,118 +582,6 @@ Options:
 
 ```shell
 dnastack wes run cancel RUN_ID
-```
-
-## Explorer Service Endpoint
-
-To use this set of commands, you need to configure at least one [Explorer Service](glossary.md#service-endpoint-types) endpoint with federated questions support.
-
-### List all available federated questions
-
-```shell
-dnastack explorer questions list [OPTIONS]
-
-  List all available federated questions
-
-Options:
-  --context TEXT            Context
-  --endpoint-id TEXT        Endpoint ID
-  -o, --output [json|yaml]  Output format  [default: json]
-```
-
-| Output Reference Schema                               |
-|-------------------------------------------------------|
-| `List[dnastack.client.explorer.models.FederatedQuestion]` |
-
-Example:
-```shell
-# List all federated questions
-dnastack explorer questions list
-
-# List questions from specific endpoint
-dnastack explorer questions list --endpoint-id my-explorer
-
-# Get output in YAML format
-dnastack explorer questions list -o yaml
-```
-
-### Get detailed information about a federated question
-
-```shell
-dnastack explorer questions describe [OPTIONS] QUESTION_ID
-
-  Get detailed information about a federated question
-
-Options:
-  --context TEXT            Context
-  --endpoint-id TEXT        Endpoint ID
-  -o, --output [json|yaml]  Output format  [default: json]
-```
-
-where:
-* `QUESTION_ID` is the ID of the federated question to describe.
-
-| Output Reference Schema                               |
-|-------------------------------------------------------|
-| `dnastack.client.explorer.models.FederatedQuestion` |
-
-Example:
-```shell
-# Describe a specific question
-dnastack explorer questions describe my-question-id
-
-# Describe question with YAML output
-dnastack explorer questions describe my-question-id -o yaml
-```
-
-### Ask a federated question with parameters
-
-```shell
-dnastack explorer questions ask [OPTIONS]
-
-  Ask a federated question with the provided parameters
-
-Options:
-  --question-name TEXT          The name/ID of the question to ask  [required]
-  --arg TEXT                    Question parameters in key=value format (can be used multiple times)
-  --collections TEXT            Comma-separated list of collection IDs to query (default: all collections for the question)
-  --output-file TEXT            Output file path for results
-  --context TEXT                Context
-  --endpoint-id TEXT            Endpoint ID
-  -o, --output [json|csv|yaml]  Output format  [default: json]
-```
-
-| Output Reference Schema ||
-|-------------------------|
-| `List[Dict[str, Any]]`  |
-
-Examples:
-```shell
-# Ask a question with parameters
-dnastack explorer questions ask \
-  --question-name population-stats \
-  --arg region="North America" \
-  --arg year=2023
-
-# Ask question for specific collections only
-dnastack explorer questions ask \
-  --question-name disease-variants \
-  --arg disease="diabetes" \
-  --collections collection-1,collection-2
-
-# Export results to CSV file
-dnastack explorer questions ask \
-  --question-name sample-metrics \
-  --arg threshold=0.05 \
-  --output-file results.csv \
-  -o csv
-
-# Ask question with multiple parameters
-dnastack explorer questions ask \
-  --question-name complex-analysis \
-  --arg param1=value1 \
-  --arg param2=value2 \
-  --arg param3=value3
 ```
 
 ### Experimental Features Command (Alpha)

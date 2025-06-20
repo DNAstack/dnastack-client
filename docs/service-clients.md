@@ -4,7 +4,6 @@ The library provides several clients to specifically support different (GA4GH-li
 of [service endpoints](glossary.md#service-endpoint), according to the API specification.
 
 * [Collection Service and Explorer Service](#collection-service-and-explorer-service-collection-api)
-* [Explorer Service (Federated Questions)](#explorer-service-federated-questions-api)
 * [Data Connect Service](#data-connect-service-ga4gh-data-connect-api)
 * [Data Repository Service (DRS)](#data-repository-service-ga4gh-drs-api)
 * [Service Registry Service](#service-registry-service-ga4gh-service-registry-api)
@@ -117,114 +116,6 @@ data_connect_client = switch_to_data_connect(collection_service_client)
 > The standard collection service **DOES NOT** require the ID or slug name of the target collection.
 
 For the CLI tool, you don't need to do anything as the CLI handler will handle the switch automatically.
-
-## Explorer Service (Federated Questions API)
-
-* **Class:** `dnastack.ExplorerClient`
-* **Short Type:** `explorer`
-
-The Explorer client provides specialized interfaces for working with **federated questions** - pre-defined analytical queries that can be executed across multiple collections in the Explorer network. This client is designed specifically for the Explorer service's federated questioning capabilities.
-
-```yaml
-# Explorer Service Type
-group: com.dnastack.explorer
-artifact: collection-service
-version: 1.0.0
-```
-
-### Federated Questions Overview
-
-Federated questions are analytical queries that:
-- Can be executed across multiple collections simultaneously
-- Have pre-defined parameters and expected outputs
-- Support various data export formats (JSON, CSV, YAML)
-- Provide consistent interfaces across different data sources
-
-### How to initialize an Explorer client
-
-Here are examples on how to initialize a client for Explorer Service.
-
-```python
-from dnastack.client.explorer.client import ExplorerClient
-from dnastack.configuration.models import ServiceEndpoint
-
-# Initialize Explorer client
-client = ExplorerClient(ServiceEndpoint(
-    url='https://explorer.example.com/',
-    authentication=dict(...)
-))
-```
-
-Here is how to do the same thing with the CLI tool:
-
-```shell
-# Add Explorer endpoint
-dnastack config endpoints add explorer -t explorer
-dnastack config endpoints set explorer url "https://explorer.example.com/"
-# Configure authentication if needed
-dnastack config endpoints set explorer authentication.client_id "your-client-id"
-```
-
-### Working with Federated Questions
-
-#### List Available Questions
-
-```python
-# List all federated questions
-questions = client.list_federated_questions()
-for question in questions:
-    print(f"{question.id}: {question.name}")
-```
-
-#### Get Question Details
-
-```python
-# Get detailed information about a specific question
-question = client.describe_federated_question("question-id")
-print(f"Question: {question.name}")
-print(f"Description: {question.description}")
-print(f"Parameters: {[p.name for p in question.params]}")
-print(f"Available Collections: {[c.name for c in question.collections]}")
-```
-
-#### Execute Federated Questions
-
-```python
-# Ask a federated question with parameters
-results = client.ask_federated_question(
-    question_id="question-id",
-    inputs={"param1": "value1", "param2": "value2"},
-    collections=["collection-1", "collection-2"]  # Optional: specify collections
-)
-
-# Process results
-for result in results:
-    print(result)
-```
-
-### CLI Usage Examples
-
-```shell
-# List all federated questions
-dnastack explorer questions list
-
-# Get details about a specific question
-dnastack explorer questions describe question-id
-
-# Ask a question with parameters
-dnastack explorer questions ask \
-  --question-name question-id \
-  --arg param1=value1 \
-  --arg param2=value2 \
-  --collections collection-1,collection-2
-
-# Export results to CSV
-dnastack explorer questions ask \
-  --question-name question-id \
-  --arg param1=value1 \
-  --output-file results.csv \
-  -o csv
-```
 
 ## Data Connect Service (GA4GH Data Connect API)
 
