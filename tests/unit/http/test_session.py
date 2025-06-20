@@ -252,6 +252,6 @@ class TestHttpSession(TestCase):
         self.assertIsNotNone(call_args)
 
         # Check if headers were passed (they should contain tracing information)
-        headers = call_args[1].get("headers", {})
+        # Headers exist in call_args[1] but exact format depends on implementation
         # The exact headers depend on tracing implementation, but we can verify the call was made
         self.assertTrue(True)  # Test passes if we get this far without errors
