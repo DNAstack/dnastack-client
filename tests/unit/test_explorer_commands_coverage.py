@@ -130,10 +130,9 @@ class TestExplorerCommandsCoverage(unittest.TestCase):
         mock_client.describe_federated_question.assert_called_once()
 
     @patch('dnastack.cli.commands.explorer.questions.commands.get_explorer_client')
-    @patch('dnastack.cli.commands.explorer.questions.commands.show_iterator')
+    @patch('dnastack.cli.commands.explorer.questions.commands.handle_question_results_output')
     @patch('dnastack.cli.commands.explorer.questions.commands.Span')
-    @patch('dnastack.cli.commands.explorer.questions.commands.click.echo')
-    def test_ask_question_no_results(self, mock_echo, mock_span, mock_show_iterator, mock_get_client):
+    def test_ask_question_no_results(self, mock_span, mock_handle_output, mock_get_client):
         """Test ask question command with no results"""
         from dnastack.cli.commands.explorer.commands import questions_command_group
         from dnastack.client.explorer.models import FederatedQuestion
@@ -163,9 +162,12 @@ class TestExplorerCommandsCoverage(unittest.TestCase):
         
         result = runner.invoke(ask_cmd, ['--question-name', 'q1', '--output', 'json'])
         
-        # The command should execute and show no results message
+        # The command should execute without error (no more echo message for empty results)
         self.assertEqual(result.exit_code, 0)
-        mock_echo.assert_called_with("No results returned from query")
+        # Verify handle_question_results_output was called with empty results
+        mock_handle_output.assert_called_once()
+        call_args = mock_handle_output.call_args[0]
+        self.assertEqual(call_args[0], [])  # Empty results list
 
     @patch('dnastack.cli.commands.explorer.questions.commands.get_explorer_client')
     @patch('dnastack.cli.commands.explorer.questions.commands.click.echo')
