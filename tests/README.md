@@ -46,7 +46,7 @@ make test-unit-cov
 make test-unit-watch
 
 # Run specific test file
-pytest tests/unit/common/test_parser.py -v
+uv run pytest tests/unit/common/test_parser.py -v
 ```
 
 ### E2E Tests
@@ -79,7 +79,10 @@ uv pip install --group test
 
 ### Unit Tests
 - Place in `tests/unit/` following the source code structure
-- Use mocks from `tests/unit/fixtures/mocks.py`
+- Use fixtures from `tests/unit/fixtures/` organized by domain:
+  - `auth_fixtures.py` - Authentication and HTTP mocks
+  - `service_fixtures.py` - Service registry and client mocks
+  - `data_fixtures.py` - Sample test data
 - Should run without external dependencies
 - Should complete in <1 second per test
 
@@ -101,6 +104,6 @@ Tests can be marked with pytest markers:
 
 Run tests by marker:
 ```bash
-pytest -m unit        # Only unit tests
-pytest -m "not e2e"   # Exclude E2E tests
+uv run pytest -m unit        # Only unit tests
+uv run pytest -m "not e2e"   # Exclude E2E tests
 ```
