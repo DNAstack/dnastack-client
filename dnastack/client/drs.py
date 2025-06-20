@@ -67,7 +67,7 @@ class DRSDownloadException(RuntimeError):
         self.errors = errors
 
     def __repr__(self):
-        error_msg = f"Downloads failed:\n"
+        error_msg = "Downloads failed:\n"
         for err in self.errors:
             error_msg += f"{err}\n"
         return error_msg

@@ -26,6 +26,20 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make docker-test-all-latest` - Test with Python 3.12 (latest)
 - `./scripts/run-e2e-tests.sh` - Direct E2E test execution script
 
+### Linting
+- `make lint` - Run ruff linter to check code style and errors (zero-tolerance policy - all violations must be fixed)
+- `make lint-fix` - Auto-fix linting issues and format code with ruff
+  - Runs `ruff check --fix .` to auto-fix violations where possible
+  - Runs `ruff format .` to format code consistently
+- **Configuration**: Minimal setup in `pyproject.toml` with Python 3.8 target and 120 character line length
+- **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses `astral-sh/ruff-action@v3` for automated checks
+- **Version**: Fixed at ruff==0.11.13 in `tests/requirements-test.txt` for consistency across environments
+- **Development Notes**:
+  - Avoid star imports (`from module import *`) - use explicit imports for better code clarity
+  - When fixing linting violations in critical modules, add unit tests first to prevent regressions
+  - Use `make test-unit-cov` to verify test coverage before making risky changes
+  - Test locally with `act` before pushing GitHub Actions changes
+
 ### Package Management
 - `make package-test` - Build and test package installation in clean container
 - `./scripts/build-package.py --pre-release a` - Build pre-release package

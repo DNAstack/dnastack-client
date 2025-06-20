@@ -363,7 +363,7 @@ class BaseTestCase(TestCase):
             # noinspection PyBroadException
             try:
                 return callable_obj(*(args or tuple()), **(kwargs or dict()))
-            except:
+            except Exception:
                 if time.time() - starting_time < timeout:
                     time.sleep(pause_period)
                 else:

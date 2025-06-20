@@ -2,7 +2,7 @@ import click
 from click import Command, Option, Parameter, Argument
 from typing import List
 
-from dnastack.cli.core.constants import *
+from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_WIDTH, OPTION_PADDING, TOTAL_WIDTH
 from dnastack.cli.core.formatting_utils import get_visual_length, wrap_text
 from dnastack.cli.core.styling import styler
 

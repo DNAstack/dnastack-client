@@ -313,12 +313,12 @@ class WesClient(BaseServiceClient):
 
     def get_service_info(self):
         with self.create_http_session() as session:
-            response = session.get(urljoin(self.endpoint.url, f'service-info'))
+            response = session.get(urljoin(self.endpoint.url, 'service-info'))
             return response.json()
 
     def get_runs(self, page_size: Optional[int] = None, page_token: Optional[str] = None) -> Iterator[_Run]:
         # GET /runs
-        return ResultIterator(RunListLoader(initial_url=urljoin(self.endpoint.url, f'runs'),
+        return ResultIterator(RunListLoader(initial_url=urljoin(self.endpoint.url, 'runs'),
                                             page_size=page_size,
                                             page_token=page_token,
                                             http_session=self.create_http_session()))

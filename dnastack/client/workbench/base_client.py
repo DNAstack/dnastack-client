@@ -136,7 +136,7 @@ class WorkbenchResultLoader(ResultLoader):
 
             try:
                 response_body = response.json() if response_text else dict()
-            except Exception as e:
+            except Exception:
                 self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise PageableApiError(
                     f'Unable to deserialize JSON from {response_text}.',
@@ -147,7 +147,7 @@ class WorkbenchResultLoader(ResultLoader):
 
             try:
                 api_response = self.extract_api_response(response_body)
-            except ValidationError as e:
+            except ValidationError:
                 raise PageableApiError(
                     f'Invalid Response Body: {response_body}',
                     status_code,
