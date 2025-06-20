@@ -76,9 +76,16 @@ test-unit: check-uv
 test-unit-cov: check-uv
 	uv run pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
-.PHONY: test-all
-test-all:
+.PHONY: test-unit-watch
+test-unit-watch: check-uv
+	uv run pytest-watch tests/unit -v
+
+.PHONY: test-e2e
+test-e2e:
 	E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh
+
+.PHONY: test-all
+test-all: test-unit test-e2e
 
 .PHONY: package-test
 package-test:
