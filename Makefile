@@ -3,28 +3,42 @@ PY_VERSION_STABLE=3.11
 PY_VERSION_LATEST=3.12
 TESTING_IMAGE_NAME=dnastack/client-library-testing
 
+# Check if uv is available
+UV_AVAILABLE := $(shell command -v uv 2> /dev/null)
+
+.PHONY: check-uv
+check-uv:
+ifndef UV_AVAILABLE
+	@echo "Error: 'uv' is not installed. Please install it first:"
+	@echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+	@echo "  or"
+	@echo "  pip install uv"
+	@echo "For more installation options, visit: https://docs.astral.sh/uv/getting-started/installation/"
+	@exit 1
+endif
+
 .PHONY: setup
-setup:
+setup: check-uv
 	uv venv
 	uv pip install -e ".[all]"
 	uv pip install --group dev
 
 .PHONY: lint
-lint:
+lint: check-uv
 	uv run ruff check .
 	uv run ruff format --check .
 
 .PHONY: format
-format:
+format: check-uv
 	uv run ruff check --fix .
 	uv run ruff format .
 
 .PHONY: typecheck
-typecheck:
+typecheck: check-uv
 	uv run mypy dnastack
 
 .PHONY: build
-build:
+build: check-uv
 	uv build
 
 .PHONY: run-notebooks
@@ -50,16 +64,16 @@ reset:
 	rm ~/.dnastack/sessions/* 2> /dev/null
 
 .PHONY: test-setup
-test-setup:
+test-setup: check-uv
 	uv pip install -e ".[all]"
 	uv pip install --group test
 
 .PHONY: test-unit
-test-unit:
+test-unit: check-uv
 	uv run pytest tests/unit -v
 
 .PHONY: test-unit-cov
-test-unit-cov:
+test-unit-cov: check-uv
 	uv run pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
 .PHONY: test-all
