@@ -1,18 +1,18 @@
 from abc import ABC
 from pprint import pformat
-from typing import Optional, List
+from typing import List, Optional
 
 from pydantic import ValidationError
 
 from dnastack import ServiceEndpoint
 from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError
-from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError
+from dnastack.client.result_iterator import InactiveLoaderError, ResultLoader
 from dnastack.client.workbench.models import BaseListOptions, PaginatedResource
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.factory import HttpAuthenticatorFactory
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
-from dnastack.http.session import HttpSession, HttpError
+from dnastack.http.session import HttpError, HttpSession
 
 
 class ApiError(Exception):
@@ -32,10 +32,10 @@ class PageableApiError(ApiError):
 
 
 class NamespaceError(RuntimeError):
-    """ Raised when the access to the API requires an authentication. """
+    """Raised when the access to the API requires an authentication."""
 
     def __init__(self, message: str):
-        super(NamespaceError, self).__init__(f'Namespace error: {message}')
+        super(NamespaceError, self).__init__(f"Namespace error: {message}")
 
 
 class BaseWorkbenchClient(BaseServiceClient, ABC):
@@ -62,12 +62,14 @@ class BaseWorkbenchClient(BaseServiceClient, ABC):
 
 
 class WorkbenchResultLoader(ResultLoader):
-    def __init__(self,
-                 service_url: str,
-                 http_session: HttpSession,
-                 trace: Optional[Span],
-                 list_options: Optional[BaseListOptions] = None,
-                 max_results: int = None):
+    def __init__(
+        self,
+        service_url: str,
+        http_session: HttpSession,
+        trace: Optional[Span],
+        list_options: Optional[BaseListOptions] = None,
+        max_results: int = None,
+    ):
         self.__http_session = http_session
         self.__service_url = service_url
         self.__list_options = list_options
@@ -86,9 +88,9 @@ class WorkbenchResultLoader(ResultLoader):
 
     def __generate_api_error_feedback(self, response_body) -> str:
         if self.__service_url:
-            return f'Failed to load the next page of data from {self.__service_url}: ({response_body})'
+            return f"Failed to load the next page of data from {self.__service_url}: ({response_body})"
         else:
-            return f'Failed to load the next page of data: ({response_body})'
+            return f"Failed to load the next page of data: ({response_body})"
 
     def get_new_list_options(self) -> BaseListOptions:
         return BaseListOptions()
@@ -104,15 +106,11 @@ class WorkbenchResultLoader(ResultLoader):
             current_url = self.__service_url
 
             try:
-
                 if not self.__next_page_url:
-                    response = session.get(current_url,
-                                           params=self.__list_options,
-                                           trace_context=self.__trace)
+                    response = session.get(current_url, params=self.__list_options, trace_context=self.__trace)
                 else:
                     current_url = self.__next_page_url
-                    response = session.get(self.__next_page_url,
-                                           trace_context=self.__trace)
+                    response = session.get(self.__next_page_url, trace_context=self.__trace)
             except HttpError as e:
                 status_code = e.response.status_code
                 response_text = e.response.text
@@ -125,10 +123,7 @@ class WorkbenchResultLoader(ResultLoader):
                     raise UnauthorizedApiAccessError(self.__generate_api_error_feedback(response_text))
                 elif status_code >= 400:  # Catch all errors
                     raise PageableApiError(
-                        f'Unexpected error: {response_text}',
-                        status_code,
-                        response_text,
-                        urls=self.__visited_urls
+                        f"Unexpected error: {response_text}", status_code, response_text, urls=self.__visited_urls
                     )
 
             status_code = response.status_code
@@ -137,27 +132,28 @@ class WorkbenchResultLoader(ResultLoader):
             try:
                 response_body = response.json() if response_text else dict()
             except Exception:
-                self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
+                self.logger.error(f"{self.__service_url}: Unexpectedly non-JSON response body from {current_url}")
                 raise PageableApiError(
-                    f'Unable to deserialize JSON from {response_text}.',
+                    f"Unable to deserialize JSON from {response_text}.",
                     status_code,
                     response_text,
-                    urls=self.__visited_urls
+                    urls=self.__visited_urls,
                 )
 
             try:
                 api_response = self.extract_api_response(response_body)
             except ValidationError:
                 raise PageableApiError(
-                    f'Invalid Response Body: {response_body}',
-                    status_code,
-                    response_text,
-                    urls=self.__visited_urls
+                    f"Invalid Response Body: {response_body}", status_code, response_text, urls=self.__visited_urls
                 )
 
-            self.logger.debug(f'Response:\n{pformat(response_body, indent=2)}')
+            self.logger.debug(f"Response:\n{pformat(response_body, indent=2)}")
 
-            self.__next_page_url = api_response.pagination.next_page_url if api_response.pagination and api_response.pagination.next_page_url else None
+            self.__next_page_url = (
+                api_response.pagination.next_page_url
+                if api_response.pagination and api_response.pagination.next_page_url
+                else None
+            )
             if not self.__next_page_url:
                 self.__active = False
 

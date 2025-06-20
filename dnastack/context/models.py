@@ -7,10 +7,10 @@ from dnastack import ServiceEndpoint as Endpoint
 
 
 class Context(BaseModel):
-    dnastack_schema_version: float = Field(alias='model_version', default=1.0)
+    dnastack_schema_version: float = Field(alias="model_version", default=1.0)
 
     # For debugging
-    guid:  str = Field(default_factory=lambda: str(uuid4()))
+    guid: str = Field(default_factory=lambda: str(uuid4()))
 
     # This is the short-type-to-service-id map.
     defaults: Dict[str, str] = Field(default_factory=lambda: dict())

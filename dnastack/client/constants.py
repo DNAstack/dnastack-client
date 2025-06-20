@@ -15,26 +15,45 @@ from dnastack.client.workbench.workflow.client import WorkflowClient
 
 # All known client classes
 ALL_SERVICE_CLIENT_CLASSES = (
-    CollectionServiceClient, DataConnectClient, DrsClient, ExplorerClient, ServiceRegistry, EWesClient, StorageClient, SamplesClient,
+    CollectionServiceClient,
+    DataConnectClient,
+    DrsClient,
+    ExplorerClient,
+    ServiceRegistry,
+    EWesClient,
+    StorageClient,
+    SamplesClient,
     WorkflowClient,
-    WorkbenchUserClient, DataSourceServiceClient)
+    WorkbenchUserClient,
+    DataSourceServiceClient,
+)
 
 # All client classes for data access
 DATA_SERVICE_CLIENT_CLASSES = (
-    CollectionServiceClient, DataConnectClient, DrsClient, ExplorerClient, EWesClient, StorageClient, WorkflowClient,
-    WorkbenchUserClient, DataSourceServiceClient)
+    CollectionServiceClient,
+    DataConnectClient,
+    DrsClient,
+    ExplorerClient,
+    EWesClient,
+    StorageClient,
+    WorkflowClient,
+    WorkbenchUserClient,
+    DataSourceServiceClient,
+)
 
 # Type variable for the service client
-SERVICE_CLIENT_CLASS = TypeVar('SERVICE_CLIENT_CLASS',
-                               BaseServiceClient,
-                               EWesClient,
-                               StorageClient,
-                               WorkflowClient,
-                               WorkbenchUserClient,
-                               CollectionServiceClient,
-                               DataConnectClient,
-                               DrsClient,
-                               ExplorerClient,
-                               SamplesClient,
-                               ServiceRegistry,
-                               DataSourceServiceClient)
+SERVICE_CLIENT_CLASS = TypeVar(
+    "SERVICE_CLIENT_CLASS",
+    BaseServiceClient,
+    EWesClient,
+    StorageClient,
+    WorkflowClient,
+    WorkbenchUserClient,
+    CollectionServiceClient,
+    DataConnectClient,
+    DrsClient,
+    ExplorerClient,
+    SamplesClient,
+    ServiceRegistry,
+    DataSourceServiceClient,
+)

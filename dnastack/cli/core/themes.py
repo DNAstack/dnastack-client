@@ -1,12 +1,14 @@
-from dataclasses import dataclass
-from typing import Dict, Optional
 import os
-import subprocess
 import platform
+import subprocess
+from dataclasses import dataclass
 from functools import lru_cache
+from typing import Dict, Optional
+
 import click
 
 from dnastack.common.logger import get_logger
+
 
 @dataclass
 class TerminalTheme:
@@ -72,123 +74,110 @@ class TerminalTheme:
 # Default theme configurations
 LIGHT_THEME = TerminalTheme(
     # Message types
-    error={'fg': 'red', 'bold': True},
-    warning={'fg': 'yellow'},
-    success={'fg': 'green'},
-    info={'fg': 'black'},
-    debug={'fg': 'dark_gray'},
-
+    error={"fg": "red", "bold": True},
+    warning={"fg": "yellow"},
+    success={"fg": "green"},
+    info={"fg": "black"},
+    debug={"fg": "dark_gray"},
     # Usage command help styling
-    usage_command_name={'fg': 'black', 'bold': True},
-    usage_command_help={'fg': 'black'},
-
+    usage_command_name={"fg": "black", "bold": True},
+    usage_command_help={"fg": "black"},
     # Example command styling
-    example_command_header={'fg': 'black', 'bold': True},
-    example_command_divider={'fg': 'black'},
-    example_command_name={'fg': 'black', 'bold': True},
-    example_command_help={'fg': 'black'},
-
+    example_command_header={"fg": "black", "bold": True},
+    example_command_divider={"fg": "black"},
+    example_command_name={"fg": "black", "bold": True},
+    example_command_help={"fg": "black"},
     # Command styling
-    command_header={'fg': 'blue', 'bold': True},
-    command_divider={'fg': 'blue'},
-    command_name={'fg': 'blue', 'bold': True},
-    command_alias={'fg': 'blue', 'bold': False},
-    command_help={'fg': 'black'},
-
+    command_header={"fg": "blue", "bold": True},
+    command_divider={"fg": "blue"},
+    command_name={"fg": "blue", "bold": True},
+    command_alias={"fg": "blue", "bold": False},
+    command_help={"fg": "black"},
     # Required positional argument styling
-    argument_required_header={'fg': 'magenta', 'bold': True},
-    argument_required_divider={'fg': 'magenta'},
-    argument_required_name={'fg': 'magenta', 'bold': True},
-    argument_required_metavar={'fg': 'black', 'bold': True},
-    argument_required_help={'fg': 'black'},
-    argument_required_default={'fg': 'black'},
-
+    argument_required_header={"fg": "magenta", "bold": True},
+    argument_required_divider={"fg": "magenta"},
+    argument_required_name={"fg": "magenta", "bold": True},
+    argument_required_metavar={"fg": "black", "bold": True},
+    argument_required_help={"fg": "black"},
+    argument_required_default={"fg": "black"},
     # Optional positional argument styling
-    argument_optional_header={'fg': 'magenta', 'bold': True},
-    argument_optional_divider={'fg': 'magenta'},
-    argument_optional_name={'fg': 'magenta', 'bold': True},
-    argument_optional_metavar={'fg': 'black', 'bold': True},
-    argument_optional_help={'fg': 'black'},
-    argument_optional_default={'fg': 'black'},
-
+    argument_optional_header={"fg": "magenta", "bold": True},
+    argument_optional_divider={"fg": "magenta"},
+    argument_optional_name={"fg": "magenta", "bold": True},
+    argument_optional_metavar={"fg": "black", "bold": True},
+    argument_optional_help={"fg": "black"},
+    argument_optional_default={"fg": "black"},
     # Required options styling
-    option_required_header={'fg': 'bright_red', 'bold': True},
-    option_required_divider={'fg': 'bright_red'},
-    option_required_name={'fg': 'bright_red', 'bold': True},
-    option_required_metavar={'fg': 'black', 'bold': True},
-    option_required_help={'fg': 'black'},
-    option_required_default={'fg': 'black'},
-
+    option_required_header={"fg": "bright_red", "bold": True},
+    option_required_divider={"fg": "bright_red"},
+    option_required_name={"fg": "bright_red", "bold": True},
+    option_required_metavar={"fg": "black", "bold": True},
+    option_required_help={"fg": "black"},
+    option_required_default={"fg": "black"},
     # Optional options styling
-    option_optional_header={'fg': 'yellow', 'bold': True},
-    option_optional_divider={'fg': 'yellow'},
-    option_optional_name={'fg': 'yellow', 'bold': True},
-    option_optional_metavar={'fg': 'black', 'bold': True},
-    option_optional_help={'fg': 'black'},
-    option_optional_default={'fg': 'black'},
+    option_optional_header={"fg": "yellow", "bold": True},
+    option_optional_divider={"fg": "yellow"},
+    option_optional_name={"fg": "yellow", "bold": True},
+    option_optional_metavar={"fg": "black", "bold": True},
+    option_optional_help={"fg": "black"},
+    option_optional_default={"fg": "black"},
 )
 
 DARK_THEME = TerminalTheme(
     # Message types
-    error={'fg': 'red', 'bold': True},
-    warning={'fg': 'yellow'},
-    success={'fg': 'green'},
-    info={'fg': 'white'},
-    debug={'fg': 'bright_black'},
-
+    error={"fg": "red", "bold": True},
+    warning={"fg": "yellow"},
+    success={"fg": "green"},
+    info={"fg": "white"},
+    debug={"fg": "bright_black"},
     # Usage command help styling
-    usage_command_name={'fg': 'white', 'bold': True},
-    usage_command_help={'fg': 'white'},
-
+    usage_command_name={"fg": "white", "bold": True},
+    usage_command_help={"fg": "white"},
     # Example command styling
-    example_command_header={'fg': 'white', 'bold': True},
-    example_command_divider={'fg': 'white'},
-    example_command_name={'fg': 'white', 'bold': True},
-    example_command_help={'fg': 'white'},
-
+    example_command_header={"fg": "white", "bold": True},
+    example_command_divider={"fg": "white"},
+    example_command_name={"fg": "white", "bold": True},
+    example_command_help={"fg": "white"},
     # Command styling
-    command_header={'fg': 'blue', 'bold': True},
-    command_divider={'fg': 'blue'},
-    command_name={'fg': 'blue', 'bold': True},
-    command_alias={'fg': 'blue', 'bold': False},
-    command_help={'fg': 'white'},
-
+    command_header={"fg": "blue", "bold": True},
+    command_divider={"fg": "blue"},
+    command_name={"fg": "blue", "bold": True},
+    command_alias={"fg": "blue", "bold": False},
+    command_help={"fg": "white"},
     # Required positional argument styling
-    argument_required_header={'fg': 'magenta', 'bold': True},
-    argument_required_divider={'fg': 'magenta'},
-    argument_required_name={'fg': 'magenta', 'bold': True},
-    argument_required_metavar={'fg': 'white', 'bold': True},
-    argument_required_help={'fg': 'white'},
-    argument_required_default={'fg': 'white'},
-
+    argument_required_header={"fg": "magenta", "bold": True},
+    argument_required_divider={"fg": "magenta"},
+    argument_required_name={"fg": "magenta", "bold": True},
+    argument_required_metavar={"fg": "white", "bold": True},
+    argument_required_help={"fg": "white"},
+    argument_required_default={"fg": "white"},
     # Optional positional argument styling
-    argument_optional_header={'fg': 'magenta', 'bold': True},
-    argument_optional_divider={'fg': 'magenta'},
-    argument_optional_name={'fg': 'magenta', 'bold': True},
-    argument_optional_metavar={'fg': 'white', 'bold': True},
-    argument_optional_help={'fg': 'white'},
-    argument_optional_default={'fg': 'white'},
-
+    argument_optional_header={"fg": "magenta", "bold": True},
+    argument_optional_divider={"fg": "magenta"},
+    argument_optional_name={"fg": "magenta", "bold": True},
+    argument_optional_metavar={"fg": "white", "bold": True},
+    argument_optional_help={"fg": "white"},
+    argument_optional_default={"fg": "white"},
     # Required options styling
-    option_required_header={'fg': 'bright_red', 'bold': True},
-    option_required_divider={'fg': 'bright_red'},
-    option_required_name={'fg': 'bright_red', 'bold': True},
-    option_required_metavar={'fg': 'white', 'bold': True},
-    option_required_help={'fg': 'white'},
-    option_required_default={'fg': 'white'},
-
+    option_required_header={"fg": "bright_red", "bold": True},
+    option_required_divider={"fg": "bright_red"},
+    option_required_name={"fg": "bright_red", "bold": True},
+    option_required_metavar={"fg": "white", "bold": True},
+    option_required_help={"fg": "white"},
+    option_required_default={"fg": "white"},
     # Optional options styling
-    option_optional_header={'fg': 'yellow', 'bold': True},
-    option_optional_divider={'fg': 'yellow'},
-    option_optional_name={'fg': 'yellow', 'bold': True},
-    option_optional_metavar={'fg': 'white', 'bold': True},
-    option_optional_help={'fg': 'white'},
-    option_optional_default={'fg': 'white'},
+    option_optional_header={"fg": "yellow", "bold": True},
+    option_optional_divider={"fg": "yellow"},
+    option_optional_name={"fg": "yellow", "bold": True},
+    option_optional_metavar={"fg": "white", "bold": True},
+    option_optional_help={"fg": "white"},
+    option_optional_default={"fg": "white"},
 )
+
 
 class ThemeManager:
     def __init__(self):
-        self._logger = get_logger('ThemeManager')
+        self._logger = get_logger("ThemeManager")
         self._current_theme: Optional[TerminalTheme] = None
 
     @lru_cache(maxsize=1)
@@ -214,12 +203,16 @@ class ThemeManager:
         if system == "Darwin":
             try:
                 # Try Terminal.app specific detection first
-                if 'TERM_PROGRAM' in os.environ and os.environ['TERM_PROGRAM'] == 'Apple_Terminal':
+                if "TERM_PROGRAM" in os.environ and os.environ["TERM_PROGRAM"] == "Apple_Terminal":
                     try:
                         result = subprocess.run(
-                            ['osascript', '-e', 'tell application "Terminal" to get background color of selected tab of front window'],
+                            [
+                                "osascript",
+                                "-e",
+                                'tell application "Terminal" to get background color of selected tab of front window',
+                            ],
                             capture_output=True,
-                            text=True
+                            text=True,
                         )
                         if result.returncode == 0:
                             # Parse RGB values - higher values indicate lighter background
@@ -231,12 +224,10 @@ class ThemeManager:
 
                 # Try system-wide dark mode setting
                 result = subprocess.run(
-                    ['defaults', 'read', '-g', 'AppleInterfaceStyle'],
-                    capture_output=True,
-                    text=True
+                    ["defaults", "read", "-g", "AppleInterfaceStyle"], capture_output=True, text=True
                 )
                 # Check both return code and actual output
-                is_dark = result.returncode == 0 and 'Dark' in result.stdout
+                is_dark = result.returncode == 0 and "Dark" in result.stdout
                 return not is_dark
 
             except Exception as e:
@@ -246,10 +237,12 @@ class ThemeManager:
         elif system == "Windows":
             try:
                 cmd = 'Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme"'
-                result = subprocess.run(['powershell', '-Command', cmd],
-                                        capture_output=True,
-                                        text=True,
-                                        creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
+                result = subprocess.run(
+                    ["powershell", "-Command", cmd],
+                    capture_output=True,
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                )
                 return bool("1" in result.stdout) if result.returncode == 0 else False
             except Exception as e:
                 self._logger.debug(f"Failed to detect Windows theme: {e}")
@@ -265,23 +258,27 @@ class ThemeManager:
 
     def _detect_terminal_app(self) -> Optional[str]:
         """Detect which terminal app is being used"""
-        if 'TERM_PROGRAM' in os.environ:
-            return os.environ['TERM_PROGRAM']
-        elif 'TERMINAL_EMULATOR' in os.environ:
-            return os.environ['TERMINAL_EMULATOR']
+        if "TERM_PROGRAM" in os.environ:
+            return os.environ["TERM_PROGRAM"]
+        elif "TERMINAL_EMULATOR" in os.environ:
+            return os.environ["TERMINAL_EMULATOR"]
         return None
 
     def _is_light_terminal_app(self, terminal_app: str) -> bool:
         """Check if specific terminal app is using light theme"""
         terminal_app = terminal_app.lower()
 
-        if 'iterm' in terminal_app:
+        if "iterm" in terminal_app:
             try:
                 # Try to get iTerm2 profile info
                 result = subprocess.run(
-                    ['osascript', '-e', 'tell application "iTerm2" to get background color of current session of current window'],
+                    [
+                        "osascript",
+                        "-e",
+                        'tell application "iTerm2" to get background color of current session of current window',
+                    ],
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
                 if result.returncode == 0:
                     # Parse RGB values
@@ -291,19 +288,19 @@ class ThemeManager:
             except Exception as e:
                 self._logger.debug(f"Failed to detect iTerm2 theme: {e}")
 
-        elif 'vscode' in terminal_app:
+        elif "vscode" in terminal_app:
             # VSCode sets these environment variables
-            if 'VSCODE_TERMINAL_THEME_KIND' in os.environ:
-                return os.environ['VSCODE_TERMINAL_THEME_KIND'] == 'light'
+            if "VSCODE_TERMINAL_THEME_KIND" in os.environ:
+                return os.environ["VSCODE_TERMINAL_THEME_KIND"] == "light"
 
         return False
 
     def _detect_from_env(self) -> Optional[bool]:
         """Detect theme from environment variables"""
         # Try COLORFGBG
-        if 'COLORFGBG' in os.environ:
+        if "COLORFGBG" in os.environ:
             try:
-                fg_bg = os.environ['COLORFGBG'].split(';')
+                fg_bg = os.environ["COLORFGBG"].split(";")
                 if len(fg_bg) >= 2:
                     bg_color = int(fg_bg[-1])
                     return bg_color > 7
@@ -311,14 +308,14 @@ class ThemeManager:
                 self._logger.debug(f"Failed to parse COLORFGBG: {e}")
 
         # Try NO_COLOR
-        if 'NO_COLOR' in os.environ:
+        if "NO_COLOR" in os.environ:
             return False  # Assume dark theme if NO_COLOR is set
 
         # Try COLORTERM
-        if 'COLORTERM' in os.environ:
-            if os.environ['COLORTERM'] in ('light', 'white'):
+        if "COLORTERM" in os.environ:
+            if os.environ["COLORTERM"] in ("light", "white"):
                 return True
-            elif os.environ['COLORTERM'] in ('dark', 'black'):
+            elif os.environ["COLORTERM"] in ("dark", "black"):
                 return False
 
         return None
@@ -337,14 +334,13 @@ class ThemeManager:
         """Style text according to current theme and style key"""
         if text is None:
             self._logger.warning(f"Received None text for style_key '{style_key}'")
-            return ''
+            return ""
 
         theme = self.get_current_theme()
         if hasattr(theme, style_key):
             style_dict = getattr(theme, style_key)
             # Remove echo-specific keywords that shouldn't go to style
-            style_kwargs = {k: v for k, v in {**style_dict, **kwargs}.items()
-                            if k not in ('err', 'nl', 'file')}
+            style_kwargs = {k: v for k, v in {**style_dict, **kwargs}.items() if k not in ("err", "nl", "file")}
             try:
                 return click.style(str(text), **style_kwargs)
             except Exception as e:
@@ -355,11 +351,11 @@ class ThemeManager:
     def echo(self, text: str, style_key: str, **kwargs):
         """Print styled text according to current theme"""
         # Separate echo kwargs from style kwargs
-        echo_kwargs = {k: kwargs.pop(k) for k in ('err', 'nl', 'file')
-                       if k in kwargs}
+        echo_kwargs = {k: kwargs.pop(k) for k in ("err", "nl", "file") if k in kwargs}
         # Style the text and then echo it
         styled_text = self.style(text, style_key, **kwargs)
         click.echo(styled_text, **echo_kwargs)
+
 
 # Global theme manager instance
 theme_manager = ThemeManager()

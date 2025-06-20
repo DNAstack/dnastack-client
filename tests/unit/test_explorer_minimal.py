@@ -2,10 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 # Test core functions that exist and work
-from dnastack.cli.commands.explorer.questions.utils import (
-    parse_collections_argument,
-    flatten_result_for_export
-)
+from dnastack.cli.commands.explorer.questions.utils import flatten_result_for_export, parse_collections_argument
 
 
 class TestExplorerMinimal(unittest.TestCase):
@@ -56,49 +53,42 @@ class TestExplorerMinimal(unittest.TestCase):
 
     def test_flatten_result_complex(self):
         """Test flattening complex nested structures"""
-        result = {
-            "level1": {
-                "level2": {
-                    "value": "deep_value"
-                },
-                "list": [{"item": "value1"}, {"item": "value2"}]
-            }
-        }
+        result = {"level1": {"level2": {"value": "deep_value"}, "list": [{"item": "value1"}, {"item": "value2"}]}}
         flattened = flatten_result_for_export(result)
         self.assertIn("level1.level2.value", flattened)
         self.assertIn("level1.list[0].item", flattened)
         self.assertEqual(flattened["level1.level2.value"], "deep_value")
 
-    @patch('dnastack.cli.commands.explorer.questions.utils.container.get')
+    @patch("dnastack.cli.commands.explorer.questions.utils.container.get")
     def test_get_explorer_client_basic(self, mock_container_get):
         """Test getting explorer client"""
         from dnastack.cli.commands.explorer.questions.utils import get_explorer_client
-        
+
         mock_factory = Mock()
         mock_client = Mock()
         mock_factory.get.return_value = mock_client
         mock_container_get.return_value = mock_factory
 
         result = get_explorer_client()
-        
+
         self.assertEqual(result, mock_client)
         mock_factory.get.assert_called_once()
 
-    @patch('dnastack.cli.commands.explorer.questions.utils.container.get')
+    @patch("dnastack.cli.commands.explorer.questions.utils.container.get")
     def test_get_explorer_client_with_params(self, mock_container_get):
         """Test getting explorer client with parameters"""
         from dnastack.cli.commands.explorer.questions.utils import get_explorer_client
-        
+
         mock_factory = Mock()
         mock_client = Mock()
         mock_factory.get.return_value = mock_client
         mock_container_get.return_value = mock_factory
 
         result = get_explorer_client(context="test", endpoint_id="endpoint1")
-        
+
         self.assertEqual(result, mock_client)
         mock_factory.get.assert_called_once()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,17 +1,20 @@
-import click
-from click import Command, Option, Parameter, Argument
 from typing import List
 
-from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_WIDTH, OPTION_PADDING, TOTAL_WIDTH
+import click
+from click import Argument, Command, Option, Parameter
+
+from dnastack.cli.core.constants import APP_NAME, INDENT, OPTION_PADDING, OPTION_WIDTH, TOTAL_WIDTH
 from dnastack.cli.core.formatting_utils import get_visual_length, wrap_text
 from dnastack.cli.core.styling import styler
 
+
 class FormattedHelpCommand(Command):
     """Command class that provides formatted and colored help output."""
+
     def __init__(self, *args, **kwargs):
-        kwargs['context_settings'] = {
-            'help_option_names': ['-h', '--help'],  # Add all help variants
-            'token_normalize_func': lambda x: x.lower(),    # Make help flags case-insensitive
+        kwargs["context_settings"] = {
+            "help_option_names": ["-h", "--help"],  # Add all help variants
+            "token_normalize_func": lambda x: x.lower(),  # Make help flags case-insensitive
         }
         super().__init__(*args, **kwargs)
         # Store help texts for arguments
@@ -24,7 +27,7 @@ class FormattedHelpCommand(Command):
     def get_help(self, ctx: click.Context) -> str:
         """Override get_help to customize and colorize the help output."""
         # Extract the command description
-        description = self.help or ''
+        description = self.help or ""
 
         # Organize parameters
         positional_args: List[Parameter] = []
@@ -42,15 +45,13 @@ class FormattedHelpCommand(Command):
 
         # Build the command path without the full executable path
         ctx_path_parts = ctx.command_path.split()
-        if ctx_path_parts[0].endswith('__main__.py'):
+        if ctx_path_parts[0].endswith("__main__.py"):
             command_parts = [APP_NAME] + ctx_path_parts[1:]
         else:
             command_parts = ctx_path_parts
 
         # Build the new help text starting with Usage
-        new_help = [
-            f"{styler.usage_command_help('Usage:')} {styler.usage_command_name(' '.join(command_parts))}"
-        ]
+        new_help = [f"{styler.usage_command_help('Usage:')} {styler.usage_command_name(' '.join(command_parts))}"]
 
         # Add arguments to usage line
         usage_parts = []
@@ -66,87 +67,94 @@ class FormattedHelpCommand(Command):
 
         # Add description and rest of the help text
         if description:
-            new_help.extend([
-                '',
-                styler.usage_command_help(description)
-            ])
+            new_help.extend(["", styler.usage_command_help(description)])
 
         # Add positional arguments section
         if positional_args:
-            section_text = 'Positional Arguments:'
-            new_help.extend([
-                '',
-                styler.argument_required_header(section_text),
-                styler.argument_required_divider('-', len(section_text))
-            ])
+            section_text = "Positional Arguments:"
+            new_help.extend(
+                [
+                    "",
+                    styler.argument_required_header(section_text),
+                    styler.argument_required_divider("-", len(section_text)),
+                ]
+            )
             sorted_positional_args = sorted(
-                positional_args,
-                key=lambda param: (
-                    not getattr(param, 'required', True),
-                    param.name
-                )
+                positional_args, key=lambda param: (not getattr(param, "required", True), param.name)
             )
             for param in sorted_positional_args:
                 new_help.append(self._format_argument(param))
 
         # Add required options section
         if required_options:
-            section_text = 'Required Options:'
-            new_help.extend([
-                '',
-                styler.option_required_header(section_text),
-                styler.option_required_divider('-', len(section_text))
-            ])
+            section_text = "Required Options:"
+            new_help.extend(
+                [
+                    "",
+                    styler.option_required_header(section_text),
+                    styler.option_required_divider("-", len(section_text)),
+                ]
+            )
             for param in required_options:
                 new_help.append(self._format_option(param, required=True))
 
         # Add optional options section
         if optional_options:
-            section_text = 'Options:'
-            new_help.extend([
-                '',
-                styler.option_optional_header(section_text),
-                styler.option_optional_divider('-', len(section_text))
-            ])
+            section_text = "Options:"
+            new_help.extend(
+                [
+                    "",
+                    styler.option_optional_header(section_text),
+                    styler.option_optional_divider("-", len(section_text)),
+                ]
+            )
             for param in optional_options:
                 new_help.append(self._format_option(param, required=False))
 
         # Add examples section
-        section_text = 'Examples:'
-        new_help.extend([
-            '',
-            styler.example_command_header(section_text),
-            styler.example_command_divider('-', len(section_text)),
-            self._format_examples(positional_args, required_options)
-        ])
+        section_text = "Examples:"
+        new_help.extend(
+            [
+                "",
+                styler.example_command_header(section_text),
+                styler.example_command_divider("-", len(section_text)),
+                self._format_examples(positional_args, required_options),
+            ]
+        )
 
-        return '\n'.join(new_help)
+        return "\n".join(new_help)
 
     def _format_argument(self, param: Argument) -> str:
         """Format a positional argument for the help output."""
-        required = getattr(param, 'required', True)
+        required = getattr(param, "required", True)
 
         # Get help text
-        help_text = self.argument_help_texts.get(param.name, '')
+        help_text = self.argument_help_texts.get(param.name, "")
 
         # Add required indicator
         if required:
             name = styler.argument_required_name(param.name.upper())
             help_str = styler.argument_required_help(help_text)
-            help_str += styler.argument_required_metavar(' (Required)')
+            help_str += styler.argument_required_metavar(" (Required)")
         else:
             help_str = styler.argument_optional_help(help_text)
             name = styler.argument_optional_header(param.name.upper())
 
         # Add multiple indicator
-        if getattr(param, 'nargs', 1) < 0 or getattr(param, 'multiple', False):
-            help_str += (styler.argument_required_metavar(' (Multiple)') if required
-                         else styler.argument_optional_metavar(' (Multiple)'))
+        if getattr(param, "nargs", 1) < 0 or getattr(param, "multiple", False):
+            help_str += (
+                styler.argument_required_metavar(" (Multiple)")
+                if required
+                else styler.argument_optional_metavar(" (Multiple)")
+            )
 
         # Add default value
         if param.default is not None and not param.required:
-            help_str += (styler.argument_required_default(f' (default: {param.default})') if required
-                         else styler.argument_optional_default(f' (default: {param.default})'))
+            help_str += (
+                styler.argument_required_default(f" (default: {param.default})")
+                if required
+                else styler.argument_optional_default(f" (default: {param.default})")
+            )
 
         # Calculate and align text
         description_start = len(INDENT) + OPTION_WIDTH + OPTION_PADDING
@@ -162,29 +170,34 @@ class FormattedHelpCommand(Command):
 
         # Choose the appropriate styling based on whether the option is required
         if required:
-            opt_str = styler.option_required_name(', '.join(opts))
-            help_str = styler.option_required_help(param.help or '')
-            help_str += styler.option_required_metavar(' (Required)')
+            opt_str = styler.option_required_name(", ".join(opts))
+            help_str = styler.option_required_help(param.help or "")
+            help_str += styler.option_required_metavar(" (Required)")
         else:
-            opt_str = styler.option_optional_name(', '.join(opts))
-            help_str = styler.option_optional_help(param.help or '')
+            opt_str = styler.option_optional_name(", ".join(opts))
+            help_str = styler.option_optional_help(param.help or "")
 
         # Add multiple indicator
-        if getattr(param, 'multiple', False):
-            help_str += (styler.option_required_metavar(' (Multiple)') if required
-                         else styler.option_optional_metavar(' (Multiple)'))
+        if getattr(param, "multiple", False):
+            help_str += (
+                styler.option_required_metavar(" (Multiple)")
+                if required
+                else styler.option_optional_metavar(" (Multiple)")
+            )
 
         # Add choices
-        if hasattr(param, 'type') and hasattr(param.type, 'choices') and param.type.choices:
+        if hasattr(param, "type") and hasattr(param.type, "choices") and param.type.choices:
             choices_str = f" (Choices: {', '.join(param.type.choices)})"
-            help_str += (styler.option_required_metavar(choices_str) if required
-                         else styler.option_optional_metavar(choices_str))
+            help_str += (
+                styler.option_required_metavar(choices_str) if required else styler.option_optional_metavar(choices_str)
+            )
 
         # Add default value
-        if param.default is not None and str(param.default) != '' and not param.required:
-            default_str = f' (default: {param.default})'
-            help_str += (styler.option_required_default(default_str) if required
-                         else styler.option_optional_default(default_str))
+        if param.default is not None and str(param.default) != "" and not param.required:
+            default_str = f" (default: {param.default})"
+            help_str += (
+                styler.option_required_default(default_str) if required else styler.option_optional_default(default_str)
+            )
 
         # Calculate and align text
         description_start = len(INDENT) + OPTION_WIDTH + OPTION_PADDING
@@ -204,9 +217,9 @@ class FormattedHelpCommand(Command):
             return first_line + "\n"
 
         result = [first_line]
-        description_padding = ' ' * description_start
+        description_padding = " " * description_start
         result.extend(f"{description_padding}{part}" for part in help_parts[1:])
-        return '\n'.join(result) + "\n"
+        return "\n".join(result) + "\n"
 
     def _format_examples(self, positional_args: List[Parameter], required_options: List[Parameter]) -> str:
         """Format command examples with proper styling."""
@@ -215,22 +228,24 @@ class FormattedHelpCommand(Command):
         current_ctx = ctx
 
         while current_ctx.parent is not None:
-            if current_ctx.command.name != '':
+            if current_ctx.command.name != "":
                 command_path_parts.insert(0, current_ctx.command.name)
             current_ctx = current_ctx.parent
 
-        command_path = ' '.join(
-            styler.example_command_name(part) for part in command_path_parts
-        )
+        command_path = " ".join(styler.example_command_name(part) for part in command_path_parts)
 
-        positional_part = ' '.join(
-            styler.argument_optional_name(f"{param.name.upper()}{' [...]' if getattr(param, 'multiple', False) else ''}")
+        positional_part = " ".join(
+            styler.argument_optional_name(
+                f"{param.name.upper()}{' [...]' if getattr(param, 'multiple', False) else ''}"
+            )
             for param in positional_args
-            if getattr(param, 'required', True)
+            if getattr(param, "required", True)
         )
 
-        required_part = ' '.join(
-            styler.option_required_name(f"--{param.name.replace('_', '-')} VALUE{' [...]' if getattr(param, 'multiple', False) else ''}")
+        required_part = " ".join(
+            styler.option_required_name(
+                f"--{param.name.replace('_', '-')} VALUE{' [...]' if getattr(param, 'multiple', False) else ''}"
+            )
             for param in required_options
         )
 
@@ -248,4 +263,4 @@ class FormattedHelpCommand(Command):
 
         examples.append(f"  $ {APP_NAME} {command_path} {styler.option_optional_name('--help')}")
 
-        return styler.example_command_help('\n'.join(examples))
+        return styler.example_command_help("\n".join(examples))

@@ -1,102 +1,109 @@
 import os
 import uuid
-from typing import Optional, Iterable, List
+from typing import Iterable, List, Optional
 
 import click
-from click import style, Group
+from click import Group, style
 
-from dnastack.cli.commands.workbench.runs.utils import UnableToFindParameterError, NoDefaultEngineError
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, create_sort_arg
+from dnastack.cli.commands.workbench.runs.utils import NoDefaultEngineError, UnableToFindParameterError
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, create_sort_arg, get_ewes_client
 from dnastack.cli.core.command import formatted_command
-from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
-from dnastack.cli.helpers.exporter import to_json, normalize
-from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
-from dnastack.client.workbench.ewes.models import ExtendedRunListOptions, ExtendedRunRequest, \
-    BatchRunRequest, \
-    MinimalExtendedRunWithOutputs, MinimalExtendedRunWithInputs, State, \
-    ExecutionEngineListOptions
-from dnastack.client.workbench.ewes.models import LogType
+from dnastack.cli.core.command_spec import CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG, ArgumentSpec, ArgumentType
+from dnastack.cli.helpers.exporter import normalize, to_json
+from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
+from dnastack.client.workbench.ewes.models import (
+    BatchRunRequest,
+    ExecutionEngineListOptions,
+    ExtendedRunListOptions,
+    ExtendedRunRequest,
+    LogType,
+    MinimalExtendedRunWithInputs,
+    MinimalExtendedRunWithOutputs,
+    State,
+)
 from dnastack.client.workbench.samples.models import Sample
-from dnastack.common.json_argument_parser import JsonLike, parse_and_merge_arguments, merge, merge_param_json_data
+from dnastack.common.json_argument_parser import JsonLike, merge, merge_param_json_data, parse_and_merge_arguments
 from dnastack.common.tracing import Span
 
 
 def init_runs_commands(group: Group):
     @formatted_command(
         group=group,
-        name='list',
+        name="list",
         specs=[
             MAX_RESULTS_ARG,
             PAGINATION_PAGE_ARG,
             PAGINATION_PAGE_SIZE_ARG,
             create_sort_arg('--sort "end_time:ASC", --sort "workflow_id;end_time:DESC;"'),
             ArgumentSpec(
-                name='order',
-                arg_names=['--order'],
-                help='This flag is now deprecated, please use --sort instead. Define the ordering of the results. '
-                     'The value should return to the attribute name to order the results by. '
-                     'By default, results are returned in descending order. '
-                     'To change the direction of ordering include the "ASC" or "DESC" string after the column. '
-                     'e.g.: --O "end_time", --O "end_time ASC"',
+                name="order",
+                arg_names=["--order"],
+                help="This flag is now deprecated, please use --sort instead. Define the ordering of the results. "
+                "The value should return to the attribute name to order the results by. "
+                "By default, results are returned in descending order. "
+                'To change the direction of ordering include the "ASC" or "DESC" string after the column. '
+                'e.g.: --O "end_time", --O "end_time ASC"',
             ),
             ArgumentSpec(
-                name='states',
-                arg_names=['--state'],
-                help='Filter the results by their state. This flag can be defined multiple times, with the result being runs matching any of the states.',
+                name="states",
+                arg_names=["--state"],
+                help="Filter the results by their state. This flag can be defined multiple times, with the result being runs matching any of the states.",
                 type=State,
                 choices=[e.value for e in State],
                 multiple=True,
             ),
             ArgumentSpec(
-                name='submitted_since',
-                arg_names=['--submitted-since'],
-                help='Filter the results with their start_time greater or equal to the since timestamp. '
-                     'The timestamp can be in iso date, or datetime format. '
-                     'e.g.: -f "2022-11-23", -f "2022-11-23T00:00:00.000Z"',
+                name="submitted_since",
+                arg_names=["--submitted-since"],
+                help="Filter the results with their start_time greater or equal to the since timestamp. "
+                "The timestamp can be in iso date, or datetime format. "
+                'e.g.: -f "2022-11-23", -f "2022-11-23T00:00:00.000Z"',
             ),
             ArgumentSpec(
-                name='submitted_until',
-                arg_names=['--submitted-until'],
-                help='Filter the results with their start_time strictly less than the since timestamp. '
-                     'The timestamp can be in iso date, or datetime format. '
-                     'e.g.: -t "2022-11-23", -t "2022-11-23T23:59:59.999Z"',
+                name="submitted_until",
+                arg_names=["--submitted-until"],
+                help="Filter the results with their start_time strictly less than the since timestamp. "
+                "The timestamp can be in iso date, or datetime format. "
+                'e.g.: -t "2022-11-23", -t "2022-11-23T23:59:59.999Z"',
             ),
             ArgumentSpec(
-                name='engine',
-                arg_names=['--engine'],
-                help='Filter the results to runs with the given engine ID.',
+                name="engine",
+                arg_names=["--engine"],
+                help="Filter the results to runs with the given engine ID.",
             ),
             ArgumentSpec(
-                name='search',
-                arg_names=['--search'],
-                help='Perform a full text search across various fields using the search value.',
+                name="search",
+                arg_names=["--search"],
+                help="Perform a full text search across various fields using the search value.",
             ),
             ArgumentSpec(
-                name='tags',
-                arg_names=['--tags'],
+                name="tags",
+                arg_names=["--tags"],
                 help='Filter runs by one or more tags. Tags can be specified as a KV pair, inlined JSON, or as a json file preceded by the "@" symbol.',
                 type=JsonLike,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def list_runs(context: Optional[str],
-                  endpoint_id: Optional[str],
-                  namespace: Optional[str],
-                  max_results: Optional[int],
-                  page: Optional[int],
-                  page_size: Optional[int],
-                  sort: Optional[str],
-                  order: Optional[str],
-                  submitted_since: Optional[str],
-                  submitted_until: Optional[str],
-                  engine: Optional[str],
-                  search: Optional[str],
-                  tags: JsonLike,
-                  states):
+    def list_runs(
+        context: Optional[str],
+        endpoint_id: Optional[str],
+        namespace: Optional[str],
+        max_results: Optional[int],
+        page: Optional[int],
+        page_size: Optional[int],
+        sort: Optional[str],
+        order: Optional[str],
+        submitted_since: Optional[str],
+        submitted_until: Optional[str],
+        engine: Optional[str],
+        search: Optional[str],
+        tags: JsonLike,
+        states,
+    ):
         """
         List workflow runs
 
@@ -106,9 +113,9 @@ def init_runs_commands(group: Group):
         def parse_to_datetime_iso_format(date: str, start_of_day: bool = False, end_of_day: bool = False) -> str:
             if (date is not None) and ("T" not in date):
                 if start_of_day:
-                    return f'{date}T00:00:00.000Z'
+                    return f"{date}T00:00:00.000Z"
                 if end_of_day:
-                    return f'{date}T23:59:59.999Z'
+                    return f"{date}T23:59:59.999Z"
             return date
 
         order_direction = None
@@ -134,53 +141,54 @@ def init_runs_commands(group: Group):
             until=parse_to_datetime_iso_format(date=submitted_until, end_of_day=True),
             engine_id=engine,
             search=search,
-            tag=tags
+            tag=tags,
         )
         runs_list = client.list_runs(list_options, max_results)
         show_iterator(output_format=OutputFormat.JSON, iterator=runs_list)
 
-
     @formatted_command(
         group=group,
-        name='describe',
+        name="describe",
         specs=[
             ArgumentSpec(
-                name='run_id',
+                name="run_id",
                 arg_type=ArgumentType.POSITIONAL,
-                help='Specify one or more run ID\'s that you would like to retrieve information for.',
+                help="Specify one or more run ID's that you would like to retrieve information for.",
                 required=True,
-                multiple=True
+                multiple=True,
             ),
             NAMESPACE_ARG,
             ArgumentSpec(
-                name='status',
-                arg_names=['--status'],
-                help='Output a minimal response, only showing the status id, current state, start and stop times.',
+                name="status",
+                arg_names=["--status"],
+                help="Output a minimal response, only showing the status id, current state, start and stop times.",
                 type=bool,
             ),
             ArgumentSpec(
-                name='inputs',
-                arg_names=['--inputs'],
-                help='Display only the run\'s inputs as json.',
+                name="inputs",
+                arg_names=["--inputs"],
+                help="Display only the run's inputs as json.",
                 type=bool,
             ),
             ArgumentSpec(
-                name='outputs',
-                arg_names=['--outputs'],
-                help='Display only the run\'s outputs as json.',
+                name="outputs",
+                arg_names=["--outputs"],
+                help="Display only the run's outputs as json.",
                 type=bool,
             ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def describe_runs(context: Optional[str],
-                      endpoint_id: Optional[str],
-                      namespace: Optional[str],
-                      run_id: List[str],
-                      status: Optional[bool],
-                      inputs: Optional[bool],
-                      outputs: Optional[bool]):
+    def describe_runs(
+        context: Optional[str],
+        endpoint_id: Optional[str],
+        namespace: Optional[str],
+        run_id: List[str],
+        status: Optional[bool],
+        inputs: Optional[bool],
+        outputs: Optional[bool],
+    ):
         """
         Describe one or more workflow runs
 
@@ -189,7 +197,7 @@ def init_runs_commands(group: Group):
         client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
         if not run_id:
-            click.echo(style("You must specify at least one run ID", fg='red'), err=True, color=True)
+            click.echo(style("You must specify at least one run ID", fg="red"), err=True, color=True)
             exit(1)
 
         if status:
@@ -198,38 +206,39 @@ def init_runs_commands(group: Group):
             described_runs = [client.get_run(run_id=run) for run in run_id]
 
             if inputs:
-                described_runs = [MinimalExtendedRunWithInputs(
-                    run_id=described_run.run_id,
-                    inputs=described_run.request.workflow_params,
-                ) for described_run in described_runs]
+                described_runs = [
+                    MinimalExtendedRunWithInputs(
+                        run_id=described_run.run_id,
+                        inputs=described_run.request.workflow_params,
+                    )
+                    for described_run in described_runs
+                ]
             elif outputs:
-                described_runs = [MinimalExtendedRunWithOutputs(
-                    run_id=described_run.run_id,
-                    outputs=described_run.outputs
-                ) for described_run in described_runs]
+                described_runs = [
+                    MinimalExtendedRunWithOutputs(run_id=described_run.run_id, outputs=described_run.outputs)
+                    for described_run in described_runs
+                ]
         click.echo(to_json(normalize(described_runs)))
-
 
     @formatted_command(
         group=group,
-        name='cancel',
+        name="cancel",
         specs=[
             ArgumentSpec(
-                name='run_id',
+                name="run_id",
                 arg_type=ArgumentType.POSITIONAL,
-                help='Specify one or more run ID\'s that you would like to cancel.',
+                help="Specify one or more run ID's that you would like to cancel.",
                 required=True,
-                multiple=True
+                multiple=True,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def cancel_runs(context: Optional[str],
-                    endpoint_id: Optional[str],
-                    namespace: Optional[str],
-                    run_id: List[str] = None):
+    def cancel_runs(
+        context: Optional[str], endpoint_id: Optional[str], namespace: Optional[str], run_id: List[str] = None
+    ):
         """
         Cancel one or more workflow runs
 
@@ -237,39 +246,40 @@ def init_runs_commands(group: Group):
         """
         client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
         if not run_id:
-            click.echo(style("You must specify at least one run ID", fg='red'), err=True, color=True)
+            click.echo(style("You must specify at least one run ID", fg="red"), err=True, color=True)
             exit(1)
         result = client.cancel_runs(run_id)
         click.echo(to_json(normalize(result)))
 
-
     @formatted_command(
         group=group,
-        name='delete',
+        name="delete",
         specs=[
             ArgumentSpec(
-                name='run_id',
+                name="run_id",
                 arg_type=ArgumentType.POSITIONAL,
-                help='Specify one or more run ID\'s that you would like to delete.',
+                help="Specify one or more run ID's that you would like to delete.",
                 required=True,
-                multiple=True
+                multiple=True,
             ),
             ArgumentSpec(
-                name='force',
-                arg_names=['--force', '-f'],
-                help='Force the deletion without prompting for confirmation.',
+                name="force",
+                arg_names=["--force", "-f"],
+                help="Force the deletion without prompting for confirmation.",
                 type=bool,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def delete_runs(context: Optional[str],
-                    endpoint_id: Optional[str],
-                    namespace: Optional[str],
-                    force: Optional[bool] = False,
-                    run_id: List[str] = None):
+    def delete_runs(
+        context: Optional[str],
+        endpoint_id: Optional[str],
+        namespace: Optional[str],
+        force: Optional[bool] = False,
+        run_id: List[str] = None,
+    ):
         """
         Delete one or more workflow runs
 
@@ -277,70 +287,71 @@ def init_runs_commands(group: Group):
         """
         client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
         if not run_id:
-            click.echo(style("You must specify at least one run ID", fg='red'), err=True, color=True)
+            click.echo(style("You must specify at least one run ID", fg="red"), err=True, color=True)
             exit(1)
 
-        if not force and not click.confirm('Do you want to proceed?'):
+        if not force and not click.confirm("Do you want to proceed?"):
             return
         result = client.delete_runs(run_id)
         click.echo(to_json(normalize(result)))
 
-
     @formatted_command(
         group=group,
-        name='logs',
+        name="logs",
         specs=[
             ArgumentSpec(
-                name='run_id_or_log_url',
+                name="run_id_or_log_url",
                 arg_type=ArgumentType.POSITIONAL,
-                help='Specify a run ID or log URL to retrieve logs.',
+                help="Specify a run ID or log URL to retrieve logs.",
                 required=True,
-                multiple=False
+                multiple=False,
             ),
             NAMESPACE_ARG,
             ArgumentSpec(
-                name='log_type',
-                arg_names=['--log-type'],
-                help='Print only stderr or stdout to the current console.',
+                name="log_type",
+                arg_names=["--log-type"],
+                help="Print only stderr or stdout to the current console.",
                 type=LogType,
                 choices=[e.value for e in LogType],
-                default=LogType.STDOUT.value
+                default=LogType.STDOUT.value,
             ),
             ArgumentSpec(
-                name='task_id',
-                arg_names=['--task-id'],
-                help='Retrieve logs associated with the given task in the run.',
+                name="task_id",
+                arg_names=["--task-id"],
+                help="Retrieve logs associated with the given task in the run.",
             ),
             ArgumentSpec(
-                name='max_bytes',
-                arg_names=['--max-bytes'],
-                help='Limit number of bytes to retrieve from the log stream.',
-                type=int
+                name="max_bytes",
+                arg_names=["--max-bytes"],
+                help="Limit number of bytes to retrieve from the log stream.",
+                type=int,
             ),
             ArgumentSpec(
-                name='output',
-                arg_names=['--output'],
+                name="output",
+                arg_names=["--output"],
                 help="Save the output to the defined path, if it does not exist.",
             ),
             ArgumentSpec(
-                name='offset',
-                arg_names=['--offset'],
+                name="offset",
+                arg_names=["--offset"],
                 help="Save the output to the defined path, if it does not exist.",
-                type=int
+                type=int,
             ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def get_run_logs(context: Optional[str],
-                     endpoint_id: Optional[str],
-                     namespace: Optional[str],
-                     run_id_or_log_url: str,
-                     output: Optional[str],
-                     log_type: Optional[LogType] = LogType.STDOUT,
-                     task_id: Optional[str] = None,
-                     max_bytes: Optional[int] = None,
-                     offset: Optional[int] = None):
+    def get_run_logs(
+        context: Optional[str],
+        endpoint_id: Optional[str],
+        namespace: Optional[str],
+        run_id_or_log_url: str,
+        output: Optional[str],
+        log_type: Optional[LogType] = LogType.STDOUT,
+        task_id: Optional[str] = None,
+        max_bytes: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
         """
         Get logs of a single workflow run or task
 
@@ -385,118 +396,122 @@ def init_runs_commands(group: Group):
             return
 
         if task_id:
-            write_logs(client.stream_task_logs(run_id_or_log_url, task_id, log_type, max_bytes=max_bytes, offset=offset),
-                       output_writer)
+            write_logs(
+                client.stream_task_logs(run_id_or_log_url, task_id, log_type, max_bytes=max_bytes, offset=offset),
+                output_writer,
+            )
         else:
-            write_logs(client.stream_run_logs(run_id_or_log_url, log_type, max_bytes=max_bytes, offset=offset),
-                       output_writer)
-
+            write_logs(
+                client.stream_run_logs(run_id_or_log_url, log_type, max_bytes=max_bytes, offset=offset), output_writer
+            )
 
     @formatted_command(
         group=group,
-        name='submit',
+        name="submit",
         specs=[
             ArgumentSpec(
-                name='input_overrides',
+                name="input_overrides",
                 arg_type=ArgumentType.POSITIONAL,
-                help='Positional JSON Data that will take precedence over default-params and workflow-params. '
-                     'If a value specified in the override collides with a value in the default-params or workflow-params, '
-                     'they will be overridden with the value provided in the override. '
-                     'If a key with the same name is already provided in the default-params or workflow-params, '
-                     'they will be overridden with the value provided in the override.',
+                help="Positional JSON Data that will take precedence over default-params and workflow-params. "
+                "If a value specified in the override collides with a value in the default-params or workflow-params, "
+                "they will be overridden with the value provided in the override. "
+                "If a key with the same name is already provided in the default-params or workflow-params, "
+                "they will be overridden with the value provided in the override.",
                 required=False,
-                multiple=True
+                multiple=True,
             ),
             ArgumentSpec(
-                name='workflow_url',
-                arg_names=['--url'],
-                help='The URL to the workflow file (*.wdl). The url should contain the workflow id followed by the version. '
-                     'See https://docs.omics.ai/products/workbench/workflows/discovering-workflows#navigating-the-workflows-table on how to find the workflow id.',
-                required=False,
-            ),
-            ArgumentSpec(
-                name='workflow',
-                arg_names=['--workflow'],
-                help='The id of the workflow to run. '
-                     'See https://docs.omics.ai/products/workbench/workflows/discovering-workflows#navigating-the-workflows-table on how to find the workflow id.',
+                name="workflow_url",
+                arg_names=["--url"],
+                help="The URL to the workflow file (*.wdl). The url should contain the workflow id followed by the version. "
+                "See https://docs.omics.ai/products/workbench/workflows/discovering-workflows#navigating-the-workflows-table on how to find the workflow id.",
                 required=False,
             ),
             ArgumentSpec(
-                name='version',
-                arg_names=['--version'],
-                help='The version of the workflow to run.',
+                name="workflow",
+                arg_names=["--workflow"],
+                help="The id of the workflow to run. "
+                "See https://docs.omics.ai/products/workbench/workflows/discovering-workflows#navigating-the-workflows-table on how to find the workflow id.",
                 required=False,
             ),
             ArgumentSpec(
-                name='engine_id',
-                arg_names=['--engine'],
-                help='Use the given engine id for execution of runs. If this value is not defined then it is assumed '
-                     'that the default engine will be used.',
+                name="version",
+                arg_names=["--version"],
+                help="The version of the workflow to run.",
+                required=False,
             ),
             ArgumentSpec(
-                name='default_workflow_engine_parameters',
-                arg_names=['--engine-params'],
-                help='Set the global engine parameters for all runs that are to be submitted. '
-                     'Engine params can be specified as inlined JSON, json file preceded by the "@" symbol, '
-                     'KV pair, parameter preset ID, or as a comma-separated-list containing any of those types '
-                     '(e.g. my-preset-id,key=value,\'{"literal":"json"}\',@file.json).',
+                name="engine_id",
+                arg_names=["--engine"],
+                help="Use the given engine id for execution of runs. If this value is not defined then it is assumed "
+                "that the default engine will be used.",
+            ),
+            ArgumentSpec(
+                name="default_workflow_engine_parameters",
+                arg_names=["--engine-params"],
+                help="Set the global engine parameters for all runs that are to be submitted. "
+                'Engine params can be specified as inlined JSON, json file preceded by the "@" symbol, '
+                "KV pair, parameter preset ID, or as a comma-separated-list containing any of those types "
+                '(e.g. my-preset-id,key=value,\'{"literal":"json"}\',@file.json).',
                 type=JsonLike,
             ),
             ArgumentSpec(
-                name='default_workflow_params',
-                arg_names=['--default-params'],
-                help='Specify the global default inputs as a json file or as inlined json to use when submitting '
-                     'multiple runs. Default inputs have the lowest level of precedence and will be overridden '
-                     'by any run input or override.',
+                name="default_workflow_params",
+                arg_names=["--default-params"],
+                help="Specify the global default inputs as a json file or as inlined json to use when submitting "
+                "multiple runs. Default inputs have the lowest level of precedence and will be overridden "
+                "by any run input or override.",
                 type=JsonLike,
             ),
             ArgumentSpec(
-                name='workflow_params',
-                arg_names=['--workflow-params'],
-                help='Optional flag to specify the workflow params for a given run. The workflow params can be any'
-                     'JSON-like value, such as inline JSON, command separated key value pairs or a json file referenced'
-                     'preceded by the "@" symbol. This field may be repeated, with each repetition specifying '
-                     'a separate run request that will be submitted.',
+                name="workflow_params",
+                arg_names=["--workflow-params"],
+                help="Optional flag to specify the workflow params for a given run. The workflow params can be any"
+                "JSON-like value, such as inline JSON, command separated key value pairs or a json file referenced"
+                'preceded by the "@" symbol. This field may be repeated, with each repetition specifying '
+                "a separate run request that will be submitted.",
                 type=JsonLike,
-                multiple=True
+                multiple=True,
             ),
             ArgumentSpec(
-                name='tags',
-                help='Set the global tags for all runs that are to be submitted. '
-                     'Tags can be any JSON-like value, such as inline JSON, command separated key value pairs or'
-                     'a json file referenced preceded by the "@" symbol.',
+                name="tags",
+                help="Set the global tags for all runs that are to be submitted. "
+                "Tags can be any JSON-like value, such as inline JSON, command separated key value pairs or"
+                'a json file referenced preceded by the "@" symbol.',
                 type=JsonLike,
             ),
             ArgumentSpec(
-                name='dry_run',
-                arg_names=['--dry-run'],
-                help='If specified, the command will print the request without actually submitting the workflow.',
+                name="dry_run",
+                arg_names=["--dry-run"],
+                help="If specified, the command will print the request without actually submitting the workflow.",
                 type=bool,
             ),
             ArgumentSpec(
-                name='sample_ids',
-                arg_names=['--samples'],
-                help='An optional flag that accepts a comma separated list of Sample IDs to use in the given workflow.',
+                name="sample_ids",
+                arg_names=["--samples"],
+                help="An optional flag that accepts a comma separated list of Sample IDs to use in the given workflow.",
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def submit_batch(context: Optional[str],
-                     endpoint_id: Optional[str],
-                     namespace: Optional[str],
-                     workflow_url: Optional[str],
-                     workflow: Optional[str],
-                     version: Optional[str],
-                     engine_id: Optional[str],
-                     default_workflow_engine_parameters: JsonLike,
-                     default_workflow_params: JsonLike,
-                     tags: JsonLike,
-                     workflow_params: JsonLike,
-                     input_overrides,
-                     dry_run: bool,
-                     sample_ids: Optional[str]):
+    def submit_batch(
+        context: Optional[str],
+        endpoint_id: Optional[str],
+        namespace: Optional[str],
+        workflow_url: Optional[str],
+        workflow: Optional[str],
+        version: Optional[str],
+        engine_id: Optional[str],
+        default_workflow_engine_parameters: JsonLike,
+        default_workflow_params: JsonLike,
+        tags: JsonLike,
+        workflow_params: JsonLike,
+        input_overrides,
+        dry_run: bool,
+        sample_ids: Optional[str],
+    ):
         """
         Submit one or more workflows for execution
 
@@ -505,22 +520,26 @@ def init_runs_commands(group: Group):
 
         # Validation check for mutually exclusive arguments
         if workflow_url and workflow:
-            click.echo(style("Error: You cannot specify both --url and --workflow.", fg='red'), err=True, color=True)
+            click.echo(style("Error: You cannot specify both --url and --workflow.", fg="red"), err=True, color=True)
             exit(1)
 
         # Validation check for required arguments
         if not workflow_url and not workflow:
-            click.echo(style("Error: You must specify either --url or --workflow.", fg='red'), err=True, color=True)
+            click.echo(style("Error: You must specify either --url or --workflow.", fg="red"), err=True, color=True)
             exit(1)
 
         # Validation check for --version without --workflow
         if version and not workflow:
-            click.echo(style("Error: You must specify --workflow when using --version.", fg='red'), err=True, color=True)
+            click.echo(
+                style("Error: You must specify --workflow when using --version.", fg="red"), err=True, color=True
+            )
             exit(1)
 
         # Validation check for --workflow without --version
         if workflow and not version:
-            click.echo(style("Error: You must specify --version when using --workflow.", fg='red'), err=True, color=True)
+            click.echo(
+                style("Error: You must specify --version when using --workflow.", fg="red"), err=True, color=True
+            )
             exit(1)
 
         # Combine workflow and version if both are provided
@@ -533,7 +552,7 @@ def init_runs_commands(group: Group):
             if not sample_ids:
                 return None
 
-            sample_list = sample_ids.split(',')
+            sample_list = sample_ids.split(",")
             return [Sample(id=sample_id) for sample_id in sample_list]
 
         def get_default_engine_id():
@@ -542,15 +561,18 @@ def init_runs_commands(group: Group):
             for engine in engines:
                 if engine.default:
                     return engine.id
-            raise NoDefaultEngineError("No default engine found. Please specify an engine id using the --engine flag "
-                                       "or in the workflow engine parameters list using ENGINE_ID_KEY=....")
+            raise NoDefaultEngineError(
+                "No default engine found. Please specify an engine id using the --engine flag "
+                "or in the workflow engine parameters list using ENGINE_ID_KEY=...."
+            )
 
         if not engine_id:
             engine_id = get_default_engine_id()
 
         if default_workflow_engine_parameters:
-            [param_ids_list, kv_pairs_list, json_literals_list,
-             files_list] = default_workflow_engine_parameters.extract_arguments_list()
+            [param_ids_list, kv_pairs_list, json_literals_list, files_list] = (
+                default_workflow_engine_parameters.extract_arguments_list()
+            )
 
             param_presets = merge_param_json_data(kv_pairs_list, json_literals_list, files_list)
 
@@ -560,7 +582,9 @@ def init_runs_commands(group: Group):
                         param_preset = ewes_client.get_engine_param_preset(engine_id, param_id)
                         merge(param_presets, param_preset.preset_values)
                     except Exception as e:
-                        raise UnableToFindParameterError(f"Unable to find engine parameter preset with id {param_id}. {e}")
+                        raise UnableToFindParameterError(
+                            f"Unable to find engine parameter preset with id {param_id}. {e}"
+                        )
 
             default_workflow_engine_parameters = param_presets
         else:
@@ -576,13 +600,11 @@ def init_runs_commands(group: Group):
             default_workflow_params=default_workflow_params,
             default_tags=tags.parsed_value() if tags else None,
             run_requests=list(),
-            samples=parse_samples()
+            samples=parse_samples(),
         )
 
         for workflow_param in workflow_params:
-            run_request = ExtendedRunRequest(
-                workflow_params=workflow_param.parsed_value() if workflow_param else None
-            )
+            run_request = ExtendedRunRequest(workflow_params=workflow_param.parsed_value() if workflow_param else None)
             batch_request.run_requests.append(run_request)
 
         override_data = parse_and_merge_arguments(input_overrides)
@@ -601,4 +623,3 @@ def init_runs_commands(group: Group):
         else:
             minimal_batch = ewes_client.submit_batch(batch_request)
             click.echo(to_json(normalize(minimal_batch)))
-

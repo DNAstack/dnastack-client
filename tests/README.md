@@ -28,8 +28,8 @@ The test suite is organized into two main categories:
 make test-setup
 
 # Or manually install
-pip install -e .
-pip install -r tests/requirements-test.txt
+uv pip install -e ".[all]"
+uv pip install --group test
 ```
 
 ## Running Tests
@@ -46,18 +46,15 @@ make test-unit-cov
 make test-unit-watch
 
 # Run specific test file
-pytest tests/unit/common/test_parser.py -v
+uv run pytest tests/unit/common/test_parser.py -v
 ```
 
 ### E2E Tests
 ```bash
-# Run CLI E2E tests (as per GCB)
+# Run E2E tests
 make test-e2e
 
-# Run all E2E tests
-make test-e2e-all
-
-# Run with custom environment
+# Run with custom environment file
 E2E_ENV_FILE=.env.local make test-e2e
 ```
 
@@ -69,16 +66,23 @@ make test-all
 
 ## Test Requirements
 
-Install test dependencies:
+Test dependencies are managed through pyproject.toml dependency groups:
 ```bash
-pip install -r tests/requirements-test.txt
+# Install test dependencies
+make test-setup
+
+# Or manually with uv
+uv pip install --group test
 ```
 
 ## Writing Tests
 
 ### Unit Tests
 - Place in `tests/unit/` following the source code structure
-- Use mocks from `tests/unit/fixtures/mocks.py`
+- Use fixtures from `tests/unit/fixtures/` organized by domain:
+  - `auth_fixtures.py` - Authentication and HTTP mocks
+  - `service_fixtures.py` - Service registry and client mocks
+  - `data_fixtures.py` - Sample test data
 - Should run without external dependencies
 - Should complete in <1 second per test
 
@@ -100,6 +104,6 @@ Tests can be marked with pytest markers:
 
 Run tests by marker:
 ```bash
-pytest -m unit        # Only unit tests
-pytest -m "not e2e"   # Exclude E2E tests
+uv run pytest -m unit        # Only unit tests
+uv run pytest -m "not e2e"   # Exclude E2E tests
 ```

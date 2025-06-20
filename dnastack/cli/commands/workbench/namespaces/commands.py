@@ -11,14 +11,13 @@ from dnastack.cli.core.command_spec import CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 def init_namespace_commands(group: Group):
     @formatted_command(
         group=group,
-        name='get-default',
+        name="get-default",
         specs=[
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
-        ]
+        ],
     )
-    def get_default_namespace(context: Optional[str],
-                              endpoint_id: Optional[str]):
+    def get_default_namespace(context: Optional[str], endpoint_id: Optional[str]):
         """
         Get the default namespace
 

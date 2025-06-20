@@ -1,13 +1,15 @@
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class QuestionParam(BaseModel):
     """
     A parameter definition for a question.
-    
+
     Based on the Java QuestionParam class from the Explorer service.
     """
+
     id: str
     name: str
     label: str
@@ -30,6 +32,7 @@ class QuestionCollection(BaseModel):
     """
     A collection reference within a federated question.
     """
+
     id: str
     slug: str
     name: str
@@ -42,9 +45,10 @@ class QuestionCollection(BaseModel):
 class FederatedQuestion(BaseModel):
     """
     A federated question that can be asked across multiple collections.
-    
+
     Based on the Java FederatedQuestion record from the Explorer service.
     """
+
     id: str
     name: str
     description: str
@@ -56,15 +60,17 @@ class FederatedQuestionListResponse(BaseModel):
     """
     Response containing a list of federated questions.
     """
+
     questions: List[FederatedQuestion]
 
 
 class FederatedQuestionQueryRequest(BaseModel):
     """
     Request payload for asking a federated question.
-    
+
     Based on the Java FederatedQuestionQueryRequest record.
     """
+
     inputs: Dict[str, str]
     collections: List[str]
 
@@ -72,14 +78,15 @@ class FederatedQuestionQueryRequest(BaseModel):
 class FederatedQuestionQueryResponse(BaseModel):
     """
     Response from asking a federated question.
-    
+
     This is a flexible model to handle various response formats.
     The actual structure depends on the question being asked.
     """
+
     # This will contain the actual query results
     # Structure varies based on the question type
     data: Any = None
-    
+
     def __init__(self, **data):
         # Handle raw response data
         super().__init__(data=data)
@@ -88,10 +95,11 @@ class FederatedQuestionQueryResponse(BaseModel):
 class QuestionQueryResult(BaseModel):
     """
     A single result item from a question query.
-    
+
     This is a flexible model to handle different result structures
     depending on the question type.
     """
+
     # Dynamic content - structure varies by question
     content: Dict[str, Any] = Field(default_factory=dict)
 

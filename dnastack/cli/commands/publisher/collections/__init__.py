@@ -6,7 +6,8 @@ from dnastack.cli.core.group import formatted_group
 
 @formatted_group("collections")
 def collections_command_group():
-    """ Interact with collections """
+    """Interact with collections"""
+
 
 # Initialize all commands
 init_collections_commands(collections_command_group)

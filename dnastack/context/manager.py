@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
@@ -10,10 +10,10 @@ from pydantic import BaseModel
 
 from dnastack.client.factory import EndpointRepository
 from dnastack.client.models import ServiceEndpoint
-from dnastack.client.service_registry.client import ServiceRegistry, STANDARD_SERVICE_REGISTRY_TYPE_V1_0
+from dnastack.client.service_registry.client import STANDARD_SERVICE_REGISTRY_TYPE_V1_0, ServiceRegistry
 from dnastack.client.service_registry.manager import ServiceRegistryManager
 from dnastack.common.auth_manager import AuthManager
-from dnastack.common.events import EventSource, Event
+from dnastack.common.events import Event, EventSource
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.context.models import Context
@@ -31,7 +31,7 @@ class InvalidServiceRegistryError(RuntimeError):
 
 class ContextMap(ABC):
     def __init__(self):
-        self._logger = get_logger(type(self).__name__ + '/' + str(uuid4()))
+        self._logger = get_logger(type(self).__name__ + "/" + str(uuid4()))
 
     @abstractmethod
     def all(self) -> Dict[str, Context]:
@@ -122,8 +122,7 @@ class InMemoryContextMap(ContextMap):
 
     def list(self) -> List[ContextMetadata]:
         return [
-            ContextMetadata(name=context_name,
-                            selected=(self._current_context_name == context_name))
+            ContextMetadata(name=context_name, selected=(self._current_context_name == context_name))
             for context_name in self._reference_contexts.keys()
         ]
 
@@ -188,35 +187,34 @@ class ConfigurationBasedContextMap(ContextMap):
     def list(self) -> List[ContextMetadata]:
         config = self.__config_manager.load()
         return [
-            ContextMetadata(name=context_name,
-                            selected=(config.current_context == context_name))
+            ContextMetadata(name=context_name, selected=(config.current_context == context_name))
             for context_name in config.contexts.keys()
         ]
 
 
 class BaseContextManager:
-    _re_http_scheme = re.compile(r'^https?://')
-    _logger = get_logger('BaseContextManager')
+    _re_http_scheme = re.compile(r"^https?://")
+    _logger = get_logger("BaseContextManager")
 
     __propagated_auth_event_types = [
-        'auth-begin',
-        'auth-end',
-        'no-refresh-token',
-        'refresh-skipped',
-        'user-verification-required',
-        'user-verification-ok',
-        'user-verification-failed',
+        "auth-begin",
+        "auth-end",
+        "no-refresh-token",
+        "refresh-skipped",
+        "user-verification-required",
+        "user-verification-ok",
+        "user-verification-failed",
     ]
 
     def __init__(self, context_map: ContextMap):
         self._guid = str(uuid4())
         self._events = EventSource(
             [
-                'context-sync',
-                'auth-disabled',
+                "context-sync",
+                "auth-disabled",
             ]
             + self.__propagated_auth_event_types,
-            origin=self
+            origin=self,
         )
         self._contexts: ContextMap = context_map
 
@@ -234,7 +232,7 @@ class BaseContextManager:
 
     @classmethod
     def _get_hostname(cls, hostname: str) -> str:
-        base_url = hostname if cls._re_http_scheme.search(hostname) else f'https://{hostname}'
+        base_url = hostname if cls._re_http_scheme.search(hostname) else f"https://{hostname}"
         return urlparse(base_url).netloc
 
     def add(self, context_name: str):
@@ -249,18 +247,17 @@ class BaseContextManager:
     def list(self) -> List[ContextMetadata]:
         return self._contexts.list()
 
-    def use(self,
-            registry_hostname_or_url: str,
-            context_name: Optional[str] = None,
-            no_auth: Optional[bool] = False) -> EndpointRepository:
+    def use(
+        self, registry_hostname_or_url: str, context_name: Optional[str] = None, no_auth: Optional[bool] = False
+    ) -> EndpointRepository:
         target_hostname = self._get_hostname(registry_hostname_or_url)
         context_name = context_name or target_hostname
 
         if context_name is None:
-            raise RuntimeError('The name of the context cannot be NULL.')
+            raise RuntimeError("The name of the context cannot be NULL.")
 
-        context_logger = get_logger(f'{self._logger.name}/{context_name}')
-        context_logger.debug(f'Begin the sync procedure (given: {registry_hostname_or_url})')
+        context_logger = get_logger(f"{self._logger.name}/{context_name}")
+        context_logger.debug(f"Begin the sync procedure (given: {registry_hostname_or_url})")
 
         context = self._contexts.get(context_name)
         has_context_before = context is not None
@@ -276,14 +273,14 @@ class BaseContextManager:
                     )
                 else:
                     raise InvalidServiceRegistryError(
-                        f'The given URL ({registry_hostname_or_url}) is not the root URL of the service registry.'
+                        f"The given URL ({registry_hostname_or_url}) is not the root URL of the service registry."
                     )
             else:
                 registry = self._scan_for_registry_endpoint(target_hostname)
                 if not registry:
                     raise InvalidServiceRegistryError(
-                        f'The given hostname ({registry_hostname_or_url}) is not a hostname '
-                        'of the service registry service.'
+                        f"The given hostname ({registry_hostname_or_url}) is not a hostname "
+                        "of the service registry service."
                     )
 
             context = Context()
@@ -295,21 +292,23 @@ class BaseContextManager:
 
         # Instantiate the service registry manager for the upcoming sync operation.
         reg_manager = ServiceRegistryManager(context=context)
-        reg_manager.events.on('endpoint-sync', self._on_endpoint_sync)
+        reg_manager.events.on("endpoint-sync", self._on_endpoint_sync)
 
-        active_registries = [inspected_endpoint
-                             for inspected_endpoint in self._contexts.get(context_name).endpoints
-                             if inspected_endpoint.type in ServiceRegistry.get_supported_service_types()]
+        active_registries = [
+            inspected_endpoint
+            for inspected_endpoint in self._contexts.get(context_name).endpoints
+            if inspected_endpoint.type in ServiceRegistry.get_supported_service_types()
+        ]
         reg_manager.in_isolation(len(active_registries) <= 1)
 
         if len(active_registries) == 0:
             self._logger.warning(f"No service registries are registered for the context {context_name}")
 
-        self._logger.debug(f'Number of endpoints: {len(self._contexts.get(context_name).endpoints)}')
-        self._logger.debug(f'Number of active registries: {len(active_registries)}')
+        self._logger.debug(f"Number of endpoints: {len(self._contexts.get(context_name).endpoints)}")
+        self._logger.debug(f"Number of active registries: {len(active_registries)}")
 
         for reg_endpoint in active_registries:
-            self._logger.debug(f'Syncing: {reg_endpoint.url}')
+            self._logger.debug(f"Syncing: {reg_endpoint.url}")
             reg_manager.synchronize_endpoints(reg_endpoint.id)
 
         # Set the current context.
@@ -318,10 +317,10 @@ class BaseContextManager:
 
         # Initiate the authentication procedure.
         if no_auth:
-            self._logger.debug('AUTH disabled')
-            self.events.dispatch('auth-disabled', dict())
+            self._logger.debug("AUTH disabled")
+            self.events.dispatch("auth-disabled", dict())
         else:
-            self._logger.debug('AUTH enabled')
+            self._logger.debug("AUTH enabled")
             auth_manager = AuthManager(context=self._contexts.current_context)
 
             # Set up an event relay.
@@ -335,23 +334,21 @@ class BaseContextManager:
         return EndpointRepository(self._contexts.get(context_name).endpoints, cacheable=True)
 
     def _on_endpoint_sync(self, event: Event):
-        self.events.dispatch('context-sync', event)
+        self.events.dispatch("context-sync", event)
 
     def _scan_for_registry_endpoint(self, hostname: str) -> Optional[ServiceRegistry]:
-        """ Scan the service for the list of service info. """
-        base_url = hostname if self._re_http_scheme.search(hostname) else f'https://{hostname}'
+        """Scan the service for the list of service info."""
+        base_url = hostname if self._re_http_scheme.search(hostname) else f"https://{hostname}"
         context_name = urlparse(base_url).netloc
 
         # Base-registry-URL-to-listing-URL map
         potential_registry_base_paths = [
             # This is for a service which implements the service registry at root.
-            '',
-
+            "",
             # This is for a collection service.
-            'service-registry/',
-
+            "service-registry/",
             # This is for an explorer service, e.g., viral.ai.
-            'api/service-registry/',
+            "api/service-registry/",
         ]
 
         for api_path in potential_registry_base_paths:
@@ -369,32 +366,31 @@ class BaseContextManager:
         return ServiceEndpoint(id=id, url=url, type=STANDARD_SERVICE_REGISTRY_TYPE_V1_0)
 
     def _check_if_root_url_and_sanitize_url(self, registry_url: str):
-        root_url = registry_url + ('' if registry_url.endswith('/') else '/')
-        listing_url = urljoin(root_url, 'services')
+        root_url = registry_url + ("" if registry_url.endswith("/") else "/")
+        listing_url = urljoin(root_url, "services")
 
         with HttpClientFactory.make() as http_session:
             try:
-                response = http_session.get(listing_url, headers={'Accept': 'application/json'})
+                response = http_session.get(listing_url, headers={"Accept": "application/json"})
             except requests.exceptions.ConnectionError:
                 return None
 
             if response.ok:
                 is_json_response = (
-                        'Content-Type' in response.headers
-                        and response.headers['Content-Type'] == 'application/json'
+                    "Content-Type" in response.headers and response.headers["Content-Type"] == "application/json"
                 )
 
                 raw_response_text = response.text
 
                 # noinspection PyBroadException
                 try:
-                    ids = sorted([entry['id'] for entry in response.json()])
-                    self._logger.debug(f'CHECK: IDS => {", ".join(ids)}')
+                    ids = sorted([entry["id"] for entry in response.json()])
+                    self._logger.debug(f"CHECK: IDS => {', '.join(ids)}")
                 except Exception as e:
                     # Look for the next one.
-                    error_type_name = f'{type(e).__module__}.{type(e).__name__}'
-                    self._logger.debug(f'Received OK but failed to parse the response due to ({error_type_name}) {e}')
-                    self._logger.debug(f'Here is the response:\n{raw_response_text}')
+                    error_type_name = f"{type(e).__module__}.{type(e).__name__}"
+                    self._logger.debug(f"Received OK but failed to parse the response due to ({error_type_name}) {e}")
+                    self._logger.debug(f"Here is the response:\n{raw_response_text}")
                     return None
                 finally:
                     pass
@@ -407,11 +403,12 @@ class BaseContextManager:
 
 @service.registered()
 class InMemoryContextManager(BaseContextManager):
-    """ Context Manager
+    """Context Manager
 
-        This is designed to use with the CLI package.
+    This is designed to use with the CLI package.
     """
-    _logger = get_logger('InMemoryContextManager')
+
+    _logger = get_logger("InMemoryContextManager")
 
     def __init__(self, context_map: InMemoryContextMap):
         super().__init__(context_map)
@@ -419,11 +416,12 @@ class InMemoryContextManager(BaseContextManager):
 
 @service.registered()
 class ContextManager(BaseContextManager):
-    """ Context Manager
+    """Context Manager
 
-        This is designed to use with the CLI package.
+    This is designed to use with the CLI package.
     """
-    _logger = get_logger('ContextManager')
+
+    _logger = get_logger("ContextManager")
 
     def __init__(self, context_map: ConfigurationBasedContextMap):
         super().__init__(context_map)

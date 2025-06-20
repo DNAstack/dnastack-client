@@ -1,4 +1,4 @@
-from typing import Iterator, Dict, Any, List
+from typing import Any, Dict, Iterator, List
 
 from dnastack import DataConnectClient
 from dnastack.common.exceptions import DependencyError
@@ -24,6 +24,7 @@ class SearchOperation:
             # We delay the import as late as possible so that the optional dependency (pandas)
             # does not block the other functionalities of the library.
             import pandas as pd
+
             return pd.DataFrame(self.load_data())
         except ImportError:
-            raise DependencyError('pandas')
+            raise DependencyError("pandas")

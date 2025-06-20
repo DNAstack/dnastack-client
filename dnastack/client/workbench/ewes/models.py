@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,13 +11,13 @@ from dnastack.common.json_argument_parser import JSONType
 
 
 class Outcome(str, Enum):
-    SUCCESS = 'SUCCESS',
-    FAILURE = 'FAILURE'
+    SUCCESS = ("SUCCESS",)
+    FAILURE = "FAILURE"
 
 
 class LogType(str, Enum):
-    STDOUT = 'stdout',
-    STDERR = 'stderr',
+    STDOUT = ("stdout",)
+    STDERR = ("stderr",)
 
 
 class State(str, Enum):
@@ -39,8 +39,13 @@ class State(str, Enum):
         return self in [State.COMPLETE_WITH_ERRORS, State.EXECUTOR_ERROR, State.SYSTEM_ERROR]
 
     def is_terminal(self) -> bool:
-        return self in [State.COMPLETE, State.COMPLETE_WITH_ERRORS, State.CANCELED, State.EXECUTOR_ERROR,
-                        State.SYSTEM_ERROR]
+        return self in [
+            State.COMPLETE,
+            State.COMPLETE_WITH_ERRORS,
+            State.CANCELED,
+            State.EXECUTOR_ERROR,
+            State.SYSTEM_ERROR,
+        ]
 
 
 class WesServiceInfo(Service):
@@ -296,11 +301,11 @@ class EngineParamPresetListOptions(BaseListOptions):
 
 
 class CheckType(str, Enum):
-    CONNECTIVITY = 'CONNECTIVITY'
-    CREDENTIALS = 'CREDENTIALS'
-    PERMISSIONS = 'PERMISSIONS'
-    STORAGE = 'STORAGE'
-    LOGS = 'LOGS'
+    CONNECTIVITY = "CONNECTIVITY"
+    CREDENTIALS = "CREDENTIALS"
+    PERMISSIONS = "PERMISSIONS"
+    STORAGE = "STORAGE"
+    LOGS = "LOGS"
 
 
 class Check(BaseModel):
@@ -313,7 +318,7 @@ class EngineHealthCheck(BaseModel):
     created_at: Optional[datetime]
     outcome: str
     checks: List[Check]
-    
+
 
 class EngineHealthCheckListResponse(PaginatedResource):
     health_checks: List[EngineHealthCheck]

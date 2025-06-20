@@ -4,23 +4,22 @@ import os.path
 from datetime import datetime
 from mimetypes import guess_type
 from pprint import pformat
-from typing import Iterator, Optional, List, Any, Dict, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 from urllib.parse import urljoin
 
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from dnastack.client.base_client import BaseServiceClient
-from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError, DataConnectError
-from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
+from dnastack.client.base_exceptions import DataConnectError, UnauthenticatedApiAccessError, UnauthorizedApiAccessError
+from dnastack.client.result_iterator import InactiveLoaderError, ResultIterator, ResultLoader
 from dnastack.client.service_registry.models import ServiceType
-from dnastack.http.session import HttpSession, HttpError, ClientError
+from dnastack.http.session import ClientError, HttpError, HttpSession
 
-STANDARD_WES_TYPE_V1_1 = ServiceType(group='org.ga4gh', artifact='wes', version='1.1')
-STANDARD_WES_TYPE_V1_0 = ServiceType(group='org.ga4gh', artifact='wes', version='1.0')
+STANDARD_WES_TYPE_V1_1 = ServiceType(group="org.ga4gh", artifact="wes", version="1.1")
+STANDARD_WES_TYPE_V1_0 = ServiceType(group="org.ga4gh", artifact="wes", version="1.0")
 
 
-class ErrorResponse(BaseModel):
-    ...
+class ErrorResponse(BaseModel): ...
 
 
 class _FormDataEntry(BaseModel):
@@ -32,8 +31,8 @@ class RunRequest(BaseModel):
     workflow_url: str
     workflow_params: Optional[Dict[str, Any]] = Field(default_factory=dict)
     workflow_engine_parameters: Optional[Union[str, Dict[str, Any]]] = None
-    workflow_type: str = 'WDL'
-    workflow_type_version: str = '1.0'
+    workflow_type: str = "WDL"
+    workflow_type_version: str = "1.0"
     tags: Optional[Union[str, Dict[str, Any]]] = Field(default_factory=dict)
 
     # Auxiliary properties
@@ -41,38 +40,40 @@ class RunRequest(BaseModel):
 
     def to_form_data(self):
         multipart_data = [
-            ('workflow_url', (None, self.workflow_url)),
-            ('workflow_type', (None, self.workflow_type)),
-            ('workflow_type_version', (None, self.workflow_type_version)),
+            ("workflow_url", (None, self.workflow_url)),
+            ("workflow_type", (None, self.workflow_type)),
+            ("workflow_type_version", (None, self.workflow_type_version)),
         ]
 
         # Add optional JSON parameters.
-        for property_name in ['workflow_params', 'workflow_engine_parameters', 'tags']:
+        for property_name in ["workflow_params", "workflow_engine_parameters", "tags"]:
             property_value = getattr(self, property_name)
 
             if not property_value:
-                property_value = '{}'
+                property_value = "{}"
             elif isinstance(property_value, dict):
                 property_value = json.dumps(property_value)
 
-            multipart_data.append((property_name, (None, property_value, 'application/json')))
+            multipart_data.append((property_name, (None, property_value, "application/json")))
 
         # Handle file attachments.
         if self.attachments:
             for i in range(len(self.attachments)):
-                param_name = 'workflow_attachment'
+                param_name = "workflow_attachment"
                 attachment_url = self.attachments[i]
                 guessed = guess_type(attachment_url)
 
-                with open(attachment_url, 'rb') as f:
-                    multipart_data.append((
-                        param_name,
+                with open(attachment_url, "rb") as f:
+                    multipart_data.append(
                         (
-                            os.path.basename(attachment_url),  # file name
-                            f.read(),  # binary
-                            guessed[0] if guessed and guessed[0] else None,
+                            param_name,
+                            (
+                                os.path.basename(attachment_url),  # file name
+                                f.read(),  # binary
+                                guessed[0] if guessed and guessed[0] else None,
+                            ),
                         )
-                    ))
+                    )
 
         return dict(
             # data=form_data,
@@ -90,6 +91,7 @@ class _Log(BaseModel):
 
     https://github.com/ga4gh/workflow-execution-service-schemas/blob/develop/openapi/components/schemas/Log.yaml
     """
+
     name: Optional[str] = None
     cmd: Optional[Union[str, List[str]]] = None
     start_time: Optional[datetime] = None
@@ -135,6 +137,7 @@ class _Status(BaseModel):
 
     https://github.com/ga4gh/workflow-execution-service-schemas/blob/develop/openapi/components/schemas/RunStatus.yaml
     """
+
     run_id: str
     state: str  # See _Run.state
 
@@ -145,11 +148,13 @@ class RunListResponse(BaseModel):
 
 
 class RunListLoader(ResultLoader):
-    def __init__(self,
-                 initial_url: str,
-                 page_size: Optional[int] = None,
-                 page_token: Optional[str] = None,
-                 http_session: Optional[HttpSession] = None):
+    def __init__(
+        self,
+        initial_url: str,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        http_session: Optional[HttpSession] = None,
+    ):
         self.__http_session = http_session
         self.__initial_url = initial_url
         self.__page_size = page_size
@@ -167,9 +172,9 @@ class RunListLoader(ResultLoader):
 
             params = dict()
             if self.__page_size:
-                params['page_size'] = self.__page_size
+                params["page_size"] = self.__page_size
             if self.__page_token:
-                params['page_token'] = self.__page_token
+                params["page_token"] = self.__page_token
 
             try:
                 response = session.get(current_url, params=params)
@@ -185,10 +190,7 @@ class RunListLoader(ResultLoader):
                     raise UnauthorizedApiAccessError(self.__generate_api_error_feedback(response_text))
                 elif status_code >= 400:  # Catch all errors
                     raise DataConnectError(
-                        f'Unexpected error: {response_text}',
-                        status_code,
-                        response_text,
-                        urls=self.__visited_urls
+                        f"Unexpected error: {response_text}", status_code, response_text, urls=self.__visited_urls
                     )
 
             status_code = response.status_code
@@ -197,25 +199,22 @@ class RunListLoader(ResultLoader):
             try:
                 response_body = response.json() if response_text else dict()
             except Exception:
-                self.logger.error(f'{self.__initial_url}: Unexpectedly non-JSON response body from {current_url}')
+                self.logger.error(f"{self.__initial_url}: Unexpectedly non-JSON response body from {current_url}")
                 raise DataConnectError(
-                    f'Unable to deserialize JSON from {response_text}.',
+                    f"Unable to deserialize JSON from {response_text}.",
                     status_code,
                     response_text,
-                    urls=self.__visited_urls
+                    urls=self.__visited_urls,
                 )
 
             try:
                 api_response = RunListResponse(**response_body)
             except ValidationError:
                 raise DataConnectError(
-                    f'Invalid Response Body: {response_body}',
-                    status_code,
-                    response_text,
-                    urls=self.__visited_urls
+                    f"Invalid Response Body: {response_body}", status_code, response_text, urls=self.__visited_urls
                 )
 
-            self.logger.debug(f'Response:\n{pformat(response_body, indent=2)}')
+            self.logger.debug(f"Response:\n{pformat(response_body, indent=2)}")
 
             self.__page_token = api_response.next_page_token or None
             if not self.__page_token:
@@ -228,9 +227,9 @@ class RunListLoader(ResultLoader):
 
     def __generate_api_error_feedback(self, response_body) -> str:
         if self.__current_url:
-            return f'Failed to load a follow-up page of the table list from {self.__current_url} ({response_body})'
+            return f"Failed to load a follow-up page of the table list from {self.__current_url} ({response_body})"
         else:
-            return f'Failed to load the first page of the table list from {self.__initial_url} ({response_body})'
+            return f"Failed to load the first page of the table list from {self.__initial_url} ({response_body})"
 
 
 class LogOutput(BaseModel):
@@ -245,11 +244,11 @@ class LogOutput(BaseModel):
 class Run:
     def __init__(self, session: Optional[HttpSession] = None, base_url: Optional[str] = None):
         self.__session = session
-        self.__base_url = base_url if base_url.endswith('/') else (base_url + '/')
+        self.__base_url = base_url if base_url.endswith("/") else (base_url + "/")
         self.__id = None
 
     def connect(self, session: HttpSession):
-        assert self.__session is not None, 'This Run object has already been attached to a WES client.'
+        assert self.__session is not None, "This Run object has already been attached to a WES client."
         self.__session = session
 
     def info(self) -> _Run:
@@ -258,7 +257,7 @@ class Run:
         try:
             return _Run(**raw_data)
         except ValidationError:
-            raise RuntimeError(f'Unexpected Response: {raw_data}')
+            raise RuntimeError(f"Unexpected Response: {raw_data}")
 
     @property
     def id(self) -> str:
@@ -269,12 +268,12 @@ class Run:
     @property
     def status(self) -> str:
         # GET /runs/{id}/status
-        response = self.__session.get(urljoin(self.__base_url, 'status'))
+        response = self.__session.get(urljoin(self.__base_url, "status"))
         return _Status(**response.json()).state
 
     def cancel(self):
         # POST /runs/{id}/cancel
-        self.__session.post(urljoin(self.__base_url, 'cancel'))
+        self.__session.post(urljoin(self.__base_url, "cancel"))
 
     def get_logs(self, include_stderr: bool = False) -> Iterator[LogOutput]:
         info = self.info()
@@ -302,7 +301,7 @@ class Run:
 class WesClient(BaseServiceClient):
     @staticmethod
     def get_adapter_type() -> str:
-        return 'wes'
+        return "wes"
 
     @staticmethod
     def get_supported_service_types() -> List[ServiceType]:
@@ -313,31 +312,36 @@ class WesClient(BaseServiceClient):
 
     def get_service_info(self):
         with self.create_http_session() as session:
-            response = session.get(urljoin(self.endpoint.url, 'service-info'))
+            response = session.get(urljoin(self.endpoint.url, "service-info"))
             return response.json()
 
     def get_runs(self, page_size: Optional[int] = None, page_token: Optional[str] = None) -> Iterator[_Run]:
         # GET /runs
-        return ResultIterator(RunListLoader(initial_url=urljoin(self.endpoint.url, 'runs'),
-                                            page_size=page_size,
-                                            page_token=page_token,
-                                            http_session=self.create_http_session()))
+        return ResultIterator(
+            RunListLoader(
+                initial_url=urljoin(self.endpoint.url, "runs"),
+                page_size=page_size,
+                page_token=page_token,
+                http_session=self.create_http_session(),
+            )
+        )
 
     def run(self, id: str) -> Run:
-        return Run(self.create_http_session(), urljoin(self.endpoint.url, f'runs/{id}'))
+        return Run(self.create_http_session(), urljoin(self.endpoint.url, f"runs/{id}"))
 
     def submit(self, run: RunRequest) -> str:
-        workflow_url_is_external = run.workflow_url.startswith('http://') or run.workflow_url.startswith('https://')
+        workflow_url_is_external = run.workflow_url.startswith("http://") or run.workflow_url.startswith("https://")
         workflow_url_is_in_attachments = run.workflow_url in [os.path.basename(p) for p in (run.attachments or list())]
         if not workflow_url_is_external and not workflow_url_is_in_attachments:
             if not workflow_url_is_in_attachments:
-                raise RuntimeError('The workflow file from the local drive is defined but it is apparently not in the '
-                                   'attachments of this run request. Please check your request object. '
-                                   f'(Given: {run})')
+                raise RuntimeError(
+                    "The workflow file from the local drive is defined but it is apparently not in the "
+                    "attachments of this run request. Please check your request object. "
+                    f"(Given: {run})"
+                )
             else:
-                raise RuntimeError(f'The given workflow URL is not supported. (Given: {run.workflow_url})')
+                raise RuntimeError(f"The given workflow URL is not supported. (Given: {run.workflow_url})")
 
         with self.create_http_session() as session:
-            response = session.post(urljoin(self.endpoint.url, 'runs'),
-                                    **run.to_form_data())
+            response = session.post(urljoin(self.endpoint.url, "runs"), **run.to_form_data())
             return _Id(**response.json()).run_id

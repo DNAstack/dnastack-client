@@ -8,15 +8,14 @@ from dnastack.client.workbench.workbench_user_service.models import WorkbenchUse
 
 
 class WorkbenchUserClient(BaseServiceClient):
-
     @staticmethod
     def get_adapter_type() -> str:
-        return 'workbench-user-service'
+        return "workbench-user-service"
 
     @staticmethod
     def get_supported_service_types() -> List[ServiceType]:
         return [
-            ServiceType(group='com.dnastack.workbench', artifact='workbench-user-service', version='1.0.0'),
+            ServiceType(group="com.dnastack.workbench", artifact="workbench-user-service", version="1.0.0"),
         ]
 
     # noinspection PyMethodOverriding
@@ -29,7 +28,5 @@ class WorkbenchUserClient(BaseServiceClient):
 
     def get_user_config(self) -> WorkbenchUser:
         with self.create_http_session() as session:
-            response = session.get(
-                urljoin(self.endpoint.url, 'users/me')
-            )
+            response = session.get(urljoin(self.endpoint.url, "users/me"))
         return WorkbenchUser(**response.json())

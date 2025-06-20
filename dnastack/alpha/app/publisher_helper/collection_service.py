@@ -1,8 +1,8 @@
 from copy import deepcopy
-from typing import Optional, Dict, List, Iterable, Callable, Any
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from dnastack.alpha.app.publisher_helper.exceptions import NoCollectionError, TooManyCollectionsError
-from dnastack.alpha.app.publisher_helper.models import ItemType, BaseItemInfo, BlobInfo, TableInfo
+from dnastack.alpha.app.publisher_helper.models import BaseItemInfo, BlobInfo, ItemType, TableInfo
 from dnastack.client.collections.client import UnknownCollectionError
 from dnastack.client.collections.model import Collection as CollectionModel
 from dnastack.client.drs import Blob
@@ -13,9 +13,11 @@ class RootCollectionApiMixin:
     def list_collections(self) -> List[CollectionModel]:
         return self._cs.list_collections(no_auth=self._no_auth)
 
-    def get_collection_info(self, id_or_slug_name: Optional[str] = None, *, name: Optional[str] = None) -> CollectionModel:
+    def get_collection_info(
+        self, id_or_slug_name: Optional[str] = None, *, name: Optional[str] = None
+    ) -> CollectionModel:
         # NOTE: "ID" and "slug name" are unique identifier whereas "name" is not.
-        assert id_or_slug_name or name, 'One of the arguments MUST be defined.'
+        assert id_or_slug_name or name, "One of the arguments MUST be defined."
 
         if id_or_slug_name is not None:
             try:
@@ -24,10 +26,12 @@ class RootCollectionApiMixin:
                 raise NoCollectionError(id_or_slug_name) from e
             return collection
         elif name is not None:
-            assert name.strip(), 'The name cannot be empty.'
-            target_collections = SimpleStream(self._cs.list_collections(no_auth=self._no_auth)) \
-                .filter(lambda endpoint: name == endpoint.name) \
+            assert name.strip(), "The name cannot be empty."
+            target_collections = (
+                SimpleStream(self._cs.list_collections(no_auth=self._no_auth))
+                .filter(lambda endpoint: name == endpoint.name)
                 .to_list()
+            )
             if len(target_collections) == 1:
                 return target_collections[0]
             elif len(target_collections) == 0:
@@ -39,12 +43,14 @@ class RootCollectionApiMixin:
 
 
 class PerCollectionApiMixin:
-    def list_items(self,
-                   *,
-                   limit: Optional[int] = 0,
-                   kind: Optional[ItemType] = None,
-                   kinds: Optional[Iterable[ItemType]] = None,
-                   on_has_more_result: Optional[Callable[[int], None]] = None) -> List[BaseItemInfo]:
+    def list_items(
+        self,
+        *,
+        limit: Optional[int] = 0,
+        kind: Optional[ItemType] = None,
+        kinds: Optional[Iterable[ItemType]] = None,
+        on_has_more_result: Optional[Callable[[int], None]] = None,
+    ) -> List[BaseItemInfo]:
         """
         List items in the collection.
 
@@ -55,7 +61,7 @@ class PerCollectionApiMixin:
         :return:
         """
         # NOTE: We opt for an enum on item types (kind/kinds) in this case to avoid SQL-injection attempts.
-        assert limit >= 0, 'The limit has to be ZERO (no limit) or at least 1 (to impose the limit).'
+        assert limit >= 0, "The limit has to be ZERO (no limit) or at least 1 (to impose the limit)."
 
         if kinds is None and kind is not None:
             kinds = [kind]
@@ -68,21 +74,18 @@ class PerCollectionApiMixin:
         items_query = self._collection.itemsQuery.strip()
 
         # We use +1 as an indicator whether there are more results.
-        actual_items_query = f'SELECT * FROM ({items_query})'
+        actual_items_query = f"SELECT * FROM ({items_query})"
 
         if kind:
             actual_items_query = f"{actual_items_query} WHERE type = '{kind.value}'"
         elif kinds:
-            types = ', '.join([f"'{kind}'" for kind in kinds])
+            types = ", ".join([f"'{kind}'" for kind in kinds])
             actual_items_query = f"{actual_items_query} WHERE type IN ({types})"
 
         if limit is not None and limit > 1:
             actual_items_query = f"{actual_items_query} LIMIT {limit + 1}"
 
-        items.extend([
-            self.__simplify_item(i)
-            for i in self._dc.query(actual_items_query, no_auth=self._no_auth)
-        ])
+        items.extend([self.__simplify_item(i) for i in self._dc.query(actual_items_query, no_auth=self._no_auth)])
 
         row_count = len(items)
 
@@ -93,16 +96,12 @@ class PerCollectionApiMixin:
 
     @staticmethod
     def __simplify_item(row: Dict[str, Any]) -> BaseItemInfo:
-        if row['type'] == ItemType.BLOB:
+        if row["type"] == ItemType.BLOB:
             return BlobInfo(**row)
-        elif row['type'] == ItemType.TABLE:
+        elif row["type"] == ItemType.TABLE:
             row_copy = deepcopy(row)
             # FIXME This is a hack to improve the usability issue.
-            row_copy['name'] = (
-                    row.get('qualified_table_name')
-                    or row.get('display_name')
-                    or row['name']
-            )
+            row_copy["name"] = row.get("qualified_table_name") or row.get("display_name") or row["name"]
             return TableInfo(**row_copy)
         else:
             return BaseItemInfo(**row)
@@ -117,18 +116,12 @@ class BlobApiMixin:
             return None
 
     def blobs(self, *, ids: Optional[List[str]] = None, names: Optional[List[str]] = None) -> Dict[str, Optional[Blob]]:
-        assert ids or names, 'One of the arguments MUST be defined.'
+        assert ids or names, "One of the arguments MUST be defined."
 
         if ids:
-            conditions: str = ' OR '.join([
-                f"(id = '{id}')"
-                for id in ids
-            ])
+            conditions: str = " OR ".join([f"(id = '{id}')" for id in ids])
         elif names:
-            conditions: str = ' OR '.join([
-                f"(name = '{name}')"
-                for name in names
-            ])
+            conditions: str = " OR ".join([f"(name = '{name}')" for name in names])
         else:
             raise NotImplementedError()
 
@@ -136,16 +129,11 @@ class BlobApiMixin:
 
         id_to_name_map: Dict[str, str] = SimpleStream(
             self.query(f"SELECT id, name FROM ({collection.itemsQuery}) WHERE {conditions}").load_data()
-        ).to_map(lambda row: row['id'], lambda row: row['name'])
+        ).to_map(lambda row: row["id"], lambda row: row["name"])
 
-        return {
-            id if ids is not None else id_to_name_map[id]: self._drs.get_blob(id)
-            for id in id_to_name_map.keys()
-        }
+        return {id if ids is not None else id_to_name_map[id]: self._drs.get_blob(id) for id in id_to_name_map.keys()}
 
-    def _find_blob_by_name(self,
-                           objectname: str,
-                           column_name: str) -> Blob:
+    def _find_blob_by_name(self, objectname: str, column_name: str) -> Blob:
         collection: CollectionModel = self._collection
 
         db_slug = collection.slugName.replace("-", "_")

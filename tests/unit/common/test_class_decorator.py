@@ -1,8 +1,8 @@
 from time import time
-from typing import Optional, Any, Callable
+from typing import Any, Callable, Optional
 from unittest import TestCase
 
-from dnastack.common.class_decorator import simple_constructor, UndefinedInitializedPropertyError
+from dnastack.common.class_decorator import UndefinedInitializedPropertyError, simple_constructor
 
 
 @simple_constructor()
@@ -19,9 +19,9 @@ class UnitTest(TestCase):
         with self.assertRaises(UndefinedInitializedPropertyError):
             AlphaService()
 
-        sample = AlphaService(url='http://foo.com', processor=lambda x: x)
+        sample = AlphaService(url="http://foo.com", processor=lambda x: x)
 
-        self.assertEqual(sample.url, 'http://foo.com')
+        self.assertEqual(sample.url, "http://foo.com")
         self.assertIsNone(sample.enabled)
         self.assertIsNotNone(sample.processor)
         self.assertIsNone(sample.after_init)
@@ -32,4 +32,4 @@ class UnitTest(TestCase):
             AlphaService()
 
         with self.assertRaises(UndefinedInitializedPropertyError):
-            AlphaService(url='http://foo.com')
+            AlphaService(url="http://foo.com")

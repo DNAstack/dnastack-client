@@ -1,4 +1,4 @@
-from typing import Iterator, Dict, Any, List
+from typing import Any, Dict, Iterator, List
 
 from dnastack.client.data_connect import QueryLoader
 from dnastack.client.result_iterator import ResultIterator
@@ -12,7 +12,6 @@ class FilterOperation:
     def __iter__(self):
         return ResultIterator(QueryLoader(initial_url=self._signed_url))
 
-
     def load_data(self) -> Iterator[Dict[str, Any]]:
         return ResultIterator(QueryLoader(initial_url=self._signed_url))
 
@@ -24,6 +23,7 @@ class FilterOperation:
             # We delay the import as late as possible so that the optional dependency (pandas)
             # does not block the other functionalities of the library.
             import pandas as pd
+
             return pd.DataFrame(self.load_data())
         except ImportError:
-            raise DependencyError('pandas')
+            raise DependencyError("pandas")

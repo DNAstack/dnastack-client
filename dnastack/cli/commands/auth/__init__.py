@@ -4,7 +4,8 @@ from dnastack.cli.core.group import formatted_group
 
 @formatted_group("auth")
 def auth_command_group():
-    """ Manage authentication and authorization """
+    """Manage authentication and authorization"""
+
 
 # Initialize all commands
 init_auth_commands(auth_command_group)
