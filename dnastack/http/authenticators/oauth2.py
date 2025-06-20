@@ -329,17 +329,12 @@ class OAuth2Authenticator(Authenticator):
         # First, check for token exchange sessions that might apply to this endpoint
         token_exchange_session = self._find_token_exchange_session_for_resource()
         if token_exchange_session:
-            logger.debug(f'Found applicable token exchange session for resource')
-            # Debug the session validity
             current_time = time()
-            logger.debug(f'Token exchange session validity check: current_time={current_time}, valid_until={token_exchange_session.valid_until}, issued_at={token_exchange_session.issued_at}, access_token_present={bool(token_exchange_session.access_token)}')
             if not token_exchange_session.is_valid():
                 logger.debug(f'The token exchange session is INVALID ({"expired" if token_exchange_session.access_token else "token revoked"}).')
                 event_details['reason'] = 'The session is invalid but it can be refreshed.'
                 self.events.dispatch('session-not-restored', event_details)
-                logger.debug(f'Require REFRESH -- event details = {event_details}')
                 raise RefreshRequired(token_exchange_session)
-            # Skip config hash validation for token exchange sessions since they use different auth_info
             self._session_info = token_exchange_session # Also cache it for future use
             return token_exchange_session
 
