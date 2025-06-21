@@ -41,7 +41,7 @@ This is the DNAstack client library and CLI, a Python package that provides both
   - Runs `uv run ruff format .` to format code consistently
 - **Configuration**: Minimal setup in `pyproject.toml` with Python 3.8 target and 120 character line length
 - **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses uv for consistent environment
-- **Version**: Fixed at ruff==0.11.13 in pyproject.toml for consistency across environments
+- **Version**: Fixed at ruff==0.12.0 in pyproject.toml for consistency across environments
 - **Development Notes**:
   - Avoid star imports (`from module import *`) - use explicit imports for better code clarity
   - When fixing linting violations in critical modules, add unit tests first to prevent regressions
