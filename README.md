@@ -15,9 +15,6 @@ This project uses [uv](https://github.com/astral-sh/uv) for Python dependency ma
 # Using the official installer (recommended)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Using pip
-pip install uv
-
 # Using Homebrew (macOS)
 brew install uv
 
@@ -72,13 +69,7 @@ dnastack collections list
 omics --help
 ```
 
-3. Direct Python module execution (if needed):
-```bash
-python -m dnastack --help
-python -m dnastack.omics_cli --help
-```
-
-4. IntelliJ/PyCharm run configuration:
+3. IntelliJ/PyCharm run configuration:
    - Run the "Omics CLI" configuration in IntelliJ/PyCharm.
    - This configuration runs the CLI using `python -m dnastack` to avoid module shadowing issues
 
