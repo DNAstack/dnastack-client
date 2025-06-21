@@ -42,16 +42,10 @@ make lint           # Run linting checks
 uv run dnastack --help  # Run CLI commands
 ```
 
-3. Optional: Activate the virtual environment for direct command access:
-```bash
-source .venv/bin/activate
-dnastack --help  # Now you can run commands directly
-```
 
 ### Tips
-To run the client in development mode from the current sources:
 
-1. Using uv (without activating virtual environment):
+Run the client in development mode using uv:
 ```bash
 uv run dnastack --help
 uv run dnastack auth login
@@ -60,16 +54,7 @@ uv run dnastack explorer questions list
 uv run omics --help
 ```
 
-2. After activating the virtual environment:
-```bash
-source .venv/bin/activate
-dnastack --help
-dnastack auth login
-dnastack collections list
-omics --help
-```
-
-3. IntelliJ/PyCharm run configuration:
+IntelliJ/PyCharm run configuration:
    - Run the "Omics CLI" configuration in IntelliJ/PyCharm.
    - This configuration runs the CLI using `python -m dnastack` to avoid module shadowing issues
 
