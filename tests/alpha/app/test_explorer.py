@@ -66,7 +66,7 @@ class TestEndToEnd(TestCase):
 
         This is based on Jim's demo code.
         """
-        logger = get_logger('Explorer.TestEndToEnd.test_data_connect')
+        get_logger('Explorer.TestEndToEnd.test_data_connect')
 
         explorer = self.explorer_client
         registered_collections = explorer.list_collections()

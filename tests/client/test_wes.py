@@ -25,7 +25,7 @@ class TestClient(DeprecatedBasePublisherTestCase):
         try:
             self._endpoint_uri = env('E2E_WES_ENDPOINT_URI',
                                      required=False,
-                                     default=f'https://workspaces-wes.alpha.dnastack.com/ga4gh/wes/v1/')
+                                     default='https://workspaces-wes.alpha.dnastack.com/ga4gh/wes/v1/')
             # FIXME Rename E2E_STAGING_CLIENT_ID to E2E_WES_CLIENT_ID
             self._client_id = env('E2E_STAGING_CLIENT_ID',
                                   description='OAuth Client ID for WES E2E test',

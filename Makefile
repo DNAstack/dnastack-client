@@ -23,7 +23,28 @@ run-notebooks-dev:
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
-	rm -rf ~/.dnastack/sessions/*
+	rm ~/.dnastack/sessions/* 2> /dev/null
+
+.PHONY: test-setup
+test-setup:
+	pip install -r tests/requirements-test.txt
+
+.PHONY: test-unit
+test-unit:
+	pytest tests/unit -v
+
+.PHONY: test-unit-cov
+test-unit-cov:
+	pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
+
+.PHONY: lint
+lint:
+	ruff check .
+
+.PHONY: lint-fix
+lint-fix:
+	ruff check --fix .
+	ruff format .
 
 .PHONY: test-all
 test-all:
@@ -40,11 +61,6 @@ package-test:
 
 .PHONY: docker-test-all
 docker-test-all: docker-test-all-python-oldest-stable docker-test-all-python-latest-stable docker-test-all-python-rc
-
-# Terminal for testing
-.PHONY: docker-test-all-baseline
-docker-test-all-baseline:
-	make TESTING_PYTHON=python:$(PY_VERSION_BASELINE)-slim WEBDRIVER_DISABLED=false docker-test-all-solo
 
 # Testing the oldest stable version.
 .PHONY: docker-test-all-baseline

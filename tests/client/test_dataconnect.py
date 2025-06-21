@@ -249,7 +249,7 @@ class TestEndToEnd(DeprecatedBasePublisherTestCase, DataConnectTestCaseMixin):
             # Handle unknown catalog/schema/table
             try:
                 # language=sql
-                __ = self._query(client, f'SELECT * FROM foo LIMIT 10')
+                __ = self._query(client, 'SELECT * FROM foo LIMIT 10')
             except (InvalidQueryError, InvalidDataLoadingError):
                 pass  # Expected exception types
             except Exception as e:

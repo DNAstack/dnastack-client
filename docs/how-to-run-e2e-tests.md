@@ -11,22 +11,45 @@
 
 ## Setup
 
-### Set up with Google Secret Manager
+### Set up from template (Recommended for local development)
 
-1. Run `./scripts/test_env_manager.py read default > .env`.
+1. Copy `.env.dist` to `.env`:
+   ```bash
+   cp .env.dist .env
+   ```
+2. Update the values in `.env` with your test credentials.
+   * You may need access to Wallet APIs to create a client, set grants and access policies.
+   * At minimum, you'll need to fill in `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_EMAIL` and `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_TOKEN`.
+3. Run `pip3 install -r requirements.txt`.
+   * `requirements.txt` contains more requirements than the ones in `setup.cfg` for the build and testing processes.
+
+### Set up with Google Secret Manager (For team members with GCloud access)
+
+**Note:** This method requires Google Cloud authentication to be set up first.
+
+1. Ensure you are using the correct Google Cloud project:
+   ```bash
+   gcloud config set project dnastack-product-development
+   ```
+
+2. Set up Google Cloud authentication:
+   ```bash
+   gcloud auth application-default login --no-launch-browser
+   ```
+   Open the link in your browser, log in with your Google account, and copy the authentication code back to the terminal.
+
+3. Run
+   ```shell
+   ./scripts/test_env_manager.py read default > .env
+   ```
    * This script will pull the envfile from the secret manager.
    * If you need to manage the shared envfiles, use `test_env_manager.py`. Use `--help` for more information.
-2. Run `pip3 install -r requirements.txt`.
-   * `requirements.txt` contains more requirements that the one in `setup.cfg` for the build and testing processes.
 
-### Set up from scratch
-
-1. Copy `.env.dist` to `.env`.
-   * It can be named in any way you like but for the simplicity of this document, we will stick with `.env`.
-2. Update the value in `.env`.
-   * You may need access to Wallet APIs to create a client, set grants and access policies.
-3. Run `pip3 install -r requirements.txt`.
-   * `requirements.txt` contains more requirements that the one in `setup.cfg` for the build and testing processes.
+4. Run 
+   ```shell
+   pip3 install -r requirements.txt
+   ```
+   * `requirements.txt` contains more requirements than the ones in `setup.cfg` for the build and testing processes.
 
 ### Note on the test suite
 

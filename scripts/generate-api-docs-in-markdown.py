@@ -22,6 +22,14 @@ grouped_targets = {
     'dnastack.client.collections.model': [
         'Collection',
     ],
+    'dnastack.client.explorer.client': [
+        'ExplorerClient',
+    ],
+    'dnastack.client.explorer.models': [
+        'FederatedQuestion',
+        'QuestionParam',
+        'QuestionCollection',
+    ],
     'dnastack.client.data_connect': [
         'DataConnectClient',
         'TableInfo',
@@ -75,7 +83,7 @@ grouped_targets = {
         'FileSessionStorage',
         'SessionManager',
     ],
-    'dnastack.helpers.client_factory': [
+    'dnastack.cli.helpers.client_factory': [
         'ServiceEndpointNotFound',
         'UnknownAdapterTypeError',
         'UnknownClientShortTypeError',
