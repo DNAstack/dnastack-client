@@ -3,6 +3,20 @@ PY_VERSION_STABLE=3.11
 PY_VERSION_LATEST=3.12
 TESTING_IMAGE_NAME=dnastack/client-library-testing
 
+# Check if uv is available
+UV_AVAILABLE := $(shell command -v uv 2> /dev/null)
+
+.PHONY: check-uv
+check-uv:
+ifndef UV_AVAILABLE
+	@echo "Error: 'uv' is not installed. Please install it first:"
+	@echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+	@echo "  or"
+	@echo "  pip install uv"
+	@echo "For more installation options, visit: https://docs.astral.sh/uv/getting-started/installation/"
+	@exit 1
+endif
+
 .PHONY: run-notebooks
 run-notebooks:
 	docker run -it --rm \
@@ -20,44 +34,66 @@ run-notebooks-dev:
 		-p 8888:8888 \
 		jupyter/scipy-notebook
 
+.PHONY: setup
+setup: check-uv
+	uv venv
+	uv sync --group dev
+	@echo "Development environment setup complete. Activate with: source .venv/bin/activate"
+
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
 	rm ~/.dnastack/sessions/* 2> /dev/null
 
 .PHONY: test-setup
-test-setup:
-	pip install -r tests/requirements-test.txt
+test-setup: check-uv
+	uv pip install --group test
 
 .PHONY: test-unit
 test-unit:
-	pytest tests/unit -v
+	uv run pytest tests/unit -v
 
 .PHONY: test-unit-cov
 test-unit-cov:
-	pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
+	uv run pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
+
+.PHONY: test-unit-watch
+test-unit-watch:
+	uv run pytest-watch tests/unit -v
 
 .PHONY: lint
 lint:
-	ruff check .
+	uv run ruff check .
 
 .PHONY: lint-fix
 lint-fix:
-	ruff check --fix .
-	ruff format .
+	uv run ruff check --fix .
+	uv run ruff format .
 
-.PHONY: test-all
-test-all:
+.PHONY: test-e2e
+test-e2e:
 	E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh
 
+.PHONY: test-all
+test-all: test-unit test-e2e
+
 .PHONY: package-test
-package-test:
-	mkdir -p dist; rm dist/*; ./scripts/build-package.py --pre-release a
+package-test: check-uv
+	mkdir -p dist; rm -f dist/*
+	uv build
 	docker run -it --rm \
 		-v $$(pwd)/dist:/dist-test \
 		--workdir /dist-test \
 		python:$(PY_VERSION_BASELINE)-slim \
-		bash -c "pip install *.whl && dnastack use --no-auth viral.ai"
+		bash -c "pip install uv && uv pip install --system *.whl && dnastack use --no-auth viral.ai"
+
+.PHONY: publish
+publish: check-uv
+	uv build
+	@echo "Package built successfully. To publish to PyPI, run:"
+	@echo "  uv publish"
+	@echo "Or for test PyPI:"
+	@echo "  uv publish --index-url https://test.pypi.org/legacy/"
 
 .PHONY: docker-test-all
 docker-test-all: docker-test-all-python-oldest-stable docker-test-all-python-latest-stable docker-test-all-python-rc

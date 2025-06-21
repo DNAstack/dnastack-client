@@ -5,6 +5,50 @@ The command line interface and client library for DNAstack services and GA4GH-co
 * Copyright 2024 DNAstack Corp.
 * All usages are permitted under [Apache 2 License](LICENSE).
 
+## Development Setup
+
+### Prerequisites
+
+This project uses [uv](https://github.com/astral-sh/uv) for Python dependency management. Install uv using one of these methods:
+
+```bash
+# Using the official installer (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Using pip
+pip install uv
+
+# Using Homebrew (macOS)
+brew install uv
+
+# Using pipx
+pipx install uv
+```
+
+For more installation options, see the [uv documentation](https://docs.astral.sh/uv/getting-started/installation/).
+
+### Setup
+
+1. Clone the repository and set up the development environment:
+```bash
+git clone omairvalence:DNAstack/dnastack-client.git
+cd dnastack-client
+make setup  # Creates virtual environment and installs all dependencies
+```
+
+2. Activate the virtual environment:
+```bash
+source .venv/bin/activate
+```
+
+3. Run tests:
+```bash
+make test-unit      # Run unit tests
+make test-e2e       # Run E2E tests (requires .env file)
+make test-all       # Run both unit and E2E tests
+make lint           # Run linting checks
+```
+
 ### Tips
 To run the client in development mode from the current sources:
 
