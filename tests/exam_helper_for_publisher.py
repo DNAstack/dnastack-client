@@ -99,7 +99,7 @@ class BasePublisherTestCase(WithTestUserTestCase):
             email=cls.test_user.email,
             personal_access_token=cls.test_user.personalAccessToken,
             custom_login_handler=custom_handler
-        ) as session:
+        ):
             # You can use the session here for set up actions
             print("Setting up")
 
@@ -114,7 +114,7 @@ class BasePublisherTestCase(WithTestUserTestCase):
                 email=cls.test_user.email,
                 personal_access_token=cls.test_user.personalAccessToken,
                 custom_login_handler=custom_handler
-        ) as session:
+        ):
             # You can use the session here for clean up actions
             print("Cleaning up")
 

@@ -128,7 +128,7 @@ class TestSmokeWithAuthentication(DeprecatedBasePublisherTestCase):
                             table_index += 1
                             continue
                         else:
-                            raise RuntimeError(f'No usable tables for testing on /search')
+                            raise RuntimeError('No usable tables for testing on /search')
 
                     if len(rows) == 0:
                         self._logger.warning(f'T/{target_table_name}: No data.')
@@ -137,7 +137,7 @@ class TestSmokeWithAuthentication(DeprecatedBasePublisherTestCase):
                             table_index += 1
                             continue
                         else:
-                            raise RuntimeError(f'No usable tables for testing on /search')
+                            raise RuntimeError('No usable tables for testing on /search')
                     else:
                         break  # Found a usable table. Break the loop.
 

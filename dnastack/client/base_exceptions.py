@@ -95,7 +95,7 @@ class DataConnectError(RuntimeError):
                 blocks.append(f'\nResponse Body:\n{self.details}')
 
             if self.urls:
-                blocks.append(f'\nURL:')
+                blocks.append('\nURL:')
                 for url in self.__urls:
                     blocks.append(f' → {url}')
 

@@ -147,7 +147,7 @@ class Authenticator(AuthBase, ABC):
             logger.debug('initialize: Restoring the session...')
             info = self.restore_session()
             if not info:
-                logger.debug('initialize: Session is UNAVALIABLE.')
+                logger.debug('initialize: Session is UNAVAILABLE.')
                 raise AuthenticationRequired('Session is not available')
             elif not info.is_valid():
                 logger.debug(f'initialize: Session is INVALID ({"expired" if info.access_token else "token revoked"}).')

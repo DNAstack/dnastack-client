@@ -300,18 +300,3 @@ class TestPublisherCommand(PublisherCliTestCase):
         self.assert_not_empty(tables_result, f'Expected at least one table. Found: {tables_result}')
         for table in tables_result:
             self.assert_not_empty(table['name'], 'Table name should not be empty')
-
-    def tearDown(self) -> None:
-        print("Cleaning up collections...")
-        client = _get_collection_service_client()
-
-        for collection in self.created_collections:
-            print("Deleting collection {}...".format(collection.name))
-
-            try:
-                client.delete_collection(collection_id=collection.id)
-            except Exception as e:
-                print(f"Error deleting collection {collection.slugName}: {str(e)}")
-
-        # Call parent tearDown
-        super().tearDown()

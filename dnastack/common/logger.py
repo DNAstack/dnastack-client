@@ -123,6 +123,6 @@ def get_logger_for(ref: object,
 
 
 def alert_for_deprecation(message: str):
-    l = get_logger('DEPRECATED')
-    l.warning(message)
+    logger = get_logger('DEPRECATED')
+    logger.warning(message)
     print_stack()

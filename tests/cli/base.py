@@ -21,7 +21,7 @@ from tests.exam_helper_for_workbench import BaseWorkbenchTestCase
 
 
 class CliTestCase(BaseTestCase):
-    _runner = CliRunner(mix_stderr=False)
+    _runner = CliRunner()
 
     @classmethod
     def get_context_manager(cls) -> BaseContextManager:
@@ -93,10 +93,10 @@ class CliTestCase(BaseTestCase):
             print()
             print(f'EXEC: {cli_blocks_as_str}')
             if result.stderr:
-                print(f'ERROR:')
+                print('ERROR:')
                 print(self._reformat_output(result.stderr))
             if result.stdout:
-                print(f'STDOUT:')
+                print('STDOUT:')
                 print(self._reformat_output(result.stdout))
             print()
         if result.exception and not bypass_error:

@@ -66,7 +66,7 @@ class TestEndToEnd(TestCase):
 
         This is based on Jim's demo code.
         """
-        logger = get_logger('Publisher.TestEndToEnd.test_data_connect')
+        get_logger('Publisher.TestEndToEnd.test_data_connect')
 
         publisher = self.publisher_client
         registered_collections = publisher.list_collections()

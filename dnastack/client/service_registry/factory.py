@@ -76,7 +76,7 @@ class ClientFactory:
                 for service in registry.list_services():
                     entries.append(RegisteredServiceInfo(source_url=registry.url,
                                                          info=service))
-            except:
+            except Exception:
                 self.__logger.warning(format_exc())
                 self.__logger.warning(f'Unable to retrieve the list of services from {registry.url}')
 

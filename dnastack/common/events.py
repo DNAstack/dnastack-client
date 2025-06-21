@@ -93,7 +93,7 @@ class EventSource(AbstractEventSource):
             self._event_logger.level
         )
 
-        event_logger.debug(f'BEGIN')
+        event_logger.debug('BEGIN')
 
         if event_type in self._event_handlers:
             for handler in self._event_handlers[event_type]:
@@ -104,7 +104,7 @@ class EventSource(AbstractEventSource):
         else:
             pass
 
-        event_logger.debug(f'END')
+        event_logger.debug('END')
 
     def on(self, event_type: str, handler: Union[EventHandler, Callable[[Event], None]]):
         self._raise_error_for_non_registered_event_type(event_type)

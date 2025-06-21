@@ -49,10 +49,10 @@ def main():
         changes = [
             (change_type, file_path)
             for change_type, file_path in [
-                re.split(r' +', l.strip())
-                for l in subprocess.check_output(['git', 'status', '--short', '-uno'],
-                                                 universal_newlines=True).split('\n')
-                if l
+                re.split(r' +', line.strip())
+                for line in subprocess.check_output(['git', 'status', '--short', '-uno'],
+                                                    universal_newlines=True).split('\n')
+                if line
             ]
             if not file_path.startswith('scripts') and file_path not in ('cloudbuild.yaml', 'Makefile')
         ]

@@ -13,6 +13,7 @@ To run the client in development mode from the current sources:
    python -m dnastack --help
    python -m dnastack auth login
    python -m dnastack collections list
+   python -m dnastack explorer questions list
 ```
 2. Using the omics entry point:
 ```

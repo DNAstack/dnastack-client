@@ -97,6 +97,10 @@ class BaseSessionStorage(ABC):
     def __delitem__(self, id: str):
         raise NotImplementedError()
 
+    def list_all(self) -> List[SessionInfo]:
+        """Return all stored sessions"""
+        raise NotImplementedError()
+
     def __str__(self):
         return f'{type(self).__module__}.{type(self).__name__}'
 
@@ -123,6 +127,10 @@ class InMemorySessionStorage(BaseSessionStorage):
 
     def __delitem__(self, id: str):
         del self.__cache_map[id]
+
+    def list_all(self) -> List[SessionInfo]:
+        """Return all stored sessions"""
+        return list(self.__cache_map.values())
 
 
 @service.registered(
@@ -173,6 +181,27 @@ class FileSessionStorage(BaseSessionStorage):
     def __delitem__(self, id: str):
         final_file_path = self.__get_file_path(id)
         os.unlink(final_file_path)
+
+    def list_all(self) -> List[SessionInfo]:
+        """Return all stored sessions by scanning the filesystem"""
+        sessions = []
+        try:
+            # Recursively find all .json files in the session directory
+            for root, dirs, files in os.walk(self.__dir_path):
+                for file in files:
+                    if file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            with open(file_path, 'r') as f:
+                                content = f.read()
+                            session = SessionInfo(**loads(content))
+                            sessions.append(session)
+                        except Exception as e:
+                            # log but continue
+                            self.__logger.warning(f'Failed to load session from {file_path}: {e}')
+        except Exception as e:
+            self.__logger.error(f'Failed to scan session directory {self.__dir_path}: {e}')
+        return sessions
 
     def __get_file_path(self, id: str) -> str:
         path_blocks = []
@@ -261,6 +290,14 @@ class SessionManager:
                 self.__logger.debug(f'Session ID {id}: Removed')
             finally:
                 del self.__change_locks[id]
+
+    def list_all(self) -> List[SessionInfo]:
+        """Return all stored sessions for discovery purposes"""
+        try:
+            return self.__storage.list_all()
+        except Exception as e:
+            self.__logger.error(f'Failed to list all sessions: {e}')
+            return []
 
     def __lock(self, id) -> Lock:
         if id not in self.__change_locks:

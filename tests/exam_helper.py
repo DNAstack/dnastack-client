@@ -32,7 +32,14 @@ from dnastack.common.logger import get_logger
 from dnastack.context.manager import BaseContextManager, InMemoryContextManager
 from dnastack.feature_flags import currently_in_debug_mode
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
-from tests.cli.auth_utils import confirm_device_code
+
+# Only import selenium-dependent modules when actually needed for E2E tests
+try:
+    from tests.cli.auth_utils import confirm_device_code
+except ImportError:
+    # For unit tests, we don't need selenium
+    confirm_device_code = None
+
 from tests.wallet_hellper import WalletHelper, Policy, TestUser
 
 _logger = get_logger('exam_helper')
@@ -170,6 +177,9 @@ class BaseTestCase(TestCase):
 
         details = event.details
 
+        if confirm_device_code is None:
+            raise RuntimeError("Selenium is required for device code authentication in E2E tests. "
+                               "Please install selenium to run E2E tests.")
         confirm_device_code(details['url'], cls._states['email'], cls._states['token'])
         event.stop_propagation()
 
@@ -353,7 +363,7 @@ class BaseTestCase(TestCase):
             # noinspection PyBroadException
             try:
                 return callable_obj(*(args or tuple()), **(kwargs or dict()))
-            except:
+            except Exception:
                 if time.time() - starting_time < timeout:
                     time.sleep(pause_period)
                 else:
@@ -576,7 +586,7 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
         items: Dict[str, List[Dict[str, Any]]] = dict()
         current_count = 0
 
-        for collection in self._get_testable_collections(cs):
+        for collection in self._get_testable_collections(cs, test_types=['blob']):
             # At this point, we can safely assume that all selected items are accessible by the test suite.
             items[collection.id] = []
 
