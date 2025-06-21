@@ -13,14 +13,16 @@ This is the DNAstack client library and CLI, a Python package that provides both
 ## Development Commands
 
 ### Development Setup
-- `make setup` - Set up development environment with uv
-- `source .venv/bin/activate` - Activate the virtual environment
+- `make setup` - Set up development environment with uv (creates .venv and installs dependencies)
 
 ### Running the CLI
-- Use `python -m dnastack` from the project root to run the CLI (or `uv run python -m dnastack` without activation)
-- To connect to a local publisher instance using a service registry you can use `python -m dnastack use  http://localhost:8093/service-registry`
-- To list all collections use `python -m dnastack cs list`
-- Alternatively, you can use `python -m dnastack cs list` to list all collections
+- Use `uv run dnastack` to run the CLI (no virtual environment activation needed)
+- Optionally activate the virtual environment with `source .venv/bin/activate` to use `dnastack` directly
+- Examples:
+  - `uv run dnastack --help` - Show help
+  - `uv run dnastack use http://localhost:8093/service-registry` - Connect to local publisher
+  - `uv run dnastack cs list` - List all collections
+  - `uv run omics --help` - Run the omics CLI variant
 
 ### Testing
 - `make test-unit` - Run unit tests

@@ -36,34 +36,49 @@ cd dnastack-client
 make setup  # Creates virtual environment and installs all dependencies
 ```
 
-2. Activate the virtual environment:
-```bash
-source .venv/bin/activate
-```
-
-3. Run tests:
+2. Run commands using uv (no activation needed):
 ```bash
 make test-unit      # Run unit tests
 make test-e2e       # Run E2E tests (requires .env file)
 make test-all       # Run both unit and E2E tests
 make lint           # Run linting checks
+uv run dnastack --help  # Run CLI commands
+```
+
+3. Optional: Activate the virtual environment for direct command access:
+```bash
+source .venv/bin/activate
+dnastack --help  # Now you can run commands directly
 ```
 
 ### Tips
 To run the client in development mode from the current sources:
 
-1. Direct Python execution:
+1. Using uv (without activating virtual environment):
+```bash
+uv run dnastack --help
+uv run dnastack auth login
+uv run dnastack collections list
+uv run dnastack explorer questions list
+uv run omics --help
 ```
-   python -m dnastack --help
-   python -m dnastack auth login
-   python -m dnastack collections list
-   python -m dnastack explorer questions list
+
+2. After activating the virtual environment:
+```bash
+source .venv/bin/activate
+dnastack --help
+dnastack auth login
+dnastack collections list
+omics --help
 ```
-2. Using the omics entry point:
+
+3. Direct Python module execution (if needed):
+```bash
+python -m dnastack --help
+python -m dnastack.omics_cli --help
 ```
-   python -m dnastack.omics_cli --help
-```
-3. IntelliJ/PyCharm run configuration:
+
+4. IntelliJ/PyCharm run configuration:
    - Run the "Omics CLI" configuration in IntelliJ/PyCharm.
    - This configuration runs the CLI using `python -m dnastack` to avoid module shadowing issues
 
