@@ -3,7 +3,7 @@ import tempfile
 import os
 import json
 import csv
-from unittest.mock import Mock, patch, MagicMock, mock_open
+from unittest.mock import Mock, patch
 
 from dnastack.cli.commands.explorer.questions.utils import (
     get_explorer_client,

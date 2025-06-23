@@ -12,16 +12,26 @@ This is the DNAstack client library and CLI, a Python package that provides both
 
 ## Development Commands
 
+### Development Setup
+- `make setup` - Set up development environment with uv (creates .venv and installs dependencies)
+
 ### Running the CLI
-- Use `python -m dnastack` from the project root to run the CLI
-- To connect to a local publisher instance using a service registry you can use `python -m dnastack use  http://localhost:8093/service-registry`
-- To list all collections use `python -m dnastack cs list`
-- Alternatively, you can use `python -m dnastack cs list` to list all collections
+- Use `uv run dnastack` to run the CLI (no virtual environment activation needed)
+- Optionally activate the virtual environment with `source .venv/bin/activate` to use `dnastack` directly
+- Examples:
+  - `uv run dnastack --help` - Show help
+  - `uv run dnastack use http://localhost:8093/service-registry` - Connect to local publisher
+  - `uv run dnastack cs list` - List all collections
+  - `uv run omics --help` - Run the omics CLI variant
 
 ### Testing
-- `make test-all` - Run all E2E tests using `.env` file for configuration
+- `make test-unit` - Run unit tests
+- `make test-unit-cov` - Run unit tests with coverage report
+- `make test-unit-watch` - Run unit tests in watch mode (auto-rerun on file changes)
+- `make test-e2e` - Run E2E tests using `.env` file for configuration
+- `make test-all` - Run both unit and E2E tests
 - `make docker-test-all` - Run tests across multiple Python versions in Docker
-- `make docker-test-all-baseline` - Test with Python 3.8 (minimum supported version)
+- `make docker-test-all-baseline` - Test with Python 3.11 (minimum supported version)
 - `make docker-test-all-stable` - Test with Python 3.11 (current stable)
 - `make docker-test-all-latest` - Test with Python 3.12 (latest)
 - `./scripts/run-e2e-tests.sh` - Direct E2E test execution script
@@ -29,20 +39,33 @@ This is the DNAstack client library and CLI, a Python package that provides both
 ### Linting
 - `make lint` - Run ruff linter to check code style and errors (zero-tolerance policy - all violations must be fixed)
 - `make lint-fix` - Auto-fix linting issues and format code with ruff
-  - Runs `ruff check --fix .` to auto-fix violations where possible
-  - Runs `ruff format .` to format code consistently
-- **Configuration**: Minimal setup in `pyproject.toml` with Python 3.8 target and 120 character line length
-- **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses `astral-sh/ruff-action@v3` for automated checks
-- **Version**: Fixed at ruff==0.11.13 in `tests/requirements-test.txt` for consistency across environments
+  - Runs `uv run ruff check --fix .` to auto-fix violations where possible
+  - Runs `uv run ruff format .` to format code consistently
+- **Configuration**: Minimal setup in `pyproject.toml` with Python 3.11 target and 120 character line length
+- **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses uv for consistent environment
+- **Version**: Fixed at ruff==0.12.0 in pyproject.toml for consistency across environments
 - **Development Notes**:
   - Avoid star imports (`from module import *`) - use explicit imports for better code clarity
   - When fixing linting violations in critical modules, add unit tests first to prevent regressions
   - Use `make test-unit-cov` to verify test coverage before making risky changes
   - Test locally with `act` before pushing GitHub Actions changes
 
+### Pre-commit Checks
+**IMPORTANT**: Always run these checks before committing:
+```bash
+make lint        # Check for linting issues
+make test-unit   # Run unit tests
+```
+Or use the combined command:
+```bash
+make lint && make test-unit
+```
+
 ### Package Management
 - `make package-test` - Build and test package installation in clean container
-- `./scripts/build-package.py --pre-release a` - Build pre-release package
+- `make publish` - Build package for distribution (shows publishing instructions)
+- `uv build` - Build source distribution and wheel
+- `uv publish` - Publish to PyPI (requires credentials)
 
 ### Development Environment
 - `make reset` - Clean configuration and session files
@@ -50,8 +73,8 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make run-notebooks-dev` - Start Jupyter with development volume mounts
 
 ### Python Requirements
-- Minimum Python version: 3.8
-- Development tested on: 3.8, 3.11, 3.12
+- Minimum Python version: 3.11
+- Development tested on: 3.11, 3.12
 - Main dependencies: click, pydantic v1, requests, pyyaml
 
 ## Architecture

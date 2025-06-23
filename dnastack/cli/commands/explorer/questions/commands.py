@@ -145,9 +145,7 @@ def init_questions_commands(group: Group):
             click.echo(f"Error: {e}", err=True)
             raise click.Abort()
         
-        if collection_ids is None:
-            collection_names = [col.name for col in question.collections]
-        else:
+        if collection_ids is not None:
             # Validate collection IDs exist in question
             available_ids = {col.id for col in question.collections}
             invalid_ids = [cid for cid in collection_ids if cid not in available_ids]

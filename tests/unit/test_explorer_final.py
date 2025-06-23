@@ -1,7 +1,6 @@
 """Final simple tests to push Explorer coverage above 80%"""
 import unittest
-from unittest.mock import Mock, patch, MagicMock
-import json
+from unittest.mock import Mock, patch
 
 
 class TestExplorerFinal(unittest.TestCase):
@@ -174,7 +173,7 @@ class TestExplorerFinal(unittest.TestCase):
     def test_validation_edge_cases(self):
         """Test validation with edge cases"""
         from dnastack.cli.commands.explorer.questions.utils import validate_question_parameters
-        from dnastack.client.explorer.models import FederatedQuestion, QuestionParam
+        from dnastack.client.explorer.models import FederatedQuestion
         
         # Question with no parameters
         question = FederatedQuestion(
