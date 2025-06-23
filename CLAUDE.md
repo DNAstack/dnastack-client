@@ -31,7 +31,7 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make test-e2e` - Run E2E tests using `.env` file for configuration
 - `make test-all` - Run both unit and E2E tests
 - `make docker-test-all` - Run tests across multiple Python versions in Docker
-- `make docker-test-all-baseline` - Test with Python 3.8 (minimum supported version)
+- `make docker-test-all-baseline` - Test with Python 3.11 (minimum supported version)
 - `make docker-test-all-stable` - Test with Python 3.11 (current stable)
 - `make docker-test-all-latest` - Test with Python 3.12 (latest)
 - `./scripts/run-e2e-tests.sh` - Direct E2E test execution script
@@ -41,7 +41,7 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make lint-fix` - Auto-fix linting issues and format code with ruff
   - Runs `uv run ruff check --fix .` to auto-fix violations where possible
   - Runs `uv run ruff format .` to format code consistently
-- **Configuration**: Minimal setup in `pyproject.toml` with Python 3.8 target and 120 character line length
+- **Configuration**: Minimal setup in `pyproject.toml` with Python 3.11 target and 120 character line length
 - **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses uv for consistent environment
 - **Version**: Fixed at ruff==0.12.0 in pyproject.toml for consistency across environments
 - **Development Notes**:
@@ -73,8 +73,8 @@ make lint && make test-unit
 - `make run-notebooks-dev` - Start Jupyter with development volume mounts
 
 ### Python Requirements
-- Minimum Python version: 3.8
-- Development tested on: 3.8, 3.11, 3.12
+- Minimum Python version: 3.11
+- Development tested on: 3.11, 3.12
 - Main dependencies: click, pydantic v1, requests, pyyaml
 
 ## Architecture
