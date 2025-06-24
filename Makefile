@@ -43,7 +43,7 @@ setup: check-uv
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
-	rm ~/.dnastack/sessions/* 2> /dev/null
+	rm -rf ~/.dnastack/sessions/* 2> /dev/null || true
 
 .PHONY: test-setup
 test-setup: check-uv
@@ -68,7 +68,6 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	uv run ruff check --fix .
-	uv run ruff format .
 
 .PHONY: test-e2e
 test-e2e:
