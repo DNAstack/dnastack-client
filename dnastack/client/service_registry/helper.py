@@ -4,7 +4,7 @@ from dnastack.client.models import ServiceEndpoint
 from dnastack.client.service_registry.models import Service
 
 
-def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[str] = None, platform_credentials: bool = False) -> ServiceEndpoint:
+def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[str] = None) -> ServiceEndpoint:
     endpoint = ServiceEndpoint(
         model_version=2.0,
         id=alternate_service_id or service.id,
@@ -13,29 +13,18 @@ def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[st
     )
 
     authentications = [
-        _parse_authentication_info(auth_info, platform_credentials=platform_credentials)
+        _parse_authentication_info(auth_info)
         for auth_info in (service.authentication or list())
     ]
 
-    if platform_credentials and authentications:
-        token_exchange_auths = [
-            auth for auth in authentications
-            if auth.get('grant_type') == 'urn:ietf:params:oauth:grant-type:token-exchange'
-        ]
-        if token_exchange_auths:
-            endpoint.authentication = token_exchange_auths[0]
-            endpoint.fallback_authentications = token_exchange_auths[1:] or None
-        else:
-            endpoint.authentication = None
-            endpoint.fallback_authentications = None
-    elif authentications:
+    if authentications:
         endpoint.authentication = authentications[0]
         endpoint.fallback_authentications = authentications[1:] or None
 
     return endpoint
 
 
-def _parse_authentication_info(auth_info: Dict[str, Any], platform_credentials: bool = False) -> Dict[str, Any]:
+def _parse_authentication_info(auth_info: Dict[str, Any]) -> Dict[str, Any]:
     return dict(
         type='oauth2',
         authorization_endpoint=auth_info.get('authorizationUrl'),
@@ -47,5 +36,5 @@ def _parse_authentication_info(auth_info: Dict[str, Any], platform_credentials: 
         resource_url=auth_info.get('resource'),
         scope=auth_info.get('scope'),
         token_endpoint=auth_info.get('accessTokenUrl'),
-        platform_credentials=platform_credentials,
+        platform_credentials=auth_info.get('grantType') == 'urn:ietf:params:oauth:grant-type:token-exchange',
     )

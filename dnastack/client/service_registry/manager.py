@@ -78,9 +78,9 @@ class ServiceRegistryManager:
         self.events.dispatch('endpoint-sync', dict(action='add', endpoint=registry_endpoint))
 
         # Initiate the first sync.
-        return self.__synchronize_endpoints_with(ServiceRegistry.make(registry_endpoint), platform_credentials=False)
+        return self.__synchronize_endpoints_with(ServiceRegistry.make(registry_endpoint))
 
-    def synchronize_endpoints(self, registry_endpoint_id: str, platform_credentials: bool = False) -> Context:
+    def synchronize_endpoints(self, registry_endpoint_id: str) -> Context:
         filtered_endpoints = [
             endpoint
             for endpoint in self.__context.endpoints
@@ -91,9 +91,9 @@ class ServiceRegistryManager:
         if not filtered_endpoints:
             raise RegistryNotFound(registry_endpoint_id)
 
-        return self.__synchronize_endpoints_with(ServiceRegistry.make(filtered_endpoints[0]), platform_credentials=platform_credentials)
+        return self.__synchronize_endpoints_with(ServiceRegistry.make(filtered_endpoints[0]))
 
-    def __synchronize_endpoints_with(self, registry: ServiceRegistry, platform_credentials: bool = False) -> Context:
+    def __synchronize_endpoints_with(self, registry: ServiceRegistry) -> Context:
         endpoints = self.__context.endpoints
         factory = ClientFactory([registry])
 
@@ -106,8 +106,7 @@ class ServiceRegistryManager:
         for service_entry in factory.all_service_infos():
             service_info = service_entry.info
             endpoint = parse_ga4gh_service_info(service_info,
-                                                service_info.id if self.__in_isolation else f'{registry.endpoint.id}:{service_info.id}',
-                                                platform_credentials=platform_credentials)
+                                                service_info.id if self.__in_isolation else f'{registry.endpoint.id}:{service_info.id}')
             endpoint.source = EndpointSource(source_id=registry.endpoint.id,
                                              external_id=service_info.id)
             sync_operations[endpoint.id] = _SyncOperation(action='update' if endpoint.id in sync_operations else 'add',

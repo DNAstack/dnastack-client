@@ -311,7 +311,10 @@ class BaseContextManager:
 
         for reg_endpoint in active_registries:
             self._logger.debug(f'Syncing: {reg_endpoint.url}')
-            reg_manager.synchronize_endpoints(reg_endpoint.id, platform_credentials=platform_credentials)
+            reg_manager.synchronize_endpoints(reg_endpoint.id)
+
+        if platform_credentials:
+            self._filter_endpoints_for_token_exchange(context)
 
         # Set the current context.
         self._contexts.set_current_context_name(context_name)
@@ -403,7 +406,33 @@ class BaseContextManager:
                 return root_url if is_json_response else None
             else:
                 return None
+                return None
         # end: if
+
+    def _filter_endpoints_for_token_exchange(self, context: Context):
+        """Filter endpoint authentication methods to only include token-exchange grant types
+            If none exist, clear authentication methods to force failure"""
+        for endpoint in context.endpoints:
+            if endpoint.type == STANDARD_SERVICE_REGISTRY_TYPE_V1_0:
+                continue
+            
+            all_auths = []
+            if endpoint.authentication:
+                all_auths.append(endpoint.authentication)
+            if endpoint.fallback_authentications:
+                all_auths.extend(endpoint.fallback_authentications)
+            
+            token_exchange_auths = [
+                auth for auth in all_auths
+                if auth.get('grant_type') == 'urn:ietf:params:oauth:grant-type:token-exchange'
+            ]
+            
+            if token_exchange_auths:
+                endpoint.authentication = token_exchange_auths[0]
+                endpoint.fallback_authentications = token_exchange_auths[1:] or None
+            else:
+                endpoint.authentication = None
+                endpoint.fallback_authentications = None
 
 
 @service.registered()
