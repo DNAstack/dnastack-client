@@ -1,4 +1,4 @@
-from typing import List, Optional, Any, Dict, Iterator, Tuple
+from typing import List, Optional, Any, Dict, Iterator
 
 import click
 from click import Group
@@ -15,32 +15,7 @@ from dnastack.common.auth_manager import AuthManager, ExtendedAuthState
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.configuration.wrapper import ConfigurationWrapper
-from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
-from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
-from dnastack.common.tracing import Span
 from dnastack.http.session_info import SessionManager
-
-
-def get_client_credentials_from_service_registry(token_endpoint: str, context_name: Optional[str] = None) -> Tuple[
-    str, str]:
-    """
-    Retrieve OAuth2 client credentials from service registry configuration.
-    Falls back to default explorer credentials if not available.
-    """
-    if "localhost" in token_endpoint or "127.0.0.1" in token_endpoint:
-        return 'dnastack-client', 'dev-secret-never-use-in-prod'
-
-    config_manager: ConfigurationManager = container.get(ConfigurationManager)
-    wrapper = ConfigurationWrapper(config_manager.load(), context_name)
-    context = wrapper.current_context
-
-    if context and context.endpoints:
-        for endpoint in context.endpoints:
-            for auth in endpoint.get_authentications():
-                if auth.get('type') == 'oauth2' and auth.get('client_id'):
-                    return auth['client_id'], auth.get('client_secret', '')
-
-    raise click.ClickException("Could not find a credential to use")
 
 
 def init_auth_commands(group: Group):
@@ -118,64 +93,6 @@ def init_auth_commands(group: Group):
         handler.revoke([endpoint_id] if endpoint_id else [], force)
     
     
-    @formatted_command(
-        group=group,
-        name='token-exchange',
-        hidden=True,
-        specs=[
-            ArgumentSpec(
-                name='subject_token',
-                arg_names=['--subject-token'],
-                help='ID token to exchange (if not provided, will fetch from cloud environment)',
-            ),
-            ArgumentSpec(
-                name='resource',
-                arg_names=['--resource'],
-                help='Resource URL for the token exchange',
-                required=True,
-            ),
-            ArgumentSpec(
-                name='token_endpoint',
-                arg_names=['--token-endpoint'],
-                help='Token endpoint URL',
-                required=True,
-            ),
-            ArgumentSpec(
-                name='audience',
-                arg_names=['--audience'],
-                help='Audience for GCP ID token (defaults to resource URL)',
-            ),
-            ArgumentSpec(
-                name='scope',
-                arg_names=['--scope'],
-                help='OAuth2 scope for the token exchange',
-            ),
-            CONTEXT_ARG,
-        ]
-    )
-    def token_exchange(resource: str,
-                       token_endpoint: str,
-                       subject_token: Optional[str] = None,
-                       audience: Optional[str] = None,
-                       scope: Optional[str] = None,
-                       context: Optional[str] = None):
-        """
-        Perform token exchange flow using ID token.
-        Sessions created by this command support automatic re-authentication
-        when access tokens expire in cloud environments.
-        """
-        handler = AuthCommandHandler(context_name=context)
-
-        try:
-            session_info = handler.token_exchange(resource, token_endpoint,
-                                                  subject_token, audience, scope)
-
-            click.echo("\nToken exchange successful!")
-            click.echo(f"Expires in: {int(session_info.valid_until - session_info.issued_at)} seconds")
-            click.echo(f"Session saved with ID: {session_info.config_hash[:8]}...")
-
-        except Exception as e:
-            click.echo(f"❌ Token exchange failed: {e}", err=True)
 
     
 class AuthCommandHandler:
@@ -243,31 +160,3 @@ class AuthCommandHandler:
 
         auth_manager.initiate_authentications(endpoint_ids, force_refresh, revoke_existing)
 
-    def token_exchange(self,
-                       resource: str,
-                       token_endpoint: str,
-                       subject_token: Optional[str] = None,
-                       audience: Optional[str] = None,
-                       scope: Optional[str] = None):
-        """Delegate token exchange to standard auth flow"""
-
-        client_id, client_secret = get_client_credentials_from_service_registry(token_endpoint, self._context_name)
-        auth_info = {
-            'grant_type': GRANT_TYPE_TOKEN_EXCHANGE,
-            'token_endpoint': token_endpoint,
-            'resource_url': resource,
-            'subject_token': subject_token,
-            'audience': audience or resource,
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'scope': scope,
-            'type': 'oauth2'
-        }
-
-        authenticator = OAuth2Authenticator(
-            endpoint=None,  # No endpoint needed for token exchange
-            auth_info=auth_info
-        )
-
-        trace_context = Span(origin='token-exchange-cli')
-        return authenticator.authenticate(trace_context)

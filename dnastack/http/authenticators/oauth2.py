@@ -118,7 +118,7 @@ class OAuth2Authenticator(Authenticator):
 
         use_platform_credentials = self._auth_info.get('platform_credentials', False) is True
 
-        if (auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE or use_platform_credentials):
+        if auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE or use_platform_credentials:
             return self._authenticate_token_exchange(auth_info, trace_context)
 
         adapter = self._adapter_factory.get_from(auth_info)
@@ -368,43 +368,6 @@ class OAuth2Authenticator(Authenticator):
                 'The session is invalidated as the endpoint configuration has changed.'
             )
 
-    def _find_token_exchange_session_for_resource(self) -> Optional[SessionInfo]:
-        """Find token exchange session that covers this endpoint's resource"""
-        resource_url = None
-        
-        if self._endpoint:
-            resource_url = self._endpoint.url
-        elif self._auth_info and 'resource_url' in self._auth_info:
-            # Fallback to resource_url from auth_info if available
-            resource_url = self._auth_info['resource_url']
-        
-        if not resource_url:
-            return None
-
-        all_sessions = self._session_manager.list_all()
-        self._logger.debug(f'Searching for token exchange session matching resource_url: {resource_url}')
-        self._logger.debug(f'Found {len(all_sessions)} total sessions')
-
-        matching_sessions = []
-        for session in all_sessions:
-            if (session.handler and
-                    session.handler.auth_info and
-                    session.handler.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE):
-
-                session_resource_url = session.handler.auth_info.get('resource_url')
-                if session_resource_url and self._resource_matches(resource_url, session_resource_url):
-                    self._logger.debug(f'Found matching token exchange session: resource_url={session_resource_url}, valid_until={session.valid_until}, issued_at={session.issued_at}')
-                    matching_sessions.append(session)
-
-        if matching_sessions:
-            # Sort by issued_at timestamp to get the most recent session
-            matching_sessions.sort(key=lambda s: s.issued_at, reverse=True)
-            most_recent = matching_sessions[0]
-            self._logger.debug(f'Found {len(matching_sessions)} matching sessions, returning most recent: issued_at={most_recent.issued_at}, valid_until={most_recent.valid_until}')
-            return most_recent
-
-        return None
-
     def _revoke_token_exchange_sessions_for_resource(self):
         """Find and revoke all token exchange sessions that match this resource"""
         resource_url = None
@@ -427,7 +390,6 @@ class OAuth2Authenticator(Authenticator):
                 
                 session_resource_url = session.handler.auth_info.get('resource_url')
                 if session_resource_url and self._resource_matches(resource_url, session_resource_url):
-                    # Get the session ID from the auth_info to delete it
                     session_auth_info = OAuth2Authentication(**session.handler.auth_info)
                     session_id = session_auth_info.get_content_hash()
                     self._session_manager.delete(session_id)
