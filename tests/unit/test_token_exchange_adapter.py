@@ -446,4 +446,158 @@ class TestTokenExchangeAdapter(TestCase):
             # Verify that None credentials are passed (would fail in real scenario)
             post_call = mock_session.post.call_args
             self.assertEqual(post_call[1]['auth'], (None, None))
+
+    def test_get_and_clear_context_subject_token(self):
+        """Test context subject token retrieval and clearing"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        adapter = TokenExchangeAdapter(auth_info)
+        
+        # Mock context manager with a platform subject token
+        mock_context = Mock()
+        mock_context.platform_subject_token = 'context_token_123'
+        
+        mock_context_manager = Mock()
+        mock_context_manager.contexts.current_context = mock_context
+        mock_context_manager.contexts.current_context_name = 'test_context'
+        
+        with patch('imagination.container.get', return_value=mock_context_manager):
+            token = adapter._get_and_clear_context_subject_token()
+            
+            # Should return the token
+            self.assertEqual(token, 'context_token_123')
+            
+            # Should have cleared the token
+            self.assertIsNone(mock_context.platform_subject_token)
+            
+            # Should have saved the context
+            mock_context_manager.contexts.set.assert_called_once_with('test_context', mock_context)
+
+    def test_get_and_clear_context_subject_token_no_context(self):
+        """Test context subject token when no context is available"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        adapter = TokenExchangeAdapter(auth_info)
+        
+        mock_context_manager = Mock()
+        mock_context_manager.contexts.current_context = None
+        
+        with patch('imagination.container.get', return_value=mock_context_manager):
+            token = adapter._get_and_clear_context_subject_token()
+            self.assertIsNone(token)
+
+    def test_fetch_cloud_identity_token_with_configured_provider_success(self):
+        """Test cloud provider success when already configured"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Set up a configured provider that will succeed
+        mock_cloud_provider = Mock()
+        mock_cloud_provider.name = 'gcp'
+        mock_cloud_provider.get_identity_token.return_value = self.sample_gcp_id_token
+        adapter._cloud_provider = mock_cloud_provider
+        
+        token = adapter._fetch_cloud_identity_token('test_audience', trace_context)
+        
+        self.assertEqual(token, self.sample_gcp_id_token)
+        # Ensure configured provider was called
+        mock_cloud_provider.get_identity_token.assert_called_once_with('test_audience', trace_context)
+
+    def test_fetch_cloud_identity_token_with_configured_provider_failure(self):
+        """Test cloud provider failure when already configured"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Set up a configured provider that will fail
+        mock_cloud_provider = Mock()
+        mock_cloud_provider.name = 'gcp'
+        mock_cloud_provider.get_identity_token.return_value = None  # Simulates failure
+        adapter._cloud_provider = mock_cloud_provider
+        
+        # Mock auto-detection to also fail
+        with patch.object(CloudProviderFactory, 'detect_provider', return_value=None):
+            token = adapter._fetch_cloud_identity_token('test_audience', trace_context)
+            
+            self.assertIsNone(token)
+            # Ensure configured provider was called first
+            mock_cloud_provider.get_identity_token.assert_called_once_with('test_audience', trace_context)
+
+    def test_fetch_cloud_identity_token_auto_detect_failure(self):
+        """Test auto-detected provider failure"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client' 
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock auto-detection to return a provider that fails to get token
+        mock_provider = Mock()
+        mock_provider.name = 'gcp'
+        mock_provider.get_identity_token.return_value = None
+        
+        with patch.object(CloudProviderFactory, 'detect_provider', return_value=mock_provider):
+            token = adapter._fetch_cloud_identity_token('test_audience', trace_context)
+            
+            self.assertIsNone(token)
+            self.assertEqual(adapter._cloud_provider, mock_provider)
+            mock_provider.get_identity_token.assert_called_once_with('test_audience', trace_context)
+
+    def test_exchange_tokens_with_context_subject_token(self):
+        """Test token exchange using context subject token"""
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock context with subject token
+        mock_context = Mock()
+        mock_context.platform_subject_token = self.sample_gcp_id_token
+        
+        mock_context_manager = Mock()
+        mock_context_manager.contexts.current_context = mock_context
+        mock_context_manager.contexts.current_context_name = 'test_context'
+        
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            'access_token': 'context_token_access',
+            'token_type': 'Bearer',
+            'expires_in': 3600
+        }
+        
+        with patch('imagination.container.get', return_value=mock_context_manager), \
+             patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.post.return_value = mock_response
+            mock_factory.return_value = mock_session
+            
+            result = adapter.exchange_tokens(trace_context)
+            
+            # Verify the result
+            self.assertEqual(result['access_token'], 'context_token_access')
+            
+            # Verify context token was used and cleared
+            self.assertIsNone(mock_context.platform_subject_token)
+            
+            # Verify the exchange request used the context token
+            post_call = mock_session.post.call_args
+            self.assertEqual(post_call[1]['data']['subject_token'], self.sample_gcp_id_token)
     

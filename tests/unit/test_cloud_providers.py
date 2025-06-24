@@ -162,6 +162,13 @@ class TestCloudProviders(unittest.TestCase):
             detected = CloudProviderFactory.detect_provider(self.config)
             self.assertIsNone(detected)
 
+    def test_detect_provider_handles_create_exception(self):
+        """Test detect_provider handles exceptions during provider creation."""
+        with patch.object(CloudProviderFactory, 'create', side_effect=Exception("Provider creation failed")):
+            detected = CloudProviderFactory.detect_provider(self.config)
+            self.assertIsNone(detected)
+
+
 
 if __name__ == '__main__':
     unittest.main()
