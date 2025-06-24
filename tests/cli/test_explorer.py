@@ -1,5 +1,4 @@
-import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from dnastack.client.explorer.models import FederatedQuestion, QuestionParam, QuestionCollection
 from tests.cli.base import CliTestCase

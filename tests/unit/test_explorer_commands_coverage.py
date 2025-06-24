@@ -1,6 +1,6 @@
 """Tests to boost coverage for explorer commands modules"""
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 
 class TestExplorerCommandsCoverage(unittest.TestCase):

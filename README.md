@@ -5,21 +5,56 @@ The command line interface and client library for DNAstack services and GA4GH-co
 * Copyright 2024 DNAstack Corp.
 * All usages are permitted under [Apache 2 License](LICENSE).
 
-### Tips
-To run the client in development mode from the current sources:
+## Development Setup
 
-1. Direct Python execution:
+### Prerequisites
+
+This project uses [uv](https://github.com/astral-sh/uv) for Python dependency management. Install uv using one of these methods:
+
+```bash
+# Using the official installer (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Using Homebrew (macOS)
+brew install uv
+
+# Using pipx
+pipx install uv
 ```
-   python -m dnastack --help
-   python -m dnastack auth login
-   python -m dnastack collections list
-   python -m dnastack explorer questions list
+
+For more installation options, see the [uv documentation](https://docs.astral.sh/uv/getting-started/installation/).
+
+### Setup
+
+1. Clone the repository and set up the development environment:
+```bash
+git clone omairvalence:DNAstack/dnastack-client.git
+cd dnastack-client
+make setup  # Creates virtual environment and installs all dependencies
 ```
-2. Using the omics entry point:
+
+2. Run commands using uv (no activation needed):
+```bash
+make test-unit      # Run unit tests
+make test-e2e       # Run E2E tests (requires .env file)
+make test-all       # Run both unit and E2E tests
+make lint           # Run linting checks
+uv run dnastack --help  # Run CLI commands
 ```
-   python -m dnastack.omics_cli --help
+
+
+### Tips
+
+Run the client in development mode using uv:
+```bash
+uv run dnastack --help
+uv run dnastack auth login
+uv run dnastack collections list
+uv run dnastack explorer questions list
+uv run omics --help
 ```
-3. IntelliJ/PyCharm run configuration:
+
+IntelliJ/PyCharm run configuration:
    - Run the "Omics CLI" configuration in IntelliJ/PyCharm.
    - This configuration runs the CLI using `python -m dnastack` to avoid module shadowing issues
 
