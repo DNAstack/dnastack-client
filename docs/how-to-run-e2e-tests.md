@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-* Python 3.7 or higher
+* Python 3.11 or higher
 * `chromedriver`
   * On MacOS, you need to ensure that the `chromedriver` command is executable.
 * The test environment variable file
@@ -20,8 +20,9 @@
 2. Update the values in `.env` with your test credentials.
    * You may need access to Wallet APIs to create a client, set grants and access policies.
    * At minimum, you'll need to fill in `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_EMAIL` and `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_TOKEN`.
-3. Run `pip3 install -r requirements.txt`.
-   * `requirements.txt` contains more requirements than the ones in `setup.cfg` for the build and testing processes.
+3. Run `make setup` to set up the development environment with uv.
+   * This command creates a virtual environment and installs all dependencies from `pyproject.toml`.
+   * Alternatively, run `uv sync --group dev` directly.
 
 ### Set up with Google Secret Manager (For team members with GCloud access)
 
@@ -45,11 +46,9 @@
    * This script will pull the envfile from the secret manager.
    * If you need to manage the shared envfiles, use `test_env_manager.py`. Use `--help` for more information.
 
-4. Run 
-   ```shell
-   pip3 install -r requirements.txt
-   ```
-   * `requirements.txt` contains more requirements than the ones in `setup.cfg` for the build and testing processes.
+4. Run `make setup` to set up the development environment with uv.
+   * This command creates a virtual environment and installs all dependencies from `pyproject.toml`.
+   * Alternatively, run `uv sync --group dev` directly.
 
 ### Note on the test suite
 
@@ -60,23 +59,41 @@ The location of the temp files or directories can be found in [the advanced conf
 
 There are three ways to run the test suite.
 
-### 1. Use `python3 -m unittest` directly.
+### 1. Use `make test-e2e` (Recommended)
 
-1. Set environment variables from `.env`.
-   * For example: `source .env` 
-2. Run `python3 -m unittest discover -v -s .` to run all tests.
-   * Alternatively, run `python3 -m unittest -v <FILE_PATH_OR_PYTHON_MODULE>` to run specific tests.
-     * Example 1: `python3 -m unittest -v tests.cli.test_dataconnect`
-     * Example 2: `python3 -m unittest -v tests/cli/test_dataconnect.py`
-   * You can use `-f` to end the test on the first failure.
-   * See [the official docs](https://docs.python.org/3/library/unittest.html) for more information.
+Simply run:
+```bash
+make test-e2e
+```
 
-### Use `./scripts/run-e2e-tests.sh`
+This command automatically:
+- Uses the `.env` file for configuration
+- Runs the test suite through `./scripts/run-e2e-tests.sh`
+- Handles all environment setup automatically
 
-The script is used by the CI/CD pipeline and will work with `.env` right out of the box. It is technically the shortcut
-of [the first method](#1-use-python3--m-unittest-directly)
+### 2. Use `uv run` directly
 
-### Run with IntelliJ or PyCharm
+1. Set environment variables from `.env`:
+   ```bash
+   source .env
+   ```
+2. Run tests using uv:
+   ```bash
+   uv run python -m unittest discover -v -s .
+   ```
+   * To run specific tests:
+     * Example 1: `uv run python -m unittest -v tests.cli.test_dataconnect`
+     * Example 2: `uv run python -m unittest -v tests/cli/test_dataconnect.py`
+   * Use `-f` to end the test on the first failure.
+
+### 3. Use `./scripts/run-e2e-tests.sh` directly
+
+The script is used by the CI/CD pipeline and will work with `.env` right out of the box:
+```bash
+E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh
+```
+
+### 4. Run with IntelliJ or PyCharm
 
 1. Add a new **Configuration** for **Python tests → Unittests**.
 2. Set target to the root of your working copy, e.g., `/Users/jnopporn/workspace/dnastack-client-library`.
