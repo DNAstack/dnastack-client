@@ -2,8 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from dnastack.client.explorer.client import ExplorerClient
-from dnastack.client.explorer.models import FederatedQuestion, QuestionParam, QuestionCollection
-from dnastack.client.models import ServiceType
+from dnastack.client.explorer.models import FederatedQuestion
 
 
 class TestExplorerClientSimple(unittest.TestCase):
