@@ -309,12 +309,36 @@ class TestCloudProviders(TestCase):
             
             self.assertIsNone(provider)
 
+    def test_cloud_provider_factory_detect_provider_loops_through_all(self):
+        """Test that detect_provider checks all available providers"""
+        config = CloudMetadataConfig()
+        
+        # Track which providers were checked
+        checked_providers = []
+        
+        def mock_create(provider_type, config):
+            checked_providers.append(provider_type)
+            # Mock provider that's not available
+            mock_provider = Mock()
+            mock_provider.is_available.return_value = False
+            return mock_provider
+        
+        with patch.object(CloudProviderFactory, 'create', side_effect=mock_create):
+            provider = CloudProviderFactory.detect_provider(config)
+            
+            # Should return None since no providers are available
+            self.assertIsNone(provider)
+            
+            # Should have checked all providers in the factory
+            expected_providers = list(CloudProviderFactory._providers.keys())
+            self.assertEqual(set(checked_providers), set(expected_providers))
+
 
 class TestContextManager(TestCase):
     """Test context manager functionality related to token exchange"""
 
-    def test_filter_endpoints_for_token_exchange(self):
-        """Test filtering endpoints to only include token exchange authentication"""
+    def test_filter_endpoints_for_token_exchange_success(self):
+        """Test filtering endpoints successfully when all have token exchange authentication"""
         from dnastack.context.manager import BaseContextManager
         from dnastack.context.models import Context
         from dnastack.client.models import ServiceEndpoint, ServiceType
@@ -368,20 +392,7 @@ class TestContextManager(TestCase):
         )
         context.endpoints.append(token_exchange_endpoint)
         
-        # Add endpoint with no token exchange
-        no_token_exchange_endpoint = ServiceEndpoint(
-            id='no-token-exchange-service',
-            url='http://localhost:8187/api',
-            type=ServiceType(group='com.dnastack', artifact='test-service3', version='1.0.0'),
-            authentication={
-                'type': 'oauth2',
-                'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
-                'client_id': 'test-client'
-            }
-        )
-        context.endpoints.append(no_token_exchange_endpoint)
-        
-        # Apply filtering
+        # Apply filtering - should succeed
         manager = BaseContextManager(context_map=None)
         manager._filter_endpoints_for_token_exchange(context)
         
@@ -395,8 +406,99 @@ class TestContextManager(TestCase):
         
         # Token exchange endpoint should be unchanged
         self.assertEqual(token_exchange_endpoint.authentication['grant_type'], GRANT_TYPE_TOKEN_EXCHANGE)
+
+    def test_filter_endpoints_for_token_exchange_error_when_no_endpoints_support_it(self):
+        """Test that filtering raises error only when NO endpoints support token exchange"""
+        from dnastack.context.manager import BaseContextManager, InvalidServiceRegistryError
+        from dnastack.context.models import Context
+        from dnastack.client.models import ServiceEndpoint, ServiceType
+        from dnastack.client.service_registry.client import STANDARD_SERVICE_REGISTRY_TYPE_V1_0
         
-        # No token exchange endpoint should have auth cleared
+        context = Context()
+        
+        # Add a service registry endpoint (should be skipped)
+        registry_endpoint = ServiceEndpoint(
+            id='registry',
+            url='http://localhost:8185/service-registry',
+            type=STANDARD_SERVICE_REGISTRY_TYPE_V1_0
+        )
+        context.endpoints.append(registry_endpoint)
+        
+        # Add endpoint with no token exchange authentication
+        no_token_exchange_endpoint = ServiceEndpoint(
+            id='no-token-exchange-service',
+            url='http://localhost:8187/api',
+            type=ServiceType(group='com.dnastack', artifact='test-service3', version='1.0.0'),
+            authentication={
+                'type': 'oauth2',
+                'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+                'client_id': 'test-client'
+            }
+        )
+        context.endpoints.append(no_token_exchange_endpoint)
+        
+        # Apply filtering - should raise error since no endpoints support token exchange
+        manager = BaseContextManager(context_map=None)
+        
+        with self.assertRaises(InvalidServiceRegistryError) as cm:
+            manager._filter_endpoints_for_token_exchange(context)
+        
+        error_message = str(cm.exception)
+        self.assertIn('Platform credentials (--platform-credentials) requested', error_message)
+        self.assertIn('no endpoints support token exchange authentication', error_message)
+
+    def test_filter_endpoints_for_token_exchange_allows_mixed_auth_types(self):
+        """Test that filtering succeeds when at least one endpoint supports token exchange"""
+        from dnastack.context.manager import BaseContextManager
+        from dnastack.context.models import Context
+        from dnastack.client.models import ServiceEndpoint, ServiceType
+        from dnastack.client.service_registry.client import STANDARD_SERVICE_REGISTRY_TYPE_V1_0
+        
+        context = Context()
+        
+        # Add a service registry endpoint (should be skipped)
+        registry_endpoint = ServiceEndpoint(
+            id='registry',
+            url='http://localhost:8185/service-registry',
+            type=STANDARD_SERVICE_REGISTRY_TYPE_V1_0
+        )
+        context.endpoints.append(registry_endpoint)
+        
+        # Add endpoint with token exchange authentication
+        token_exchange_endpoint = ServiceEndpoint(
+            id='token-exchange-service',
+            url='http://localhost:8186/api',
+            type=ServiceType(group='com.dnastack', artifact='test-service2', version='1.0.0'),
+            authentication={
+                'type': 'oauth2',
+                'grant_type': GRANT_TYPE_TOKEN_EXCHANGE,
+                'client_id': 'test-client'
+            }
+        )
+        context.endpoints.append(token_exchange_endpoint)
+        
+        # Add endpoint with NO token exchange authentication
+        no_token_exchange_endpoint = ServiceEndpoint(
+            id='no-token-exchange-service',
+            url='http://localhost:8187/api',
+            type=ServiceType(group='com.dnastack', artifact='test-service3', version='1.0.0'),
+            authentication={
+                'type': 'oauth2',
+                'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+                'client_id': 'test-client'
+            }
+        )
+        context.endpoints.append(no_token_exchange_endpoint)
+        
+        # Apply filtering - should succeed since at least one endpoint supports token exchange
+        manager = BaseContextManager(context_map=None)
+        manager._filter_endpoints_for_token_exchange(context)  # Should not raise
+        
+        # Verify results
+        # Token exchange endpoint should be unchanged
+        self.assertEqual(token_exchange_endpoint.authentication['grant_type'], GRANT_TYPE_TOKEN_EXCHANGE)
+        
+        # Non-token exchange endpoint should have auth cleared
         self.assertIsNone(no_token_exchange_endpoint.authentication)
         self.assertIsNone(no_token_exchange_endpoint.fallback_authentications)
 

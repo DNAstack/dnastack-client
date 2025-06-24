@@ -301,11 +301,7 @@ class OAuth2Authenticator(Authenticator):
         # Clear the local cache
         self._session_info = None
         self._session_manager.delete(session_id)
-
         self._logger.debug(f'Revoked Session {session_id}')
-
-        self._revoke_token_exchange_sessions_for_resource()
-
         self.events.dispatch('session-revoked', dict(session_id=session_id))
 
     def clear_access_token(self):
@@ -367,47 +363,6 @@ class OAuth2Authenticator(Authenticator):
             raise ReauthenticationRequiredDueToConfigChange(
                 'The session is invalidated as the endpoint configuration has changed.'
             )
-
-    def _revoke_token_exchange_sessions_for_resource(self):
-        """Find and revoke all token exchange sessions that match this resource"""
-        resource_url = None
-        
-        if self._endpoint:
-            resource_url = self._endpoint.url
-        elif self._auth_info and 'resource_url' in self._auth_info:
-            resource_url = self._auth_info['resource_url']
-        
-        if not resource_url:
-            return
-        
-        all_sessions = self._session_manager.list_all()
-        revoked_count = 0
-        
-        for session in all_sessions:
-            if (session.handler and
-                    session.handler.auth_info and
-                    session.handler.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE):
-                
-                session_resource_url = session.handler.auth_info.get('resource_url')
-                if session_resource_url and self._resource_matches(resource_url, session_resource_url):
-                    session_auth_info = OAuth2Authentication(**session.handler.auth_info)
-                    session_id = session_auth_info.get_content_hash()
-                    self._session_manager.delete(session_id)
-                    self._logger.debug(f'Revoked token exchange session {session_id} for resource {session_resource_url}')
-                    revoked_count += 1
-        
-        if revoked_count > 0:
-            self._logger.debug(f'Revoked {revoked_count} token exchange sessions for resource {resource_url}')
-
-    def _resource_matches(self, endpoint_url: str, resource_url: str) -> bool:
-        """Check if endpoint URL is covered by token exchange resource"""
-        # Normalize URLs by removing trailing slashes
-        endpoint_url_normalized = endpoint_url.rstrip('/')
-        resource_url_normalized = resource_url.rstrip('/')
-
-        # Exact match or endpoint URL starts with resource URL
-        return (endpoint_url_normalized == resource_url_normalized or
-                endpoint_url_normalized.startswith(resource_url_normalized + '/'))
 
     def _convert_token_response_to_session(self,
                                            authentication: Dict[str, Any],

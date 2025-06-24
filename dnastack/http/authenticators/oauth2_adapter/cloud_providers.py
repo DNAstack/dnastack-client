@@ -110,8 +110,13 @@ class CloudProviderFactory:
 
     @classmethod
     def detect_provider(cls, config: CloudMetadataConfig) -> Optional[CloudMetadataProvider]:
-        """Auto-detect the current cloud provider."""
-        provider = cls.create(CloudProvider.GCP, config)
-        if provider.is_available():
-            return provider
+        """Auto-detect the current cloud provider by checking all available providers."""
+        for provider_type in cls._providers.keys():
+            try:
+                provider = cls.create(provider_type, config)
+                if provider.is_available():
+                    return provider
+            except Exception:
+                # Skip providers that fail to initialize or check availability
+                continue
         return None
