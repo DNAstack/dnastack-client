@@ -8,7 +8,6 @@ import logging
 import re
 import subprocess
 from argparse import ArgumentParser
-from configparser import ConfigParser
 
 logging.basicConfig(format='%(levelname)s: %(message)s',
                     level=logging.INFO)
