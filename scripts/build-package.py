@@ -95,21 +95,19 @@ def main():
         with open('dnastack/constants.py', 'w') as f:
             f.write(content)
 
-    # Update setup.cfg
-    setup_file_path = 'setup.cfg'
-    setup_config = ConfigParser()
-    setup_config.read(setup_file_path)
-    setup_config['metadata']['version'] = release_version
+    # Update pyproject.toml
+    pyproject_file_path = 'pyproject.toml'
+    with open(pyproject_file_path, 'r') as f:
+        pyproject_content = f.read()
+    
+    # Replace the version in pyproject.toml
+    pyproject_content = re.sub(r'(version\s*=\s*")[^"]+(")', fr'\g<1>{release_version}\g<2>', pyproject_content)
+    
     if in_dry_run_mode:
-        setup_temp_file = 'setup_dryrun.cfg'
-        with open(setup_temp_file, 'w') as f:
-            setup_config.write(f)
-        with open(setup_temp_file, 'r') as f:
-            log.info(f'setup.cfg:\n\n{f.read()}')
-        os.unlink(setup_temp_file)
+        log.info(f'pyproject.toml (version section):\n\nversion = "{release_version}"')
     else:
-        with open(setup_file_path, 'w') as f:
-            setup_config.write(f)
+        with open(pyproject_file_path, 'w') as f:
+            f.write(pyproject_content)
 
     # Build the package
     if args.dry_run:
@@ -120,7 +118,7 @@ def main():
 
     log.info('Cleaning up...')
 
-    subprocess.call(['git', 'checkout', '--', 'setup.cfg', 'dnastack/constants.py'])
+    subprocess.call(['git', 'checkout', '--', 'pyproject.toml', 'dnastack/constants.py'])
 
     log.info('Done')
 
