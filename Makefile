@@ -68,7 +68,6 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	uv run ruff check --fix .
-	uv run ruff format .
 
 .PHONY: test-e2e
 test-e2e:
