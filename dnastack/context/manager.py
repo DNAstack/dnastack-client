@@ -17,6 +17,7 @@ from dnastack.common.events import EventSource, Event
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.context.models import Context
+from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.http.client_factory import HttpClientFactory
 
 
@@ -426,7 +427,7 @@ class BaseContextManager:
             
             token_exchange_auths = [
                 auth for auth in all_auths
-                if auth.get('grant_type') == 'urn:ietf:params:oauth:grant-type:token-exchange'
+                if auth.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE
             ]
             
             if token_exchange_auths:
