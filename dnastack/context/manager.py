@@ -252,7 +252,8 @@ class BaseContextManager:
     def use(self,
             registry_hostname_or_url: str,
             context_name: Optional[str] = None,
-            no_auth: Optional[bool] = False) -> EndpointRepository:
+            no_auth: Optional[bool] = False,
+            platform_credentials: Optional[bool] = False) -> EndpointRepository:
         target_hostname = self._get_hostname(registry_hostname_or_url)
         context_name = context_name or target_hostname
 
@@ -310,7 +311,7 @@ class BaseContextManager:
 
         for reg_endpoint in active_registries:
             self._logger.debug(f'Syncing: {reg_endpoint.url}')
-            reg_manager.synchronize_endpoints(reg_endpoint.id)
+            reg_manager.synchronize_endpoints(reg_endpoint.id, platform_credentials=platform_credentials)
 
         # Set the current context.
         self._contexts.set_current_context_name(context_name)

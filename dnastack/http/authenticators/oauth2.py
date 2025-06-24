@@ -116,7 +116,9 @@ class OAuth2Authenticator(Authenticator):
 
         auth_info = OAuth2Authentication(**self._auth_info)
 
-        if auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE:
+        use_platform_credentials = self._auth_info.get('platform_credentials', False) is True
+
+        if (auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE or use_platform_credentials):
             return self._authenticate_token_exchange(auth_info, trace_context)
 
         adapter = self._adapter_factory.get_from(auth_info)
@@ -157,10 +159,6 @@ class OAuth2Authenticator(Authenticator):
 
         logger.debug(f'refresh: Session ID = {session_id}')
         session_info = self._session_info or self._session_manager.restore(session_id)
-
-        # If no session found with our session_id, try to find token exchange session
-        if session_info is None:
-            session_info = self._find_token_exchange_session_for_resource()
 
         if session_info is None:
             logger.debug('refresh: The session does not exist.')
@@ -306,6 +304,8 @@ class OAuth2Authenticator(Authenticator):
 
         self._logger.debug(f'Revoked Session {session_id}')
 
+        self._revoke_token_exchange_sessions_for_resource()
+
         self.events.dispatch('session-revoked', dict(session_id=session_id))
 
     def clear_access_token(self):
@@ -326,19 +326,7 @@ class OAuth2Authenticator(Authenticator):
         session_id = self.session_id
         event_details = dict(cached=self._session_info is not None, cache_hash=session_id)
 
-        # First, check for token exchange sessions that might apply to this endpoint
-        token_exchange_session = self._find_token_exchange_session_for_resource()
-        if token_exchange_session:
-            current_time = time()
-            if not token_exchange_session.is_valid():
-                logger.debug(f'The token exchange session is INVALID ({"expired" if token_exchange_session.access_token else "token revoked"}).')
-                event_details['reason'] = 'The session is invalid but it can be refreshed.'
-                self.events.dispatch('session-not-restored', event_details)
-                raise RefreshRequired(token_exchange_session)
-            self._session_info = token_exchange_session # Also cache it for future use
-            return token_exchange_session
-
-        # Proceed try to get session (in-memory, then stored)
+        # Try to get session (in-memory, then stored)
         session = self._session_info
         if session:
             logger.debug(f'In-memory Session Info: {session}')
@@ -416,6 +404,38 @@ class OAuth2Authenticator(Authenticator):
             return most_recent
 
         return None
+
+    def _revoke_token_exchange_sessions_for_resource(self):
+        """Find and revoke all token exchange sessions that match this resource"""
+        resource_url = None
+        
+        if self._endpoint:
+            resource_url = self._endpoint.url
+        elif self._auth_info and 'resource_url' in self._auth_info:
+            resource_url = self._auth_info['resource_url']
+        
+        if not resource_url:
+            return
+        
+        all_sessions = self._session_manager.list_all()
+        revoked_count = 0
+        
+        for session in all_sessions:
+            if (session.handler and
+                    session.handler.auth_info and
+                    session.handler.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE):
+                
+                session_resource_url = session.handler.auth_info.get('resource_url')
+                if session_resource_url and self._resource_matches(resource_url, session_resource_url):
+                    # Get the session ID from the auth_info to delete it
+                    session_auth_info = OAuth2Authentication(**session.handler.auth_info)
+                    session_id = session_auth_info.get_content_hash()
+                    self._session_manager.delete(session_id)
+                    self._logger.debug(f'Revoked token exchange session {session_id} for resource {session_resource_url}')
+                    revoked_count += 1
+        
+        if revoked_count > 0:
+            self._logger.debug(f'Revoked {revoked_count} token exchange sessions for resource {resource_url}')
 
     def _resource_matches(self, endpoint_url: str, resource_url: str) -> bool:
         """Check if endpoint URL is covered by token exchange resource"""
