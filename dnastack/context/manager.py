@@ -406,7 +406,6 @@ class BaseContextManager:
                 return root_url if is_json_response else None
             else:
                 return None
-                return None
         # end: if
 
     def _filter_endpoints_for_token_exchange(self, context: Context):
