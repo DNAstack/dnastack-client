@@ -40,7 +40,6 @@ This is the DNAstack client library and CLI, a Python package that provides both
 - `make lint` - Run ruff linter to check code style and errors (zero-tolerance policy - all violations must be fixed)
 - `make lint-fix` - Auto-fix linting issues and format code with ruff
   - Runs `uv run ruff check --fix .` to auto-fix violations where possible
-  - Runs `uv run ruff format .` to format code consistently
 - **Configuration**: Minimal setup in `pyproject.toml` with Python 3.11 target and 120 character line length
 - **CI Integration**: GitHub Actions workflow (`.github/workflows/lint.yml`) uses uv for consistent environment
 - **Version**: Fixed at ruff==0.12.0 in pyproject.toml for consistency across environments
