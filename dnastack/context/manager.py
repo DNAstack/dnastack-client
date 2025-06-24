@@ -414,7 +414,9 @@ class BaseContextManager:
 
     def _filter_endpoints_for_token_exchange(self, context: Context):
         """Filter endpoint authentication methods to only include token-exchange grant types
-            If none exist, clear authentication methods to force failure"""
+            Raises error if no endpoints support token exchange authentication"""
+        has_any_token_exchange = False
+        
         for endpoint in context.endpoints:
             if endpoint.type == STANDARD_SERVICE_REGISTRY_TYPE_V1_0:
                 continue
@@ -433,9 +435,17 @@ class BaseContextManager:
             if token_exchange_auths:
                 endpoint.authentication = token_exchange_auths[0]
                 endpoint.fallback_authentications = token_exchange_auths[1:] or None
+                has_any_token_exchange = True
             else:
                 endpoint.authentication = None
                 endpoint.fallback_authentications = None
+        
+        if not has_any_token_exchange:
+            raise InvalidServiceRegistryError(
+                "Platform credentials (--platform-credentials) requested, but no endpoints "
+                "support token exchange authentication. Either remove --platform-credentials "
+                "or ensure the service registry includes token exchange authentication methods."
+            )
 
 
 @service.registered()
