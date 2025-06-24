@@ -170,9 +170,9 @@ class ContextCommandHandler:
     def manager(self):
         return self._context_manager
 
-    def use(self, registry_hostname_or_url: str, context_name: Optional[str] = None, no_auth: bool = False, platform_credentials: bool = False):
+    def use(self, registry_hostname_or_url: str, context_name: Optional[str] = None, no_auth: bool = False, platform_credentials: bool = False, subject_token: Optional[str] = None):
         echo_result('Context', 'blue', 'syncing', registry_hostname_or_url)
-        self._context_manager.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth, platform_credentials=platform_credentials)
+        self._context_manager.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth, platform_credentials=platform_credentials, subject_token=subject_token)
         echo_result('Context', 'green', 'use', registry_hostname_or_url)
 
     def __handle_sync_event(self, event: Event):

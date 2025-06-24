@@ -79,13 +79,22 @@ def version():
             type=bool,
             required=False,
             hidden=True,
+        ),
+        ArgumentSpec(
+            name='subject_token',
+            arg_names=['--subject-token'],
+            help='Subject token for token exchange authentication',
+            type=str,
+            required=False,
+            hidden=True,
         )
     ]
 )
 def use(registry_hostname_or_url: str,
         context_name: Optional[str] = None,
         no_auth: bool = False,
-        platform_credentials: bool = False):
+        platform_credentials: bool = False,
+        subject_token: Optional[str] = None):
     """
     Import a configuration from host's service registry (if available) or the corresponding public configuration from
     cloud storage. If "--no-auth" is not defined, it will automatically initiate all authentication.
@@ -94,7 +103,7 @@ def use(registry_hostname_or_url: str,
 
     This is a shortcut to dnastack config contexts use".
     """
-    _context_command_handler.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth, platform_credentials=platform_credentials)
+    _context_command_handler.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth, platform_credentials=platform_credentials, subject_token=subject_token)
 
 
 # noinspection PyTypeChecker

@@ -253,7 +253,8 @@ class BaseContextManager:
             registry_hostname_or_url: str,
             context_name: Optional[str] = None,
             no_auth: Optional[bool] = False,
-            platform_credentials: Optional[bool] = False) -> EndpointRepository:
+            platform_credentials: Optional[bool] = False,
+            subject_token: Optional[str] = None) -> EndpointRepository:
         target_hostname = self._get_hostname(registry_hostname_or_url)
         context_name = context_name or target_hostname
 
@@ -315,6 +316,8 @@ class BaseContextManager:
 
         if platform_credentials:
             self._filter_endpoints_for_token_exchange(context)
+            if subject_token:
+                context.platform_subject_token = subject_token
 
         # Set the current context.
         self._contexts.set_current_context_name(context_name)
