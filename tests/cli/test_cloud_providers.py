@@ -122,8 +122,6 @@ class TestCloudProviders(unittest.TestCase):
         self.assertIn('Unsupported cloud provider', str(context.exception))
 
     def test_detect_provider_returns_gcp(self):
-        provider = GCPMetadataProvider(timeout=self.config.timeout)
-
         mock_response = Mock()
         mock_response.ok = True
 

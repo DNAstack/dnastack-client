@@ -458,12 +458,9 @@ class OAuth2Authenticator(Authenticator):
 
     def _authenticate_token_exchange(self, auth_info: OAuth2Authentication, trace_context: Span) -> SessionInfo:
         """Handle token exchange authentication flow"""
-        logger = trace_context.create_span_logger(self._logger)
         session_id = self.session_id
         event_details = dict(session_id=session_id, auth_info=self._auth_info)
         adapter = TokenExchangeAdapter(auth_info)
-
-        # Relay events for CLI feedback
         for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
             self.events.relay_from(adapter.events, auth_event_type)
 
