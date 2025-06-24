@@ -1,6 +1,79 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "dnastack-client-library"
+version = "3.1.0a0"
+description = "DNAstack's GA4GH library and CLI"
+authors = [
+    {name = "DNAstack", email = "devs@dnastack.com"}
+]
+readme = {text = "GA4GH API client and command line tool. Please check out [the documentation](https://docs.omics.ai/products/analysis/python-library) for more details.", content-type = "text/markdown"}
+license = {text = "Apache License, Version 2.0"}
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "click>=8.0.3,<8.2",
+    "pydantic>=1.9.0,<2",
+    "pyjwt>=2.1.0,<3",
+    "pyyaml>=5.4.1",
+    "requests>=2.23.0,<3",
+    "urllib3>=1.25.11,<2",
+    "kotoba",
+    "imagination>=3.3.1",
+    "requests-toolbelt>=0.9.1,<1",
+    "httpie>=3.2.1",
+]
+
+[project.urls]
+Homepage = "https://www.dnastack.com"
+Documentation = "https://docs.omics.ai/products/analysis/python-library"
+Repository = "https://github.com/DNAstack/dnastack-client"
+
+[project.scripts]
+dnastack = "dnastack.__main__:dnastack"
+omics = "dnastack.omics_cli:omics"
+
+[project.optional-dependencies]
+test = [
+    "selenium>=3.141.0",
+    "pyjwt>=2.1.0",
+    "jsonpath-ng>=1.5.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["dnastack*"]
+exclude = ["tests*"]
+
+[dependency-groups]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-watch>=4.2.0",
+    "responses>=0.23.0",
+    "hypothesis>=6.0.0",
+    "coverage[toml]>=7.0.0",
+]
+dev = [
+    {include-group = "test"},
+    "ruff==0.12.0",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120

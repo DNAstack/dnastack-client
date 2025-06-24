@@ -30,6 +30,6 @@ class WorkbenchUserClient(BaseServiceClient):
     def get_user_config(self) -> WorkbenchUser:
         with self.create_http_session() as session:
             response = session.get(
-                urljoin(self.endpoint.url, f'users/me')
+                urljoin(self.endpoint.url, 'users/me')
             )
         return WorkbenchUser(**response.json())

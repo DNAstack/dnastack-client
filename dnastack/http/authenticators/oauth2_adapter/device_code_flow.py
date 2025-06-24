@@ -18,6 +18,12 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         super(DeviceCodeFlowAdapter, self).__init__(auth_info)
         self.__console: Console = container.get(Console)
 
+    @classmethod
+    def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
+        if auth_info.grant_type != cls.__grant_type:
+            return False
+        return super().is_compatible_with(auth_info)
+
     @staticmethod
     def get_expected_auth_info_fields() -> List[str]:
         return [
@@ -78,7 +84,7 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         device_code_json = init_res.json()
 
         if init_res.ok:
-            logger.debug(f'exchange_tokens: Received the initial OK response')
+            logger.debug('exchange_tokens: Received the initial OK response')
 
             device_code = device_code_json["device_code"]
             device_verify_uri = device_code_json["verification_uri_complete"]
@@ -94,7 +100,7 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
             self.__console.print(f"Please go to {device_verify_uri} to continue.\n", to_stderr=True)
             self._events.dispatch('blocking-response-required', dict(kind='user_verification', url=device_verify_uri))
         else:
-            logger.debug(f'exchange_tokens: Received the ERROR response')
+            logger.debug('exchange_tokens: Received the ERROR response')
 
             if "error" in init_res.json():
                 error_message = f'The device code request failed with message "{device_code_json["error"]}"'

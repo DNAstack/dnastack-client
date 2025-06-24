@@ -1,6 +1,3 @@
-import csv
-import json
-import os
 from typing import Optional
 
 import click
@@ -10,11 +7,10 @@ from dnastack.cli.commands.explorer.questions.utils import (
     get_explorer_client,
     parse_collections_argument,
     validate_question_parameters,
-    flatten_result_for_export
+    handle_question_results_output
 )
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG, ArgumentType, RESOURCE_OUTPUT_ARG, DATA_OUTPUT_ARG
-from dnastack.cli.helpers.exporter import normalize
 from dnastack.cli.helpers.iterator_printer import show_iterator
 from dnastack.common.json_argument_parser import JsonLike, parse_and_merge_arguments
 from dnastack.common.logger import get_logger
@@ -90,7 +86,7 @@ def init_questions_commands(group: Group):
             ),
             ArgumentSpec(
                 name='args',
-                arg_names=['--arg'],
+                arg_names=['--param'],
                 help='Question parameters in key=value format (can be used multiple times)',
                 type=JsonLike,
                 multiple=True
@@ -149,15 +145,12 @@ def init_questions_commands(group: Group):
             click.echo(f"Error: {e}", err=True)
             raise click.Abort()
         
-        # If no collections specified, warn user about using all collections
-        if collection_ids is None:
-            collection_names = [col.name for col in question.collections]
-        else:
+        if collection_ids is not None:
             # Validate collection IDs exist in question
             available_ids = {col.id for col in question.collections}
             invalid_ids = [cid for cid in collection_ids if cid not in available_ids]
             if invalid_ids:
-                click.echo("Error: One or more collection IDs are not available for this question", err=True)
+                click.echo(f"Error: Invalid collection IDs for this question: {', '.join(invalid_ids)}", err=True)
                 raise click.Abort()
         
         # Execute the question
@@ -171,64 +164,5 @@ def init_questions_commands(group: Group):
         # Collect results
         results = list(results_iter)
         
-        if not results:
-            click.echo("No results returned from query")
-            return
-        
         # Output results
-        if output_file:
-            _write_results_to_file(results, output_file, output)
-            click.echo(f"Results written to {output_file}")
-        else:
-            # Use show_iterator for consistent output handling
-            show_iterator(
-                output_format=output,
-                iterator=results
-            )
-
-
-
-def _write_results_to_file(results, output_file: str, output_format: str):
-    """Write results to file"""
-    # Ensure output directory exists
-    output_dir = os.path.dirname(output_file)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    if output_format == 'json':
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
-    
-    elif output_format == 'csv':
-        # Flatten all results
-        flattened_results = [flatten_result_for_export(result) for result in results]
-        
-        if not flattened_results:
-            # Write empty file
-            with open(output_file, 'w') as f:
-                pass
-            return
-        
-        # Get all possible column headers
-        all_headers = set()
-        for result in flattened_results:
-            all_headers.update(result.keys())
-        
-        headers = sorted(all_headers)
-        
-        with open(output_file, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
-            writer.writeheader()
-            
-            for result in flattened_results:
-                # Fill missing keys with empty strings
-                row = {header: result.get(header, '') for header in headers}
-                writer.writerow(row)
-    
-    elif output_format == 'yaml':
-        # For YAML output, write as is
-        with open(output_file, 'w') as f:
-            normalized_results = [normalize(result) for result in results]
-            from yaml import dump as to_yaml_string, SafeDumper
-            yaml_content = to_yaml_string(normalized_results, Dumper=SafeDumper, sort_keys=False)
-            f.write(yaml_content)
+        handle_question_results_output(results, output_file, output)

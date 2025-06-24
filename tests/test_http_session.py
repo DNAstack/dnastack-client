@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock
 
 from dnastack import ServiceEndpoint
 from dnastack.common.tracing import Span
-from dnastack.http.authenticators.abstract import Authenticator, AuthenticationRequired
+from dnastack.http.authenticators.abstract import Authenticator
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.session import HttpSession, ClientError

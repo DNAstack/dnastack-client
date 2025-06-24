@@ -57,7 +57,7 @@ class TestCollectionsCommand(DeprecatedPublisherCliTestCase):
                     for line in lines:
                         if not line.strip():
                             continue
-                        self.assertTrue(',' in line, f'The content does not seem to be a CSV-formatted string.')
+                        self.assertTrue(',' in line, 'The content does not seem to be a CSV-formatted string.')
 
                 # Test the list-item command.
                 items_from_command = self.simple_invoke('collections',

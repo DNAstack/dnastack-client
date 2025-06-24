@@ -1,9 +1,15 @@
+import csv
+import json
+import os
 from typing import Optional, Dict, Any, List
 
+import click
 from imagination import container
 
 from dnastack.client.explorer.client import ExplorerClient
 from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
+from dnastack.cli.helpers.exporter import normalize
+from dnastack.cli.helpers.iterator_printer import show_iterator
 from dnastack.common.tracing import Span
 
 
@@ -149,3 +155,88 @@ def flatten_result_for_export(result: Dict[str, Any]) -> Dict[str, Any]:
     
     _flatten(result)
     return flattened
+
+
+def handle_question_results_output(results: List[Dict[str, Any]], output_file: Optional[str], output_format: str):
+    """
+    Handle output of question results to file or stdout.
+    
+    Args:
+        results: List of result dictionaries
+        output_file: Optional file path to write to
+        output_format: Output format (json, csv, yaml, etc.)
+    """
+    if output_file:
+        write_results_to_file(results, output_file, output_format)
+        click.echo(f"Results written to {output_file}")
+    else:
+        # Use show_iterator for consistent output handling
+        show_iterator(
+            output_format=output_format,
+            iterator=results
+        )
+
+
+def write_results_to_file(results: List[Dict[str, Any]], output_file: str, output_format: str):
+    """
+    Write results to file in the specified format.
+    
+    Args:
+        results: List of result dictionaries
+        output_file: File path to write to
+        output_format: Output format (json, csv, yaml)
+    """
+    # Ensure output directory exists
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    if output_format == 'json':
+        _write_json_results(results, output_file)
+    elif output_format == 'csv':
+        _write_csv_results(results, output_file)
+    elif output_format == 'yaml':
+        _write_yaml_results(results, output_file)
+
+
+def _write_json_results(results: List[Dict[str, Any]], output_file: str):
+    """Write results as JSON."""
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=2, default=str)
+
+
+def _write_csv_results(results: List[Dict[str, Any]], output_file: str):
+    """Write results as CSV with flattened structure."""
+    # Flatten all results
+    flattened_results = [flatten_result_for_export(result) for result in results]
+    
+    if not flattened_results:
+        # Write empty file
+        with open(output_file, 'w') as f:
+            pass
+        return
+    
+    # Get all possible column headers
+    all_headers = set()
+    for result in flattened_results:
+        all_headers.update(result.keys())
+    
+    headers = sorted(all_headers)
+    
+    with open(output_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        
+        for result in flattened_results:
+            # Fill missing keys with empty strings
+            row = {header: result.get(header, '') for header in headers}
+            writer.writerow(row)
+
+
+def _write_yaml_results(results: List[Dict[str, Any]], output_file: str):
+    """Write results as YAML."""
+    with open(output_file, 'w') as f:
+        normalized_results = [normalize(result) for result in results]
+        from yaml import dump as to_yaml_string, SafeDumper
+        yaml_content = to_yaml_string(normalized_results, Dumper=SafeDumper, sort_keys=False)
+        f.write(yaml_content)

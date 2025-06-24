@@ -9,7 +9,6 @@ from dnastack.cli.commands.utils import MAX_RESULTS_ARG
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, RESOURCE_OUTPUT_ARG
 from dnastack.cli.core.group import formatted_group
-from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
 from dnastack.client.collections.model import CreateCollectionItemsRequest, DeleteCollectionItemRequest, \
     CollectionItemListOptions

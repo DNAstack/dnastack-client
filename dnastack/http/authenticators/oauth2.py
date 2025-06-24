@@ -116,7 +116,9 @@ class OAuth2Authenticator(Authenticator):
 
         auth_info = OAuth2Authentication(**self._auth_info)
 
-        if auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE:
+        use_platform_credentials = self._auth_info.get('platform_credentials', False) is True
+
+        if auth_info.grant_type == GRANT_TYPE_TOKEN_EXCHANGE or use_platform_credentials:
             return self._authenticate_token_exchange(auth_info, trace_context)
 
         adapter = self._adapter_factory.get_from(auth_info)
@@ -158,19 +160,15 @@ class OAuth2Authenticator(Authenticator):
         logger.debug(f'refresh: Session ID = {session_id}')
         session_info = self._session_info or self._session_manager.restore(session_id)
 
-        # If no session found with our session_id, try to find token exchange session
         if session_info is None:
-            session_info = self._find_token_exchange_session_for_resource()
-
-        if session_info is None:
-            logger.debug(f'refresh: The session does not exist.')
+            logger.debug('refresh: The session does not exist.')
             raise ReauthenticationRequired('No existing session information available')
 
         if session_info.dnastack_schema_version < 3:
             logger.debug('refresh: Cannot refresh the tokens as there are not enough information to perform the '
                          'action. You can use the session ID for debugging further.')
 
-            event_details['reason'] = f'Not enough information for token refresh'
+            event_details['reason'] = 'Not enough information for token refresh'
             self.events.dispatch('refresh-failure', event_details)
 
             raise ReauthenticationRequired(f'The stored session information does not provide enough information to '
@@ -306,6 +304,8 @@ class OAuth2Authenticator(Authenticator):
 
         self._logger.debug(f'Revoked Session {session_id}')
 
+        self._revoke_token_exchange_sessions_for_resource()
+
         self.events.dispatch('session-revoked', dict(session_id=session_id))
 
     def clear_access_token(self):
@@ -326,24 +326,7 @@ class OAuth2Authenticator(Authenticator):
         session_id = self.session_id
         event_details = dict(cached=self._session_info is not None, cache_hash=session_id)
 
-        # First, check for token exchange sessions that might apply to this endpoint
-        token_exchange_session = self._find_token_exchange_session_for_resource()
-        if token_exchange_session:
-            logger.debug(f'Found applicable token exchange session for resource')
-            # Debug the session validity
-            current_time = time()
-            logger.debug(f'Token exchange session validity check: current_time={current_time}, valid_until={token_exchange_session.valid_until}, issued_at={token_exchange_session.issued_at}, access_token_present={bool(token_exchange_session.access_token)}')
-            if not token_exchange_session.is_valid():
-                logger.debug(f'The token exchange session is INVALID ({"expired" if token_exchange_session.access_token else "token revoked"}).')
-                event_details['reason'] = 'The session is invalid but it can be refreshed.'
-                self.events.dispatch('session-not-restored', event_details)
-                logger.debug(f'Require REFRESH -- event details = {event_details}')
-                raise RefreshRequired(token_exchange_session)
-            # Skip config hash validation for token exchange sessions since they use different auth_info
-            self._session_info = token_exchange_session # Also cache it for future use
-            return token_exchange_session
-
-        # Proceed try to get session (in-memory, then stored)
+        # Try to get session (in-memory, then stored)
         session = self._session_info
         if session:
             logger.debug(f'In-memory Session Info: {session}')
@@ -385,42 +368,36 @@ class OAuth2Authenticator(Authenticator):
                 'The session is invalidated as the endpoint configuration has changed.'
             )
 
-    def _find_token_exchange_session_for_resource(self) -> Optional[SessionInfo]:
-        """Find token exchange session that covers this endpoint's resource"""
+    def _revoke_token_exchange_sessions_for_resource(self):
+        """Find and revoke all token exchange sessions that match this resource"""
         resource_url = None
         
         if self._endpoint:
             resource_url = self._endpoint.url
         elif self._auth_info and 'resource_url' in self._auth_info:
-            # Fallback to resource_url from auth_info if available
             resource_url = self._auth_info['resource_url']
         
         if not resource_url:
-            return None
-
+            return
+        
         all_sessions = self._session_manager.list_all()
-        self._logger.debug(f'Searching for token exchange session matching resource_url: {resource_url}')
-        self._logger.debug(f'Found {len(all_sessions)} total sessions')
-
-        matching_sessions = []
+        revoked_count = 0
+        
         for session in all_sessions:
             if (session.handler and
                     session.handler.auth_info and
                     session.handler.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE):
-
+                
                 session_resource_url = session.handler.auth_info.get('resource_url')
                 if session_resource_url and self._resource_matches(resource_url, session_resource_url):
-                    self._logger.debug(f'Found matching token exchange session: resource_url={session_resource_url}, valid_until={session.valid_until}, issued_at={session.issued_at}')
-                    matching_sessions.append(session)
-
-        if matching_sessions:
-            # Sort by issued_at timestamp to get the most recent session
-            matching_sessions.sort(key=lambda s: s.issued_at, reverse=True)
-            most_recent = matching_sessions[0]
-            self._logger.debug(f'Found {len(matching_sessions)} matching sessions, returning most recent: issued_at={most_recent.issued_at}, valid_until={most_recent.valid_until}')
-            return most_recent
-
-        return None
+                    session_auth_info = OAuth2Authentication(**session.handler.auth_info)
+                    session_id = session_auth_info.get_content_hash()
+                    self._session_manager.delete(session_id)
+                    self._logger.debug(f'Revoked token exchange session {session_id} for resource {session_resource_url}')
+                    revoked_count += 1
+        
+        if revoked_count > 0:
+            self._logger.debug(f'Revoked {revoked_count} token exchange sessions for resource {resource_url}')
 
     def _resource_matches(self, endpoint_url: str, resource_url: str) -> bool:
         """Check if endpoint URL is covered by token exchange resource"""

@@ -4,14 +4,13 @@ Pytest configuration and shared fixtures for all tests.
 import os
 import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
-# Import pytest and fixtures
-import pytest
-from unittest.mock import Mock, patch
 
 # Common test configuration
 @pytest.fixture(autouse=True)

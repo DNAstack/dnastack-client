@@ -183,9 +183,9 @@ class HttpSession(AbstractContextManager):
 
                 authenticator.before_request(session, trace_context=trace_context)
             else:
-                logger.debug(f'AUTH: no authenticators configured')
+                logger.debug('AUTH: no authenticators configured')
         else:
-            logger.debug(f'AUTH: the authentication has been disabled')
+            logger.debug('AUTH: the authentication has been disabled')
             self.events.dispatch('authentication-ignored', dict(method=method, url=url))
 
         http_method = method.lower()
@@ -331,18 +331,18 @@ class HttpSession(AbstractContextManager):
                     parsed_response = None
 
                 if isinstance(parsed_response, dict) and parsed_response.get('error') == 'invalid_token':
-                    trace_logger.error(f'The server responded with an invalid token error.')
+                    trace_logger.error('The server responded with an invalid token error.')
                     token = last_known_session_info.access_token
                     if token:
                         trace_logger.error(f'The token claims are {jwt.decode(token, options={"verify_signature": False})}.')
                     else:
-                        trace_logger.error(f'The token is not available for this request.')
+                        trace_logger.error('The token is not available for this request.')
                 else:
                     pass  # No need for additional error handling.
             else:
                 pass  # As there is no session info, there is no additional info to extract.
         else:
-            trace_logger.error(f'The authenticator is not available or supported for extracting additional info.')
+            trace_logger.error('The authenticator is not available or supported for extracting additional info.')
 
         raise (ClientError if response.status_code < 500 else ServerError)(response, trace_context=trace_context)
 

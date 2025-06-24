@@ -2,11 +2,18 @@ from typing import Dict, Any, List
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
 from dnastack.http.client_factory import HttpClientFactory
 
 
 class ClientCredentialAdapter(OAuth2Adapter):
     __grant_type = 'client_credentials'
+
+    @classmethod
+    def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
+        if auth_info.grant_type != cls.__grant_type:
+            return False
+        return super().is_compatible_with(auth_info)
 
     @staticmethod
     def get_expected_auth_info_fields() -> List[str]:
@@ -54,11 +61,11 @@ class ClientCredentialAdapter(OAuth2Adapter):
             sub_logger.debug(f'exchange_tokens: {auth_info.token_endpoint}: HTTP {response.status_code}:\n{response.text}')
 
             if not response.ok:
-                sub_logger.debug(f'exchange_token: Token exchange fails.')
+                sub_logger.debug('exchange_token: Token exchange fails.')
                 raise AuthException(f'Failed to perform client-credential authentication for '
                                     f'{auth_info.client_id} as the server responds with HTTP {response.status_code}:'
                                     f'\n\n{response.text}\n',
                                     resource_urls)
 
-            sub_logger.debug(f'exchange_token: Token exchange OK')
+            sub_logger.debug('exchange_token: Token exchange OK')
             return response.json()

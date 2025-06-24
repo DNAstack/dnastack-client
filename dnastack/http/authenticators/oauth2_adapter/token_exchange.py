@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Optional
 
+from imagination import container
+
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
@@ -38,9 +40,12 @@ class TokenExchangeAdapter(OAuth2Adapter):
         Get ID token from cloud metadata service or use provided token.
         For re-authentication, always tries cloud metadata fetch.
         """
-        logger = trace_context.create_span_logger(self._logger)
         if self._auth_info.subject_token:
             return self._auth_info.subject_token
+        
+        context_subject_token = self._get_and_clear_context_subject_token()
+        if context_subject_token:
+            return context_subject_token
 
         audience = self._auth_info.audience or self._auth_info.resource_url
         token = self._fetch_cloud_identity_token(audience, trace_context)
@@ -76,6 +81,18 @@ class TokenExchangeAdapter(OAuth2Adapter):
         else:
             logger.error('No cloud provider detected')
         
+        return None
+
+    def _get_and_clear_context_subject_token(self) -> Optional[str]:
+        """Get subject token from current context if available and clear it after use"""
+        from dnastack.context.manager import ContextManager
+        context_manager = container.get(ContextManager)
+        current_context = context_manager.contexts.current_context
+        if current_context and current_context.platform_subject_token:
+            token = current_context.platform_subject_token
+            current_context.platform_subject_token = None
+            context_manager.contexts.set(context_manager.contexts.current_context_name, current_context)
+            return token
         return None
 
     def exchange_tokens(self, trace_context: Span) -> Dict[str, Any]:

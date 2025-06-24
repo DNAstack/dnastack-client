@@ -1,5 +1,4 @@
-from typing import Optional, Any
-import click
+from typing import Any
 
 from .themes import theme_manager
 
