@@ -5,6 +5,7 @@ from imagination.decorator import service
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter
 from dnastack.http.authenticators.oauth2_adapter.client_credential import ClientCredentialAdapter
 from dnastack.http.authenticators.oauth2_adapter.device_code_flow import DeviceCodeFlowAdapter
+from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
 
 
@@ -14,6 +15,7 @@ class OAuth2AdapterFactory:
     __supported_auth_adapter_classes = [
         DeviceCodeFlowAdapter,
         ClientCredentialAdapter,
+        TokenExchangeAdapter,
     ]
 
     def get_from(self, auth_info: OAuth2Authentication) -> Optional[OAuth2Adapter]:

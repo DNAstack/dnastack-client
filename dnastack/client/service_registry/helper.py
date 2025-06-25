@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.service_registry.models import Service
+from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
 
 
 def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[str] = None) -> ServiceEndpoint:
@@ -36,4 +37,5 @@ def _parse_authentication_info(auth_info: Dict[str, Any]) -> Dict[str, Any]:
         resource_url=auth_info.get('resource'),
         scope=auth_info.get('scope'),
         token_endpoint=auth_info.get('accessTokenUrl'),
+        platform_credentials=auth_info.get('grantType') == GRANT_TYPE_TOKEN_EXCHANGE,
     )

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -16,3 +16,6 @@ class Context(BaseModel):
     defaults: Dict[str, str] = Field(default_factory=lambda: dict())
 
     endpoints: List[Endpoint] = Field(default_factory=lambda: list())
+    
+    # Store subject token for token exchange authentication if provided
+    platform_subject_token: Optional[str] = Field(default=None)

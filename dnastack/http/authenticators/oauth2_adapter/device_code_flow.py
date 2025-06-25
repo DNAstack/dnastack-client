@@ -18,6 +18,12 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         super(DeviceCodeFlowAdapter, self).__init__(auth_info)
         self.__console: Console = container.get(Console)
 
+    @classmethod
+    def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
+        if auth_info.grant_type != cls.__grant_type:
+            return False
+        return super().is_compatible_with(auth_info)
+
     @staticmethod
     def get_expected_auth_info_fields() -> List[str]:
         return [

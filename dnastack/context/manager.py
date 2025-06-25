@@ -17,6 +17,7 @@ from dnastack.common.events import EventSource, Event
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.context.models import Context
+from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.http.client_factory import HttpClientFactory
 
 
@@ -252,7 +253,9 @@ class BaseContextManager:
     def use(self,
             registry_hostname_or_url: str,
             context_name: Optional[str] = None,
-            no_auth: Optional[bool] = False) -> EndpointRepository:
+            no_auth: Optional[bool] = False,
+            platform_credentials: Optional[bool] = False,
+            subject_token: Optional[str] = None) -> EndpointRepository:
         target_hostname = self._get_hostname(registry_hostname_or_url)
         context_name = context_name or target_hostname
 
@@ -311,6 +314,11 @@ class BaseContextManager:
         for reg_endpoint in active_registries:
             self._logger.debug(f'Syncing: {reg_endpoint.url}')
             reg_manager.synchronize_endpoints(reg_endpoint.id)
+
+        if platform_credentials:
+            self._filter_endpoints_for_token_exchange(context)
+            if subject_token:
+                context.platform_subject_token = subject_token
 
         # Set the current context.
         self._contexts.set_current_context_name(context_name)
@@ -403,6 +411,41 @@ class BaseContextManager:
             else:
                 return None
         # end: if
+
+    def _filter_endpoints_for_token_exchange(self, context: Context):
+        """Filter endpoint authentication methods to only include token-exchange grant types
+            Raises error if no endpoints support token exchange authentication"""
+        has_any_token_exchange = False
+        
+        for endpoint in context.endpoints:
+            if endpoint.type == STANDARD_SERVICE_REGISTRY_TYPE_V1_0:
+                continue
+            
+            all_auths = []
+            if endpoint.authentication:
+                all_auths.append(endpoint.authentication)
+            if endpoint.fallback_authentications:
+                all_auths.extend(endpoint.fallback_authentications)
+            
+            token_exchange_auths = [
+                auth for auth in all_auths
+                if auth.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE
+            ]
+            
+            if token_exchange_auths:
+                endpoint.authentication = token_exchange_auths[0]
+                endpoint.fallback_authentications = token_exchange_auths[1:] or None
+                has_any_token_exchange = True
+            else:
+                endpoint.authentication = None
+                endpoint.fallback_authentications = None
+        
+        if not has_any_token_exchange:
+            raise InvalidServiceRegistryError(
+                "Platform credentials (--platform-credentials) requested, but no endpoints "
+                "support token exchange authentication. Either remove --platform-credentials "
+                "or ensure the service registry includes token exchange authentication methods."
+            )
 
 
 @service.registered()

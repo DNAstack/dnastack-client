@@ -2,11 +2,18 @@ from typing import Dict, Any, List
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
 from dnastack.http.client_factory import HttpClientFactory
 
 
 class ClientCredentialAdapter(OAuth2Adapter):
     __grant_type = 'client_credentials'
+
+    @classmethod
+    def is_compatible_with(cls, auth_info: OAuth2Authentication) -> bool:
+        if auth_info.grant_type != cls.__grant_type:
+            return False
+        return super().is_compatible_with(auth_info)
 
     @staticmethod
     def get_expected_auth_info_fields() -> List[str]:

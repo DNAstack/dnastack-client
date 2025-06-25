@@ -50,8 +50,7 @@ def init_auth_commands(group: Group):
         handler.initiate_authentications(endpoint_ids=[endpoint_id] if endpoint_id else [],
                                          force_refresh=force_refresh,
                                          revoke_existing=revoke_existing)
-    
-    
+
     @formatted_command(
         group=group,
         name='status',
@@ -94,6 +93,8 @@ def init_auth_commands(group: Group):
         handler.revoke([endpoint_id] if endpoint_id else [], force)
     
     
+
+    
 class AuthCommandHandler:
     def __init__(self, context_name: Optional[str] = None):
         self._logger = get_logger(type(self).__name__)
@@ -126,7 +127,7 @@ class AuthCommandHandler:
         echo_header('Summary')
 
         if affected_endpoint_ids:
-            echo_list('The client is no longer authenticated to the follow endpoints:',
+            echo_list('The client is no longer authenticated to the following endpoints:',
                       affected_endpoint_ids)
         else:
             click.echo('No changes')
@@ -158,3 +159,4 @@ class AuthCommandHandler:
         auth_manager.events.on('refresh-skipped', handle_refresh_skipped)
 
         auth_manager.initiate_authentications(endpoint_ids, force_refresh, revoke_existing)
+

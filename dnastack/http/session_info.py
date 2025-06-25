@@ -97,6 +97,7 @@ class BaseSessionStorage(ABC):
     def __delitem__(self, id: str):
         raise NotImplementedError()
 
+
     def __str__(self):
         return f'{type(self).__module__}.{type(self).__name__}'
 
@@ -123,6 +124,7 @@ class InMemorySessionStorage(BaseSessionStorage):
 
     def __delitem__(self, id: str):
         del self.__cache_map[id]
+
 
 
 @service.registered(
@@ -173,6 +175,7 @@ class FileSessionStorage(BaseSessionStorage):
     def __delitem__(self, id: str):
         final_file_path = self.__get_file_path(id)
         os.unlink(final_file_path)
+
 
     def __get_file_path(self, id: str) -> str:
         path_blocks = []
@@ -261,6 +264,7 @@ class SessionManager:
                 self.__logger.debug(f'Session ID {id}: Removed')
             finally:
                 del self.__change_locks[id]
+
 
     def __lock(self, id) -> Lock:
         if id not in self.__change_locks:
