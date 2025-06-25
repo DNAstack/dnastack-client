@@ -21,7 +21,7 @@ from tests.exam_helper_for_workbench import BaseWorkbenchTestCase
 
 
 class CliTestCase(BaseTestCase):
-    _runner = CliRunner()
+    _runner = CliRunner(mix_stderr=False)
 
     @classmethod
     def get_context_manager(cls) -> BaseContextManager:
