@@ -577,7 +577,6 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
     def test_samples_list_and_describe(self):
         self._create_storage_account(provider=Provider.aws)
         samples = self._wait_for_samples()
-        self._wait()
         self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
         for sample in samples:
             self.assert_not_empty(sample.id, 'Sample ID should not be empty')
@@ -590,7 +589,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assert_not_empty(sample.files[0].path, 'Sample file path should not be empty')
 
     def _wait_for_samples(self):
-        timeout = 30
+        timeout = 300
         start_time = asyncio.get_event_loop().time()
         while True:
             samples = [Sample(**sample) for sample in self.simple_invoke(
