@@ -1,4 +1,3 @@
-import json
 
 from dnastack.common.environments import env, flag
 from tests.cli.auth_utils import handle_device_code_flow
