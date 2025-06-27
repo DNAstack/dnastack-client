@@ -184,11 +184,11 @@ class TestTokenExchangeAdapter(TestCase):
             self.assertEqual(result['access_token'], 'gcp_derived_access_token')
             self.assertEqual(result['expires_in'], 7200)
             
-            # Verify GCP metadata was called
+            # Verify GCP metadata was called with client_id as audience (since no explicit audience set)
             get_call = mock_session.get.call_args
             assert mock_session.get.call_count >= 1
             self.assertIn('metadata.google.internal', get_call[0][0])
-            self.assertIn(f'audience={self.base_auth_info["resource_url"]}', get_call[0][0])
+            self.assertIn('audience=dnastack-client', get_call[0][0])
             self.assertEqual(get_call[1]['headers']['Metadata-Flavor'], 'Google')
             self.assertEqual(get_call[1]['timeout'], 10)
             # Verify token exchange was called with fetched token
@@ -322,9 +322,9 @@ class TestTokenExchangeAdapter(TestCase):
             # Verify the result
             self.assertEqual(result['access_token'], 'auto_detected_access_token')
             
-            # Verify cloud provider was used
+            # Verify cloud provider was used with client_id as audience
             mock_gcp_provider.get_identity_token.assert_called_once_with(
-                self.base_auth_info['resource_url'], 
+                'dnastack-client', 
                 trace_context
             )
     
@@ -600,4 +600,93 @@ class TestTokenExchangeAdapter(TestCase):
             # Verify the exchange request used the context token
             post_call = mock_session.post.call_args
             self.assertEqual(post_call[1]['data']['subject_token'], self.sample_gcp_id_token)
+
+    def test_audience_priority_order(self):
+        """Regression test: Ensure audience priority order is: audience > client_id > resource_url"""
+        # Test 1: Explicit audience takes highest priority
+        auth_info_dict = self.base_auth_info.copy()
+        auth_info_dict['audience'] = 'https://passport.alpha.rc.dnastack.com'
+        auth_info_dict['client_id'] = 'explorer.alpha.rc.dnastack.com-public-client'
+        auth_info_dict['resource_url'] = 'https://explorer.alpha.rc.dnastack.com/'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+
+        # Mock GCP metadata response
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = True
+        mock_metadata_response.text = self.sample_gcp_id_token
+        # Mock token exchange response
+        mock_token_response = Mock()
+        mock_token_response.ok = True
+        mock_token_response.json.return_value = {
+            'access_token': 'gcp_derived_access_token',
+            'token_type': 'Bearer',
+            'expires_in': 7200
+        }
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_session.post.return_value = mock_token_response
+            mock_factory.return_value = mock_session
+            
+            result = adapter.exchange_tokens(trace_context)
+
+            self.assertEqual(result['access_token'], 'gcp_derived_access_token')
+            get_call = mock_session.get.call_args
+            assert mock_session.get.call_count >= 1
+            self.assertIn('metadata.google.internal', get_call[0][0])
+            self.assertIn('audience=https://passport.alpha.rc.dnastack.com', get_call[0][0])
+            # Ensure client_id and resource_url were NOT used as audience
+            self.assertNotIn('audience=explorer.alpha.rc.dnastack.com-public-client', get_call[0][0])
+            self.assertNotIn('audience=https://explorer.alpha.rc.dnastack.com/', get_call[0][0])
+            
+    def test_audience_fallback_to_client_id(self):
+        """Test that client_id is used when audience is not set"""
+        auth_info_dict = self.base_auth_info.copy()
+        # No explicit audience set
+        auth_info_dict['client_id'] = 'dnastack-client'
+        auth_info_dict['resource_url'] = 'https://explorer.alpha.rc.dnastack.com/'
+        auth_info_dict['client_secret'] = generate_dummy_secret()
+        auth_info = OAuth2Authentication(**auth_info_dict)
+        
+        adapter = TokenExchangeAdapter(auth_info)
+        trace_context = Span(origin='test')
+        
+        # Mock GCP metadata response
+        mock_metadata_response = Mock()
+        mock_metadata_response.ok = True
+        mock_metadata_response.text = self.sample_gcp_id_token
+        
+        # Mock token exchange response
+        mock_token_response = Mock()
+        mock_token_response.ok = True
+        mock_token_response.json.return_value = {
+            'access_token': 'gcp_derived_access_token',
+            'token_type': 'Bearer',
+            'expires_in': 7200
+        }
+        
+        with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_session.__exit__.return_value = None
+            mock_session.get.return_value = mock_metadata_response
+            mock_session.post.return_value = mock_token_response
+            mock_factory.return_value = mock_session
+            
+            result = adapter.exchange_tokens(trace_context)
+            
+            self.assertEqual(result['access_token'], 'gcp_derived_access_token')
+            # Verify GCP metadata was called with client_id as audience (not resource_url)
+            get_call = mock_session.get.call_args
+            assert mock_session.get.call_count >= 1
+            self.assertIn('metadata.google.internal', get_call[0][0])
+            self.assertIn('audience=dnastack-client', get_call[0][0])
+            # Ensure resource_url was NOT used as audience
+            self.assertNotIn('audience=https://explorer.alpha.rc.dnastack.com/', get_call[0][0])
     
