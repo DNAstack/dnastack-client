@@ -336,7 +336,7 @@ class BaseContextManager:
             for event_type in self.__propagated_auth_event_types:
                 self.events.relay_from(auth_manager.events, event_type)
 
-            auth_manager.initiate_authentications()
+            auth_manager.initiate_authentications(allow_token_exchange=platform_credentials)
             del auth_manager
 
         # Then, return the repository.

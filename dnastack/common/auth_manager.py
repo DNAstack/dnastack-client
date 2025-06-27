@@ -10,6 +10,7 @@ from dnastack.common.tracing import Span
 from dnastack.context.models import Context
 from dnastack.http.authenticators.abstract import Authenticator, AuthStateStatus, AuthState
 from dnastack.http.authenticators.factory import HttpAuthenticatorFactory
+from dnastack.http.authenticators.oauth2_adapter.models import GRANT_TYPE_TOKEN_EXCHANGE
 
 
 class ExtendedAuthState(AuthState):
@@ -127,7 +128,8 @@ class AuthManager:
     def initiate_authentications(self,
                                  endpoint_ids: List[str] = None,
                                  force_refresh: bool = False,
-                                 revoke_existing: bool = False):
+                                 revoke_existing: bool = False,
+                                 allow_token_exchange: bool = False):
         trace = Span(origin=self)
 
         authenticators = self.get_authenticators(endpoint_ids)
@@ -137,6 +139,11 @@ class AuthManager:
 
         for authenticator in authenticators:
             state = authenticator.get_state()
+            if not allow_token_exchange and state.auth_info.get('grant_type') == GRANT_TYPE_TOKEN_EXCHANGE:
+                self._logger.debug(f'Skipping token exchange authenticator {authenticator.session_id} (allow_token_exchange=False)')
+                index += 1
+                continue
+            
             basic_event_info = dict(session_id=authenticator.session_id,
                                     state=state,
                                     index=index,

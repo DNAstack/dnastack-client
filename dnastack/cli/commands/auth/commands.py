@@ -158,5 +158,5 @@ class AuthCommandHandler:
         auth_manager.events.on('no-refresh-token', handle_no_refresh_token)
         auth_manager.events.on('refresh-skipped', handle_refresh_skipped)
 
-        auth_manager.initiate_authentications(endpoint_ids, force_refresh, revoke_existing)
+        auth_manager.initiate_authentications(endpoint_ids, force_refresh, revoke_existing, allow_token_exchange=False)
 
