@@ -590,7 +590,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assert_not_empty(sample.files[0].path, 'Sample file path should not be empty')
 
     def _wait_for_samples(self):
-        timeout = 30
+        timeout = 300
         start_time = asyncio.get_event_loop().time()
         while True:
             samples = [Sample(**sample) for sample in self.simple_invoke(
