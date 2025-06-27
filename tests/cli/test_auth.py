@@ -1,3 +1,5 @@
+import json
+
 from dnastack.common.environments import env, flag
 from tests.cli.auth_utils import handle_device_code_flow
 from tests.cli.base import DeprecatedPublisherCliTestCase
@@ -85,3 +87,31 @@ class TestAuthentication(DeprecatedPublisherCliTestCase):
 
         auth_cmd = ['python', '-m', 'dnastack', 'auth', 'login']
         handle_device_code_flow(auth_cmd, self._states['email'], self._states['token'])
+
+    def test_login_does_not_attempt_token_exchange(self):
+        """
+        Regression test for issue where 'dnastack auth login' was attempting token exchange
+        and failing with "No cloud provider detected" error.
+        This test ensures that login command skips token exchange authentication methods unless explicitly requested.
+        """
+        token_exchange_endpoint_id = 'test-token-exchange'
+        token_exchange_url = env('E2E_TOKEN_EXCHANGE_URL', default='https://api.dnastack.com')
+        self._add_endpoint(token_exchange_endpoint_id, 'data_connect', token_exchange_url)
+        self._configure_endpoint(
+            token_exchange_endpoint_id,
+            {
+                'authentication.client_id': 'token-exchange-client',
+                'authentication.client_secret': 'token-exchange-secret',
+                'authentication.grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange',
+                'authentication.resource_url': token_exchange_url,
+                'authentication.token_endpoint': token_endpoint,
+            }
+        )
+        result = self.invoke('auth', 'status', '--output', 'json')
+        self.assertEqual(0, result.exit_code, 'Auth status should work')
+        
+        result = self.invoke('auth', 'login')
+        self.assertNotIn('AuthException', result.output,
+                         'Token exchange error should not appear during login')
+        self.assertNotIn('TokenExchangeAdapter', result.output,
+                         'Token exchange adapter should not be invoked during login')
