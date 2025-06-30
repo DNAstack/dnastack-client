@@ -47,7 +47,7 @@ class TokenExchangeAdapter(OAuth2Adapter):
         if context_subject_token:
             return context_subject_token
 
-        audience = self._auth_info.audience or self._auth_info.resource_url
+        audience = self._auth_info.audience or self._auth_info.client_id or self._auth_info.resource_url
         token = self._fetch_cloud_identity_token(audience, trace_context)
         if token:
             return token
