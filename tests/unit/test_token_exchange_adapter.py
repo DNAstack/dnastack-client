@@ -138,23 +138,11 @@ class TestTokenExchangeAdapter(TestCase):
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='test')
         
-        # Mock successful token exchange response
-        mock_response = Mock()
-        mock_response.ok = True
-        mock_response.json.return_value = {
-            'access_token': 'exchanged_access_token',
-            'token_type': 'Bearer',
-            'expires_in': 3600,
-            'scope': 'read write'
-        }
+        _, mock_response =  self._create_mock_responses(access_token='exchanged_access_token', expires_in=3600)
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.post.return_value = mock_response
-            mock_factory.return_value = mock_session
-            
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=_, mock_token_response=mock_response)
+
             result = adapter.exchange_tokens(trace_context)
             
             # Verify the result
@@ -190,28 +178,11 @@ class TestTokenExchangeAdapter(TestCase):
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='test')
         
-        # Mock GCP metadata response
-        mock_metadata_response = Mock()
-        mock_metadata_response.ok = True
-        mock_metadata_response.text = self.sample_gcp_id_token
-        
-        # Mock token exchange response
-        mock_token_response = Mock()
-        mock_token_response.ok = True
-        mock_token_response.json.return_value = {
-            'access_token': 'gcp_derived_access_token',
-            'token_type': 'Bearer',
-            'expires_in': 7200
-        }
+        mock_metadata_response, mock_token_response = self._create_mock_responses()
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.get.return_value = mock_metadata_response
-            mock_session.post.return_value = mock_token_response
-            mock_factory.return_value = mock_session
-            
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=mock_token_response)
+
             result = adapter.exchange_tokens(trace_context)
             
             # Verify the result
@@ -240,22 +211,11 @@ class TestTokenExchangeAdapter(TestCase):
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='test')
         
-        mock_metadata_response = Mock()
-        mock_metadata_response.ok = True
-        mock_metadata_response.text = self.sample_gcp_id_token
-        
-        mock_token_response = Mock()
-        mock_token_response.ok = True
-        mock_token_response.json.return_value = {'access_token': 'token', 'token_type': 'Bearer', 'expires_in': 3600}
+        mock_metadata_response, mock_token_response = self._create_mock_responses(access_token='token', expires_in=3600)
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.get.return_value = mock_metadata_response
-            mock_session.post.return_value = mock_token_response
-            mock_factory.return_value = mock_session
-            
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=mock_token_response)
+
             adapter.exchange_tokens(trace_context)
             
             # Verify custom audience was used
@@ -273,24 +233,10 @@ class TestTokenExchangeAdapter(TestCase):
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='test')
         
-        mock_metadata_response = Mock()
-        mock_metadata_response.ok = True
-        mock_metadata_response.text = self.sample_gcp_id_token
-        mock_token_response = Mock()
-        mock_token_response.ok = True
-        mock_token_response.json.return_value = {
-            'access_token': 'gcp_configured_access_token',
-            'token_type': 'Bearer',
-            'expires_in': 3600
-        }
+        mock_metadata_response, mock_token_response = self._create_mock_responses(access_token='gcp_configured_access_token',expires_in=3600)
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.get.return_value = mock_metadata_response
-            mock_session.post.return_value = mock_token_response
-            mock_factory.return_value = mock_session
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=mock_token_response)
             
             result = adapter.exchange_tokens(trace_context)
             
@@ -375,17 +321,11 @@ class TestTokenExchangeAdapter(TestCase):
         adapter = TokenExchangeAdapter(auth_info)
         trace_context = Span(origin='test')
         
-        mock_response = Mock()
-        mock_response.ok = True
-        mock_response.json.return_value = {'access_token': 'scoped_token', 'token_type': 'Bearer', 'expires_in': 3600}
+        _, mock_token_response = self._create_mock_responses(access_token='scoped_token', expires_in=3600)
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.post.return_value = mock_response
-            mock_factory.return_value = mock_session
-            
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=_, mock_token_response=mock_token_response)
+
             adapter.exchange_tokens(trace_context)
             
             # Verify optional parameters were included
@@ -613,22 +553,16 @@ class TestTokenExchangeAdapter(TestCase):
             'token_type': 'Bearer',
             'expires_in': 3600
         }
+        mock_metadata_response,_ = self._create_mock_responses(access_token='context_token_access', expires_in=3600)
         
         with patch('imagination.container.get', return_value=mock_context_manager), \
              patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            
-            mock_session = MagicMock()
-            mock_session.__enter__.return_value = mock_session
-            mock_session.__exit__.return_value = None
-            mock_session.post.return_value = mock_response
-            mock_factory.return_value = mock_session
-            
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=_)
+
             result = adapter.exchange_tokens(trace_context)
             
-            # Verify the result
             self.assertEqual(result['access_token'], 'context_token_access')
             
-            # Verify context token was used and cleared
             self.assertIsNone(mock_context.platform_subject_token)
             
             # Verify the exchange request used the context token
