@@ -38,6 +38,7 @@ run-notebooks-dev:
 setup: check-uv
 	uv venv
 	uv sync --group dev
+	uv run pre-commit install
 	@echo "Development environment setup complete. Activate with: source .venv/bin/activate"
 
 .PHONY: reset
