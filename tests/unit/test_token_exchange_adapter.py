@@ -2,6 +2,7 @@ import json
 import base64
 import secrets
 import string
+from typing import Tuple
 from unittest import TestCase
 from unittest.mock import Mock, patch, MagicMock
 from time import time
@@ -16,7 +17,7 @@ from dnastack.common.tracing import Span
 
 
 
-def generate_dummy_secret(length=32):
+def generate_dummy_secret():
     """Generate a dummy secret that won't be flagged as a real secret."""
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(24))
@@ -59,7 +60,7 @@ class TestTokenExchangeAdapter(TestCase):
             'type': 'oauth2'
         }
 
-    def _create_mock_responses(self, access_token='gcp_derived_access_token', expires_in=7200):
+    def _create_mock_responses(self,access_token:str='gcp_derived_access_token' , expires_in:int=7200) -> Tuple [Mock, Mock]:
         """Create standard mock GCP metadata and token exchange responses."""
         mock_metadata_response = Mock()
         mock_metadata_response.ok = True
@@ -75,7 +76,7 @@ class TestTokenExchangeAdapter(TestCase):
         
         return mock_metadata_response, mock_token_response
 
-    def _setup_mock_http_session(self, mock_factory, mock_metadata_response, mock_token_response):
+    def _setup_mock_http_session(self, mock_factory:Mock, mock_metadata_response:Mock, mock_token_response:Mock) -> Mock:
         """Set up mock HTTP session with standard responses."""
         mock_session = MagicMock()
         mock_session.__enter__.return_value = mock_session
@@ -85,7 +86,7 @@ class TestTokenExchangeAdapter(TestCase):
         mock_factory.return_value = mock_session
         return mock_session
 
-    def _verify_gcp_metadata_call(self, mock_session, expected_audience):
+    def _verify_gcp_metadata_call(self, mock_session:Mock, expected_audience:str):
         """Verify that GCP metadata was called with the expected audience."""
         identity_calls = [call for call in mock_session.get.call_args_list 
                         if 'identity' in call[0][0] and 'audience=' in call[0][0]]
@@ -647,7 +648,7 @@ class TestTokenExchangeAdapter(TestCase):
         mock_metadata_response, mock_token_response = self._create_mock_responses()
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = self._setup_mock_http_session(mock_factory, mock_metadata_response, mock_token_response)
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=mock_token_response)
             result = adapter.exchange_tokens(trace_context)
             
             self.assertEqual(result['access_token'], 'gcp_derived_access_token')
@@ -668,7 +669,7 @@ class TestTokenExchangeAdapter(TestCase):
         mock_metadata_response, mock_token_response = self._create_mock_responses()
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
-            mock_session = self._setup_mock_http_session(mock_factory, mock_metadata_response, mock_token_response)
+            mock_session = self._setup_mock_http_session(mock_factory=mock_factory, mock_metadata_response=mock_metadata_response, mock_token_response=mock_token_response)
             
             result = adapter.exchange_tokens(trace_context)
             
