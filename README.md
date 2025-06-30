@@ -68,3 +68,19 @@ This causes Python to add `dnastack/` to `sys.path`. Since there is an `http/` d
 Python's built-in `http` module. As a result, imports like `import http.client` will fail with a `ModuleNotFoundError`.  
 
 To avoid this, use the `python -m dnastack` command or the provided "Omics CLI" run configuration in IntelliJ/PyCharm.
+
+
+**Q: Why do I get a `ModuleNotFoundError: No module named 'http.client'` error when I run a test 
+through IntelliJ/PyCharm?**
+
+**A:**  Same as above  
+
+To avoid this set a default test configuration:
+
+1. Click the Run Configuration dropdown (next to the green play button)
+2. Select Edit Configurations...
+3. Go to "Edit configuration templates..."
+4. Select Pythons tests → pytest
+5. Set the Working directory to the project root: /Users/alaska/git/work/dnastack/dnastack-client
+6. Remove options "Add content roots to PYTHONPATH" and "Add source roots to PYTHONPATH" 
+7. Save the run configuration template
