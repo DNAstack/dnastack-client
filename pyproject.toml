@@ -32,6 +32,15 @@ dependencies = [
     "imagination>=3.3.1",
     "requests-toolbelt>=0.9.1,<1",
     "httpie>=3.2.1",
+    "beautifulsoup4>=4.10.0",
+    "flask~=2.1",
+    "google-cloud-secret-manager",
+    "google-crc32c",
+    "pandas",
+    "python-dotenv",
+    "pip>=21.3.1",
+    "packaging>=21.3",
+    "selenium>=4.1.0",
 ]
 
 [project.urls]
