@@ -19,6 +19,5 @@ RUN uv sync --frozen
 COPY ./dnastack ./dnastack
 #COPY ./samples ./samples
 COPY ./tests ./tests
-COPY ./Makefile ./Makefile
 
 CMD bash -c "./scripts/run-e2e-tests.sh -fv tests/cli/test_* tests/client/test_*"
