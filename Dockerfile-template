@@ -9,8 +9,13 @@ COPY ./scripts ./scripts
 RUN ls -r
 RUN ./scripts/setup-e2e-tests-for-linux.sh
 
-COPY ./requirements.txt .
-RUN pip install -qr requirements.txt
+# Install uv and project dependencies
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Copy project files needed for uv
+COPY ./pyproject.toml ./uv.lock ./
+RUN uv sync --frozen
 
 COPY ./dnastack ./dnastack
 #COPY ./samples ./samples
