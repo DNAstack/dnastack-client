@@ -34,12 +34,37 @@ run-notebooks-dev:
 		-p 8888:8888 \
 		jupyter/scipy-notebook
 
+.PHONY: install-buildx
+install-buildx:
+	@echo "Checking for Docker buildx..."
+	@if ! docker buildx version &> /dev/null; then \
+		echo "Installing Docker buildx for $(shell uname -s)/$(shell uname -m)..."; \
+		mkdir -p ~/.docker/cli-plugins; \
+		if [ "$(shell uname -s)" = "Darwin" ] && [ "$(shell uname -m)" = "arm64" ]; then \
+			curl -LsSf https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.darwin-arm64 -o ~/.docker/cli-plugins/docker-buildx; \
+		elif [ "$(shell uname -s)" = "Darwin" ] && [ "$(shell uname -m)" = "x86_64" ]; then \
+			curl -LsSf https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.darwin-amd64 -o ~/.docker/cli-plugins/docker-buildx; \
+		elif [ "$(shell uname -s)" = "Linux" ] && [ "$(shell uname -m)" = "x86_64" ]; then \
+			curl -LsSf https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx; \
+		elif [ "$(shell uname -s)" = "Linux" ] && [ "$(shell uname -m)" = "aarch64" ]; then \
+			curl -LsSf https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.linux-arm64 -o ~/.docker/cli-plugins/docker-buildx; \
+		else \
+			echo "Unsupported platform: $(shell uname -s)/$(shell uname -m)"; \
+			exit 1; \
+		fi; \
+		chmod +x ~/.docker/cli-plugins/docker-buildx; \
+		echo "Docker buildx installed successfully."; \
+	else \
+		echo "Docker buildx is already installed."; \
+	fi
+	@docker buildx version
+
 .PHONY: setup
 setup: check-uv
 	uv venv
 	uv sync --group dev
 	uv run pre-commit install
-	@echo "Development environment setup complete. Activate with: source .venv/bin/activate"
+	make install-buildx
 
 .PHONY: reset
 reset:
@@ -124,5 +149,10 @@ docker-test-all-pypy:
 
 .PHONY: docker-test-all-solo
 docker-test-all-solo:
+	@if ! docker buildx version &> /dev/null; then \
+		echo "Error: Docker buildx is required for building test images."; \
+		echo "Please run 'make install-buildx' to install it."; \
+		exit 1; \
+	fi
 	./scripts/build-e2e-test-image.sh $(TESTING_PYTHON)
 	./scripts/run-e2e-tests-locally-in-docker.sh $(TESTING_PYTHON)
