@@ -35,14 +35,14 @@ run-notebooks-dev:
 		jupyter/scipy-notebook
 
 .PHONY: setup
-setup:
+setup: check-uv
 	uv venv
 	uv sync --group dev
 	uv run pre-commit install
 	@echo "Development environment setup complete. Activate with: source .venv/bin/activate"
 
 .PHONY: setup-docker
-setup-docker: check-uv
+setup-docker:
 	uv venv
 	uv sync --group dev
 	@echo "Docker environment setup complete."
