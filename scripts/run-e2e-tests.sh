@@ -5,7 +5,12 @@ echo "Please ensure that this script is run from the root directory of the proje
 
 # Install dependencies
 echo "Installing test dependencies..."
-python3 -m pip install --disable-pip-version-check -q selenium
+# Check if uv is available, if not fall back to pip
+if command -v uv &> /dev/null; then
+    uv pip install --system -q selenium
+else
+    python3 -m pip install --disable-pip-version-check -q selenium
+fi
 
 # Import the environment variables
 if [[ -z "${E2E_ENV_FILE}" ]]; then

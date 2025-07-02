@@ -20,10 +20,17 @@ apt-get install -qqy \
 # NOTE: We install chromium to get its dependencies but we will use Chrome for Testing.
 apt-get remove -y chromium
 
-pip3 install -q google-cloud-secret-manager \
-                google-crc32c \
-                pandas \
-                python-dotenv
+# Install uv if not already installed
+if ! command -v uv &> /dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# Install Python packages using uv
+uv pip install --system google-cloud-secret-manager \
+               google-crc32c \
+               pandas \
+               python-dotenv
 
 mkdir -p /root/.config/chromium/Crash\ Reports/pending/
 
