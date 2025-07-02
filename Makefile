@@ -35,7 +35,7 @@ run-notebooks-dev:
 		jupyter/scipy-notebook
 
 .PHONY: setup
-setup: check-uv
+setup:
 	uv venv
 	uv sync --group dev
 	uv run pre-commit install
