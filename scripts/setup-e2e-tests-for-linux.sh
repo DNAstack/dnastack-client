@@ -6,7 +6,8 @@ uname -a
 # This is designed to be invoked on Debian GNU/Linux.
 
 apt-get update
-apt-get install -qqy \
+# Install dependencies, excluding problematic Python packages
+DEBIAN_FRONTEND=noninteractive apt-get install -qqy \
   curl \
   unzip \
   libglib2.0-bin \
@@ -14,16 +15,22 @@ apt-get install -qqy \
   libxcb1 \
   gcc \
   libffi-dev \
-  npm \
-  chromium
+  npm
+
+# Install chromium but mark the problematic Python packages as hold to prevent their installation
+apt-mark hold python3-dbus python3-cupshelpers system-config-printer-common system-config-printer-udev system-config-printer || true
+DEBIAN_FRONTEND=noninteractive apt-get install -qqy chromium || true
 
 # NOTE: We install chromium to get its dependencies but we will use Chrome for Testing.
-apt-get remove -y chromium
+apt-get remove -y chromium || true
+
+# Unhold the packages
+apt-mark unhold python3-dbus python3-cupshelpers system-config-printer-common system-config-printer-udev system-config-printer || true
 
 # Install uv if not already installed
 if ! command -v uv &> /dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 # Install Python packages using uv
