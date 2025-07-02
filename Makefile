@@ -41,6 +41,12 @@ setup: check-uv
 	uv run pre-commit install
 	@echo "Development environment setup complete. Activate with: source .venv/bin/activate"
 
+.PHONY: setup-docker
+setup-docker: check-uv
+	uv venv
+	uv sync --group dev
+	@echo "Docker environment setup complete."
+
 .PHONY: reset
 reset:
 	rm -rf ~/.dnastack/config.yaml
