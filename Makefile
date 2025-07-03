@@ -121,7 +121,7 @@ publish: check-uv
 	@echo "  uv publish --index-url https://test.pypi.org/legacy/"
 
 .PHONY: docker-test-all
-docker-test-all: docker-test-all-python-oldest-stable docker-test-all-python-latest-stable docker-test-all-python-rc
+docker-test-all: docker-test-all-baseline docker-test-all-stable docker-test-all-latest docker-test-all-anaconda docker-test-all-pypy
 
 # Testing the oldest stable version.
 .PHONY: docker-test-all-baseline
