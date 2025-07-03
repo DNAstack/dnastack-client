@@ -71,11 +71,31 @@ This command automatically:
 - Runs the test suite through `./scripts/run-e2e-tests.sh`
 - Handles all environment setup automatically
 
-### 2. Use `uv run` directly
+### 2. Use `./scripts/run-e2e-tests.sh` directly (Recommended for single tests)
 
-1. Set environment variables from `.env`:
+The script is used by the CI/CD pipeline and provides the most reliable test execution:
+```bash
+E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh
+```
+
+For specific tests:
+```bash
+E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh -v tests.cli.test_workbench.TestWorkbenchCommand.test_samples_list_and_describe
+```
+
+The script automatically handles:
+- Loading environment variables from the specified file
+- Cleaning up stale session data (critical for authentication)
+- Installing required dependencies (selenium)
+- Proper test runner initialization
+
+### 3. Use `uv run` directly (Manual approach)
+
+**Note:** This approach requires manual session cleanup and may encounter authentication issues if session data is stale.
+
+1. Set environment variables and clean sessions:
    ```bash
-   source .env
+   set -a && source .env && set +a && rm -rf ~/.dnastack/sessions/*
    ```
 2. Run tests using uv:
    ```bash
@@ -86,12 +106,7 @@ This command automatically:
      * Example 2: `uv run python -m unittest -v tests/cli/test_dataconnect.py`
    * Use `-f` to end the test on the first failure.
 
-### 3. Use `./scripts/run-e2e-tests.sh` directly
-
-The script is used by the CI/CD pipeline and will work with `.env` right out of the box:
-```bash
-E2E_ENV_FILE=.env ./scripts/run-e2e-tests.sh
-```
+**Why session cleanup is important:** The DNAstack client caches authentication sessions. Stale sessions can cause authentication failures, especially when switching between different test environments or after authentication token expiration.
 
 ### 4. Run with IntelliJ or PyCharm
 
