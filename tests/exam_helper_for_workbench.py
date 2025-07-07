@@ -386,7 +386,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
     def _create_storage_account(self, provider: Provider, id=None) -> StorageAccount:
         if not id:
             id = f'test-storage-account-{random.randint(0, 100000)}'
-
+        print("Using storage account: ", id)
         if provider == provider.aws:
             return StorageAccount(**self.simple_invoke(
                 'workbench', 'storage', 'add', 'aws',
