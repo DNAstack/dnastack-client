@@ -606,7 +606,15 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assert_not_empty(sample_files, f'Expected at least one sample file. Found {sample_files}')
         self.assertTrue(all(sample_file.sample_id == sample.id for sample_file in sample_files))
 
-        ## Add another test case where we pass the platform id
+    def test_samples_files_list_with_platform_type(self):
+        self._create_storage_account(provider=Provider.aws)
+        samples = self._wait_for_samples()
+        self._wait()
+        self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
+        for sample in samples:
+            self.assert_not_empty(sample.id, 'Sample ID should not be empty')
+        sample = samples[0]
+
         sample_files = [SampleFile(**sample_file) for sample_file in self.simple_invoke(
             'workbench', 'samples', 'files', 'list',
             '--sample', sample.id,
