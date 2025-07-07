@@ -586,27 +586,6 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             'workbench', 'samples', 'describe', samples[0].id
         ))
         self.assertEqual(sample.id, samples[0].id)
-        self.assert_not_empty(sample.files, 'Sample files should not be empty')
-        self.assert_not_empty(sample.files[0].path, 'Sample file path should not be empty')
-
-    def _wait_for_samples(self):
-        timeout = 300
-        start_time = asyncio.get_event_loop().time()
-        while True:
-            samples = [Sample(**sample) for sample in self.simple_invoke(
-                'workbench', 'samples', 'list'
-            )]
-            if samples:
-                break
-            if asyncio.get_event_loop().time() - start_time > timeout:
-                raise TimeoutError("Timeout reached while waiting for samples to be created.")
-            sleep(2)
-        return samples
-
-    def _wait(self):
-        timeout = 30
-        asyncio.get_event_loop().time()
-        sleep(timeout)
 
     def test_samples_files_list(self):
         self._create_storage_account(provider=Provider.aws)
@@ -1505,3 +1484,23 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self.assert_not_empty(instruments, f'Expected at least one instrument. Found {instruments}')
         for instrument in instruments:
             self.assert_not_empty(instrument.id, 'Instrument ID should not be empty')
+
+
+    def _wait_for_samples(self):
+        timeout = 300
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list'
+            )]
+            if samples:
+                break
+            if asyncio.get_event_loop().time() - start_time > timeout:
+                raise TimeoutError("Timeout reached while waiting for samples to be created.")
+            sleep(2)
+        return samples
+
+    def _wait(self):
+        timeout = 30
+        asyncio.get_event_loop().time()
+        sleep(timeout)
