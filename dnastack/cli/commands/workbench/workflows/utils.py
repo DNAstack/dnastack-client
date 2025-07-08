@@ -202,6 +202,14 @@ def _get_replace_patch(path: str, value: str) -> Union[JsonPatch, None]:
     return None
 
 
+def _get_labels_patch(labels: str) -> Union[JsonPatch, None]:
+    if labels == "":
+        return JsonPatch(path="/labels", op="remove")
+    elif labels:
+        return JsonPatch(path="/labels", op="replace", value=labels.split(","))
+    return None
+
+
 class JavaScriptFunctionExtractor:
     FUNCTION_PATTERN = re.compile(r'(?:let|const)\s*\w+\s*=\s*(\(.*\)\s*=>\s*\{.*\})', re.DOTALL)
 

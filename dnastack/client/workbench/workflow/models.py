@@ -41,6 +41,7 @@ class Workflow(BaseModel):
     versions: Optional[List[WorkflowVersion]]
     deleted: Optional[bool]
     etag: Optional[str]
+    labels: Optional[List[str]]
 
 
 class WorkflowFileType(str, Enum):
@@ -72,6 +73,7 @@ class WorkflowCreate(BaseModel):
     version_name: Optional[str] = None
     entrypoint: str
     files: List[Path]
+    labels: Optional[List[str]] = None
 
 
 class WorkflowVersionCreate(BaseModel):
