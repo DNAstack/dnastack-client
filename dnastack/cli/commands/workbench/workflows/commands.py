@@ -7,7 +7,7 @@ from click import style, Group
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
 from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, create_sort_arg
 from dnastack.cli.commands.workbench.workflows.utils import get_workflow_client, _get_replace_patch, \
-    _get_description_patch, _get_author_patch
+    _get_description_patch, _get_author_patch, _get_labels_patch
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
@@ -190,6 +190,11 @@ def init_workflows_commands(group: Group):
                 arg_names=['--organization'],
                 help='Set a organization for the workflow',
             ),
+            ArgumentSpec(
+                name='labels',
+                arg_names=['--labels'],
+                help='Set a list of labels for the workflow',
+            ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -203,7 +208,8 @@ def init_workflows_commands(group: Group):
                         description: FileOrValue,
                         organization: Optional[str],
                         entrypoint: str,
-                        workflow_file: List[FileOrValue]):
+                        workflow_file: List[FileOrValue],
+                        labels: Optional[str]):
         """
         Create a new workflow
 
@@ -238,7 +244,8 @@ def init_workflows_commands(group: Group):
             description=description.value() if description else None,
             organization=organization,
             entrypoint=entrypoint,
-            files=workflow_files_list
+            files=workflow_files_list,
+            labels=labels.split(',') if labels else None
         )
 
         result = workflows_client.create_workflow(workflow_create_request=create_request)
@@ -313,7 +320,12 @@ def init_workflows_commands(group: Group):
             ArgumentSpec(
                 name='authors',
                 arg_names=['--authors'],
-                help='List of authors to update. This value can be a comma separated list, a file or JSON literal',
+                help='A list of authors to update. This value can be a comma separated list, a file or JSON literal',
+            ),
+            ArgumentSpec(
+                name='labels',
+                arg_names=['--labels'],
+                help='A list of labels to apply. This value can be a comma separated list, a file or JSON literal',
             ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -325,7 +337,8 @@ def init_workflows_commands(group: Group):
                         workflow_id: str,
                         name: Optional[str],
                         description: FileOrValue,
-                        authors: Optional[str]):
+                        authors: Optional[str],
+                        labels: Optional[str]):
         """
         Update an existing workflow
 
@@ -337,7 +350,8 @@ def init_workflows_commands(group: Group):
         patch_list = [
             _get_replace_patch("/name", name),
             _get_description_patch(description),
-            _get_author_patch(authors)
+            _get_author_patch(authors),
+            _get_labels_patch(labels)
         ]
         patch_list = [patch for patch in patch_list if patch]
 

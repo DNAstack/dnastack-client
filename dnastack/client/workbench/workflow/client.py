@@ -220,6 +220,7 @@ class WorkflowClient(BaseWorkbenchClient):
                 'organization': (None, workflow_create_request.organization),
                 'description': (None, workflow_create_request.description),
                 'entrypoint': (None, workflow_create_request.entrypoint),
+                'labels': (None, ','.join(workflow_create_request.labels)) if workflow_create_request.labels else None
             }
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows'),
