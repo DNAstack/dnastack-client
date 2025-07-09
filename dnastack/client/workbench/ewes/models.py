@@ -86,6 +86,8 @@ class Log(BaseModel):
     exit_code: Optional[int]
     state: Optional[State]
 
+class RunDependency(BaseModel):
+    run_id: str
 
 class ExtendedRunRequest(BaseModel):
     workflow_url: Optional[str]
@@ -99,6 +101,7 @@ class ExtendedRunRequest(BaseModel):
     submitted_by: Optional[str]
     workflow_params: Optional[Dict]
     workflow_engine_parameters: Optional[Dict]
+    dependencies: Optional[Dict[str, RunDependency]]
     tags: Optional[Dict]
 
 
@@ -124,6 +127,8 @@ class RunEvent(BaseModel):
     created_at: datetime
     metadata: RunEventMetadata
 
+class ExtendedRunEvents(BaseModel):
+    events: Optional[List[RunEvent]]
 
 class ExtendedRun(BaseModel):
     run_id: str
@@ -136,10 +141,9 @@ class ExtendedRun(BaseModel):
     task_logs: Optional[List[Log]]
     task_logs_url: Optional[str]
     outputs: Optional[Dict]
-
-
-class ExtendedRunEvents(BaseModel):
+    dependencies: Optional[Dict[str, RunDependency]]
     events: Optional[List[RunEvent]]
+
 
 
 class MinimalExtendedRun(BaseModel):

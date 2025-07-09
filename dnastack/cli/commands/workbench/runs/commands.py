@@ -474,6 +474,13 @@ def init_runs_commands(group: Group):
                 type=bool,
             ),
             ArgumentSpec(
+                name='run_requests',
+                arg_names=['--run-request'],
+                help='Optional way to specify a complete run request for one or more runs. ',
+                type=JsonLike,
+                multiple=True
+            ),
+            ArgumentSpec(
                 name='sample_ids',
                 arg_names=['--samples'],
                 help='An optional flag that accepts a comma separated list of Sample IDs to use in the given workflow.',
@@ -496,6 +503,7 @@ def init_runs_commands(group: Group):
                      workflow_params: JsonLike,
                      input_overrides,
                      dry_run: bool,
+                     run_requests: JsonLike,
                      sample_ids: Optional[str]):
         """
         Submit one or more workflows for execution
@@ -578,6 +586,12 @@ def init_runs_commands(group: Group):
             run_requests=list(),
             samples=parse_samples()
         )
+
+        for run_request in run_requests:
+            parsed_value = run_request.parsed_value() if run_request else None
+            parsed_run_request  = ExtendedRunRequest(**parsed_value)
+            batch_request.run_requests.append(parsed_run_request)
+
 
         for workflow_param in workflow_params:
             run_request = ExtendedRunRequest(
