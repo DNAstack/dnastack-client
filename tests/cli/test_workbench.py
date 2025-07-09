@@ -953,7 +953,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
             self.assertEqual(edited_workflow.name, 'UPDATED')
             self.assertEqual(edited_workflow.description, 'updated')
-            self.assertEqual(edited_workflow.authors, ['foo', 'bar']),
+            self.assertEqual(edited_workflow.authors, ['foo', 'bar'])
             self.assertEqual(edited_workflow.labels, ['alpha', 'beta'])
 
             edited_workflow = Workflow(**self.simple_invoke(
