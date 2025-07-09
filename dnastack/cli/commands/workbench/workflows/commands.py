@@ -193,7 +193,7 @@ def init_workflows_commands(group: Group):
             ArgumentSpec(
                 name='labels',
                 arg_names=['--labels'],
-                help='Set a list of labels for the workflow',
+                help='Comma-separated list of labels for the workflow (e.g., "tag1,tag2,tag3")',
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -238,6 +238,13 @@ def init_workflows_commands(group: Group):
             workflow_files_list = [loader.to_zip()]
             entrypoint = loader.entrypoint
 
+        if labels:
+            label_list = [label.strip() for label in labels.split(',') if label.strip()]
+            if not label_list:
+                label_list = None
+        else:
+            label_list = None
+
         create_request = WorkflowCreate(
             name=name,
             version_name=version_name,
@@ -245,7 +252,7 @@ def init_workflows_commands(group: Group):
             organization=organization,
             entrypoint=entrypoint,
             files=workflow_files_list,
-            labels=labels.split(',') if labels else None
+            labels=label_list
         )
 
         result = workflows_client.create_workflow(workflow_create_request=create_request)
