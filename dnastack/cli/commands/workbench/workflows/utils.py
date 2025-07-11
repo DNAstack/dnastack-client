@@ -202,6 +202,20 @@ def _get_replace_patch(path: str, value: str) -> Union[JsonPatch, None]:
     return None
 
 
+def _get_labels_patch(labels: Optional[str]) -> Union[JsonPatch, None]:
+    if labels is None:
+        return None
+    if labels.strip() == "":
+        return JsonPatch(path="/labels", op="remove")
+
+    # Clean and validate labels
+    cleaned_labels = [label.strip() for label in labels.split(",") if label.strip()]
+    if not cleaned_labels:
+        return JsonPatch(path="/labels", op="remove")
+
+    return JsonPatch(path="/labels", op="replace", value=cleaned_labels)
+
+
 class JavaScriptFunctionExtractor:
     FUNCTION_PATTERN = re.compile(r'(?:let|const)\s*\w+\s*=\s*(\(.*\)\s*=>\s*\{.*\})', re.DOTALL)
 
