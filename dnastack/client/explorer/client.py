@@ -91,11 +91,11 @@ class ExplorerClient(BaseServiceClient):
                         f"Not authorized to access question '{question_id}'"
                     )
                 elif status_code == 404:
-                    raise ClientError(f"Question '{question_id}' not found")
+                    # Re-raise with original response object and custom message
+                    raise ClientError(e.response, e.trace, f"Question '{question_id}' not found")
                 else:
-                    raise ClientError(
-                        f"Failed to retrieve question '{question_id}': {e.response.text}"
-                    )
+                    # Re-raise with original response object and custom message
+                    raise ClientError(e.response, e.trace, f"Failed to retrieve question '{question_id}'")
 
     def ask_federated_question(
         self,
@@ -179,9 +179,8 @@ class FederatedQuestionListResultLoader(ResultLoader):
                         "Not authorized to list federated questions"
                     )
                 else:
-                    raise ClientError(
-                        f"Failed to load federated questions: {e.response.text}"
-                    )
+                    # Re-raise with original response object and custom message
+                    raise ClientError(e.response, e.trace, "Failed to load federated questions")
 
 
 class FederatedQuestionQueryResultLoader(ResultLoader):
@@ -247,10 +246,8 @@ class FederatedQuestionQueryResultLoader(ResultLoader):
                         "Not authorized to ask federated questions"
                     )
                 elif status_code == 400:
-                    raise ClientError(
-                        f"Invalid question parameters: {e.response.text}"
-                    )
+                    # Re-raise with original response object and custom message
+                    raise ClientError(e.response, e.trace, "Invalid question parameters")
                 else:
-                    raise ClientError(
-                        f"Failed to execute federated question: {e.response.text}"
-                    )
+                    # Re-raise with original response object and custom message
+                    raise ClientError(e.response, e.trace, "Failed to execute federated question")
