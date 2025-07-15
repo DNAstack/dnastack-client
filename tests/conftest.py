@@ -121,11 +121,14 @@ def pytest_collection_modifyitems(config, items):
     """Modify test collection to add markers based on location."""
     for item in items:
         # Auto-mark tests based on their location
-        if "tests/unit" in str(item.fspath):
+        if "tests/e2e_tests" in str(item.fspath):
+            item.add_marker(pytest.mark.e2e)
+            if "tests/e2e_tests/cli" in str(item.fspath):
+                item.add_marker(pytest.mark.cli)
+            elif "tests/e2e_tests/client" in str(item.fspath):
+                item.add_marker(pytest.mark.client)
+            elif "tests/e2e_tests/alpha" in str(item.fspath):
+                item.add_marker(pytest.mark.alpha)
+        else:
+            # All other tests in tests/ directory are unit tests
             item.add_marker(pytest.mark.unit)
-        elif "tests/cli" in str(item.fspath):
-            item.add_marker(pytest.mark.e2e)
-            item.add_marker(pytest.mark.cli)
-        elif "tests/client" in str(item.fspath):
-            item.add_marker(pytest.mark.e2e)
-            item.add_marker(pytest.mark.client)
