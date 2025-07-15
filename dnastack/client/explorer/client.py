@@ -91,10 +91,8 @@ class ExplorerClient(BaseServiceClient):
                         f"Not authorized to access question '{question_id}'"
                     )
                 elif status_code == 404:
-                    # Re-raise with original response object and custom message
                     raise ClientError(e.response, e.trace, f"Question '{question_id}' not found")
                 else:
-                    # Re-raise with original response object and custom message
                     raise ClientError(e.response, e.trace, f"Failed to retrieve question '{question_id}'")
 
     def ask_federated_question(
@@ -179,7 +177,7 @@ class FederatedQuestionListResultLoader(ResultLoader):
                         "Not authorized to list federated questions"
                     )
                 else:
-                    # Re-raise with original response object and custom message
+                    
                     raise ClientError(e.response, e.trace, "Failed to load federated questions")
 
 
@@ -246,8 +244,8 @@ class FederatedQuestionQueryResultLoader(ResultLoader):
                         "Not authorized to ask federated questions"
                     )
                 elif status_code == 400:
-                    # Re-raise with original response object and custom message
+                    
                     raise ClientError(e.response, e.trace, "Invalid question parameters")
                 else:
-                    # Re-raise with original response object and custom message
+                    
                     raise ClientError(e.response, e.trace, "Failed to execute federated question")
