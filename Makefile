@@ -77,15 +77,15 @@ test-setup: check-uv
 
 .PHONY: test-unit
 test-unit:
-	uv run pytest tests/unit -v
+	uv run pytest tests -m unit -v
 
 .PHONY: test-unit-cov
 test-unit-cov:
-	uv run pytest tests/unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
+	uv run pytest tests -m unit -v --cov=dnastack --cov-report=html --cov-report=term-missing
 
 .PHONY: test-unit-watch
 test-unit-watch:
-	uv run pytest-watch tests/unit -v
+	uv run pytest-watch tests -m unit -v
 
 .PHONY: lint
 lint:

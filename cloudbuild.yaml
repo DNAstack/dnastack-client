@@ -94,7 +94,7 @@ steps:
       # language=bash
       - |
         export E2E_ENV_FILE=/root/.env
-        ./scripts/run-e2e-tests-in-container.sh -fv tests/cli/test_*
+        ./scripts/run-e2e-tests-in-container.sh -fv tests/e2e_tests/cli/test_*
     volumes:
       - name: 'homedir'
         path: /root

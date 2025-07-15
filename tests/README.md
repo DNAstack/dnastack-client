@@ -4,21 +4,20 @@
 
 The test suite is organized into two main categories:
 
-### Unit Tests (`tests/unit/`)
+### Unit Tests (Top Level)
 - **Purpose**: Fast, isolated tests that don't require external dependencies
-- **Location**: `tests/unit/`
-- **Run with**: `make test-unit` or `uv run pytest tests/unit`
+- **Location**: Top level directories (`tests/cli/`, `tests/client/`, `tests/common/`, `tests/http/`, etc.)
+- **Run with**: `make test-unit` or `uv run pytest tests/`
 - **Coverage**: `make test-unit-cov`
 
-### E2E Tests (Original Locations)
+### E2E Tests (`tests/e2e_tests/`)
 - **Purpose**: End-to-end tests requiring external services and authentication
-- **Locations**: 
-  - `tests/cli/` - CLI command tests
-  - `tests/client/` - Client library integration tests
-  - `tests/alpha/` - Alpha feature tests
-- **Run with**: `make test-e2e` or existing cloud build scripts
-
-**Note**: E2E tests remain in their original locations to maintain compatibility with Google Cloud Build.
+- **Location**: `tests/e2e_tests/`
+- **Structure**:
+  - `tests/e2e_tests/cli/` - CLI command tests
+  - `tests/e2e_tests/client/` - Client library integration tests  
+  - `tests/e2e_tests/alpha/` - Alpha feature tests
+- **Run with**: `make test-e2e` or `./scripts/run-e2e-tests.sh`
 
 ## Setting Up Test Environment
 
@@ -45,7 +44,7 @@ make test-unit-cov
 make test-unit-watch
 
 # Run specific test file
-uv run pytest tests/unit/common/test_parser.py -v
+uv run pytest tests/common/test_parser.py -v
 ```
 
 ### E2E Tests
@@ -77,13 +76,16 @@ uv sync --group test
 ## Writing Tests
 
 ### Unit Tests
-- Place in `tests/unit/` following the source code structure
-- Use mocks from `tests/unit/fixtures/mocks.py`
+- Place in top-level directories (`tests/cli/`, `tests/client/`, `tests/common/`, etc.) following the source code structure
+- Use mocks from `tests/fixtures/mocks.py`
 - Should run without external dependencies
 - Should complete in <1 second per test
 
 ### E2E Tests
-- Keep in original locations (`tests/cli/`, `tests/client/`, etc.)
+- Place in `tests/e2e_tests/` with subdirectories:
+  - `tests/e2e_tests/cli/` - CLI command tests
+  - `tests/e2e_tests/client/` - Client library integration tests
+  - `tests/e2e_tests/alpha/` - Alpha feature tests
 - Require `.env` file with authentication credentials
 - May take longer to run
 - Test real service integration

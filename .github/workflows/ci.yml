@@ -47,15 +47,8 @@ jobs:
     
     - name: Run unit tests with coverage
       run: |
-        # Run tests if they exist, otherwise skip
-        if [ -d "tests/unit" ] && [ -n "$(find tests/unit -name 'test_*.py' -type f)" ]; then
-          uv run pytest tests/unit -v --cov=dnastack --cov-report=xml --cov-report=term-missing
-        else
-          echo "No unit tests found in tests/unit/ - skipping"
-          echo "Unit tests will be added as part of the migration process"
-          # Create empty coverage.xml to avoid issues with coverage actions
-          echo '<?xml version="1.0" ?><coverage version="1.0"><packages></packages></coverage>' > coverage.xml
-        fi
+        # Run unit tests using pytest markers
+        uv run pytest tests -m unit -v --cov=dnastack --cov-report=xml --cov-report=term-missing
     
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
