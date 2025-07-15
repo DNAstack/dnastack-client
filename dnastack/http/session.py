@@ -23,8 +23,8 @@ class AuthenticationError(RuntimeError):
 
 
 class HttpError(RuntimeError):
-    def __init__(self, response: Response, trace_context: Optional[Span] = None):
-        super(HttpError, self).__init__(response, trace_context)
+    def __init__(self, response: Response, trace_context: Optional[Span] = None, message: Optional[str] = None):
+        super(HttpError, self).__init__(response, trace_context, message)
 
     @property
     def response(self) -> Response:
@@ -33,18 +33,25 @@ class HttpError(RuntimeError):
     @property
     def trace(self) -> Span:
         return self.args[1]
+    
+    @property
+    def message(self) -> Optional[str]:
+        return self.args[2] if len(self.args) > 2 else None
 
     def __str__(self):
         response: Response = self.response
 
         error_feedback = f'HTTP {response.status_code}'
 
-        # Prepare the error feedback.
         response_text = response.text.strip()
         if len(response_text) == 0:
             error_feedback = f'{error_feedback} (empty response)'
         else:
             error_feedback = f'{error_feedback}: {response_text}'
+
+        custom_message = self.message
+        if custom_message:
+            error_feedback = f'{custom_message} - {error_feedback}'
 
         trace: Span = self.trace
         if trace:
@@ -68,6 +75,7 @@ class JsonPatch(BaseModel):
 
 
 class RetryHistoryEntry(BaseModel):
+    url: str
     authenticator_index: int
     with_reauthentication: bool
     with_next_authenticator: bool
@@ -153,7 +161,7 @@ class HttpSession(AbstractContextManager):
                authenticator_index: int = 0,
                retry_history: Optional[List[RetryHistoryEntry]] = None,
                trace_context: Optional[Span] = None,
-               **kwargs) -> Response:
+               **kwargs) -> Response | None | Any:
         trace_context = trace_context or Span(origin=self)
 
         retry_history = retry_history or list()
@@ -317,7 +325,8 @@ class HttpSession(AbstractContextManager):
     def _raise_http_error(self,
                           response: Response,
                           authenticator: Authenticator,
-                          trace_context: Span):
+                          trace_context: Span,
+                          message: Optional[str] = None):
         trace_logger = trace_context.create_span_logger(self.__logger) if trace_context else self.__logger
 
         if isinstance(authenticator, OAuth2Authenticator):
@@ -344,7 +353,7 @@ class HttpSession(AbstractContextManager):
         else:
             trace_logger.error('The authenticator is not available or supported for extracting additional info.')
 
-        raise (ClientError if response.status_code < 500 else ServerError)(response, trace_context=trace_context)
+        raise (ClientError if response.status_code < 500 else ServerError)(response, trace_context=trace_context, message=message)
 
     def __del__(self):
         self.close()
