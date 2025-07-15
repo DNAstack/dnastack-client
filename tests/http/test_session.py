@@ -6,9 +6,12 @@ from typing import Dict, List, Any, Optional, Union
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock
 
+from dnastack import ServiceEndpoint
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.abstract import Authenticator
-from dnastack.http.session import HttpSession, ClientError
+from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
+from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
+from dnastack.http.session import HttpSession, ClientError, HttpError
 from dnastack.http.session_info import InMemorySessionStorage, SessionManager, SessionInfo
 from requests import Session, Response, Request
 from pydantic import BaseModel, Field
@@ -79,7 +82,7 @@ class MockWebHandler(BaseHTTPRequestHandler):
         response = dict(
             access_token='test_access_token',
             refresh_token='test_refresh_token',
-            token_type='Bearer',
+            token_type='test_token_type',
             expires_in=60,
         )
         self.wfile.write(json.dumps(response).encode('utf-8'))
@@ -203,8 +206,6 @@ class TestHttpSession(TestCase):
         self.server = HTTPServer(('localhost', 8000), MockWebHandler)
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
-        # Give the server a moment to start
-        sleep(0.1)
 
     def tearDown(self):
         # Stop the HTTP server
@@ -213,52 +214,148 @@ class TestHttpSession(TestCase):
         self.server_thread.join()
 
     def test_tracing_submit_function(self):
-        """Test that HTTP session properly handles requests with tracing"""
-        from unittest.mock import Mock
-        
-        # Create a minimal mock authenticator that doesn't require authentication
-        class NoAuthAuthenticator(Authenticator):
-            @property
-            def session_id(self) -> str:
-                return "no-auth-session"
-                
-            def matches(self, url: str) -> bool:
-                return False  # Don't match any URLs, so no authentication is attempted
-                
-            def before_request(self, session, trace_context=None):
-                pass  # Do nothing
-                
-            def after_request(self, session, response, trace_context=None):
-                pass  # Do nothing
-        
-        # Mock the session and response
-        mock_session = Mock()
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.text = '{"message": "Test response"}'
-        mock_response.json.return_value = {'message': 'Test response'}
-        mock_response.ok = True
-        mock_session.get.return_value = mock_response
-        
-        # Create HTTP session with no-auth authenticator
-        authenticator = NoAuthAuthenticator()
-        http_session = HttpSession(authenticators=[authenticator], session=mock_session, suppress_error=False)
-        
-        url = 'http://test.example.com/'
+        """Test that HTTP session properly handles requests with tracing and OAuth2 authentication"""
+        session_storage = InMemorySessionStorage()
+        session_manager = SessionManager(session_storage)
+        adapter_factory = OAuth2AdapterFactory()
+        session = Session()
+
+        auth_info = dict(
+            type='oauth2',
+            client_id='client_id',
+            client_secret='client_secret',
+            grant_type='client_credentials',
+            resource_url='http://localhost:8000',
+            token_endpoint='http://localhost:8000',
+        )
+
+        service_endpoint = ServiceEndpoint(
+            id='test_endpoint',
+            adapter_type='test_adapter',
+            url='http://localhost:8000',
+            authentication=auth_info,
+        )
+
+        url = 'http://localhost:8000/'
+
+        test_authenticator = OAuth2Authenticator(service_endpoint, auth_info, session_manager, adapter_factory)
+
+        http_session = HttpSession(authenticators=[test_authenticator], session=session, suppress_error=False)
         response = http_session.submit("get", url)
-        
-        # Verify the response
         self.assertEqual(response.status_code, 200)
+
         self.assertEqual(response.json()['message'], 'Test response')
+
+        collected_request_data = MockWebHandler.get_collected_data().handled_requests
+
+        # In this test scenario, we expect to have two requests made where one is for authentication and one for
+        # the actual request.
+        self.assertEqual(len(collected_request_data), 2)
+
+        first_request_data = collected_request_data[0]
+
+        self.assertIn("X-B3-TraceId", first_request_data.headers.keys())
+        self.assertIn("X-B3-SpanId", first_request_data.headers.keys())
+        self.assertIsNotNone(first_request_data.path)
+        self.assertIn("User-Agent", first_request_data.headers.keys())
+
+        first_header_traceid = first_request_data.headers["X-B3-TraceId"]
+        first_header_spanid = first_request_data.headers["X-B3-SpanId"]
+
+        for item in collected_request_data[1:]:
+            self.assertEqual(item.headers["X-B3-TraceId"], first_header_traceid)
+            self.assertNotEqual(item.headers["X-B3-SpanId"], first_header_spanid)
+            self.assertIsNotNone(item.path)
+            self.assertIn("User-Agent", item.headers.keys())
+
+
+class TestHttpErrorAndClientError(TestCase):
+    """Test cases for HttpError and ClientError exception classes"""
+
+    def setUp(self):
+        self.mock_response = Mock(spec=Response)
+        self.mock_response.status_code = 404
+        self.mock_response.text = "Not Found"
         
-        # Verify that the session was called
-        self.assertTrue(mock_session.get.called)
+        # Create a mock trace
+        self.mock_trace = Mock(spec=Span)
+        self.mock_trace.trace_id = "test-trace-id"
+        self.mock_trace.span_id = "test-span-id"
+
+    def test_http_error_with_response_only(self):
+        error = HttpError(self.mock_response)
         
-        # Verify tracing headers were added (get the call arguments)
-        call_args = mock_session.get.call_args
-        self.assertIsNotNone(call_args)
+        self.assertEqual(error.response, self.mock_response)
+        self.assertIsNone(error.trace)
+        self.assertIsNone(error.message)
         
-        # Check if headers were passed (they should contain tracing information)
-        call_args[1].get('headers', {})
-        # The exact headers depend on tracing implementation, but we can verify the call was made
-        self.assertTrue(True)  # Test passes if we get this far without errors
+        error_str = str(error)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("Not Found", error_str)
+        self.assertNotIn("test-trace-id", error_str)
+
+    def test_http_error_with_trace(self):
+        error = HttpError(self.mock_response, self.mock_trace)
+        
+        self.assertEqual(error.response, self.mock_response)
+        self.assertEqual(error.trace, self.mock_trace)
+        self.assertIsNone(error.message)
+        
+        error_str = str(error)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("Not Found", error_str)
+        self.assertIn("[test-trace-id,test-span-id]", error_str)
+
+    def test_http_error_with_custom_message(self):
+        custom_message = "Question 'test-question' not found"
+        error = HttpError(self.mock_response, self.mock_trace, custom_message)
+        
+        self.assertEqual(error.response, self.mock_response)
+        self.assertEqual(error.trace, self.mock_trace)
+        self.assertEqual(error.message, custom_message)
+        
+        error_str = str(error)
+        self.assertIn(custom_message, error_str)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("Not Found", error_str)
+        self.assertIn("[test-trace-id,test-span-id]", error_str)
+        self.assertIn("Question 'test-question' not found - HTTP 404", error_str)
+
+    def test_http_error_empty_response_text(self):
+        self.mock_response.text = "   "  # Whitespace only
+        error = HttpError(self.mock_response, self.mock_trace)
+        
+        error_str = str(error)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("(empty response)", error_str)
+
+    def test_client_error_inherits_properly(self):
+        error = ClientError(self.mock_response, self.mock_trace, "Client error message")
+        
+        self.assertIsInstance(error, HttpError)
+        self.assertIsInstance(error, ClientError)
+        
+        self.assertEqual(error.response, self.mock_response)
+        self.assertEqual(error.trace, self.mock_trace)
+        self.assertEqual(error.message, "Client error message")
+        
+        error_str = str(error)
+        self.assertIn("Client error message", error_str)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("Client error message - HTTP 404", error_str)
+
+    def test_backwards_compatibility_without_message(self):
+        error = ClientError(self.mock_response, self.mock_trace)
+        
+        error_str = str(error)
+        self.assertIn("HTTP 404", error_str)
+        self.assertIn("Not Found", error_str)
+        self.assertNotIn(" - HTTP", error_str)  # The dash separator shouldn't be there
+
+    def test_error_args_access(self):
+        error = HttpError(self.mock_response, self.mock_trace, "Custom message")
+        
+        self.assertEqual(len(error.args), 3)
+        self.assertEqual(error.args[0], self.mock_response)
+        self.assertEqual(error.args[1], self.mock_trace)
+        self.assertEqual(error.args[2], "Custom message")
