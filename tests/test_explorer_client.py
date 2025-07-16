@@ -1,18 +1,3 @@
-"""Comprehensive tests for explorer functionality.
-
-This file consolidates all explorer-related tests from multiple files:
-- test_explorer_client_simple.py
-- test_explorer_client_simple_by_chris.py  
-- test_explorer_client_working.py
-- test_explorer_commands_coverage.py
-- test_explorer_final.py
-- test_explorer_focused.py
-- test_explorer_minimal.py
-- test_explorer_simple_coverage.py
-
-Uses pytest with assertpy and MagicMock for modern testing patterns.
-"""
-
 import pytest
 from unittest.mock import MagicMock, patch
 from assertpy import assert_that
