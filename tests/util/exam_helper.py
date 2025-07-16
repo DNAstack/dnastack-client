@@ -35,7 +35,7 @@ from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authenticat
 
 # Only import selenium-dependent modules when actually needed for E2E tests
 try:
-    from tests.cli.auth_utils import confirm_device_code
+    from tests.e2e_tests.cli.auth_utils import confirm_device_code
 except ImportError:
     # For unit tests, we don't need selenium
     confirm_device_code = None
