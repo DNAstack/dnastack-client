@@ -919,7 +919,25 @@ class TestExplorerCommands:
         
         for col_id in invalid_collections:
             assert_that(col_id not in valid_collection_ids).is_true()
+    
+    def test_should_not_call_describe_when_collections_provided_to_ask_federated_question(self, monkeypatch):
+        """Regression test: Verify describe_federated_question not called when collections provided"""
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        mock_endpoint = MagicMock(spec=ServiceEndpoint)
+        mock_endpoint.url = "https://dnastack.com/"
+        client = ExplorerClient(mock_endpoint)
 
+        mock_question = MagicMock()
+        mock_question.collections = [MagicMock(id="c1"), MagicMock(id="c2")]
+        
+        with patch.object(client, 'describe_federated_question', return_value=mock_question) as mock_describe:
+            with patch('dnastack.client.explorer.client.ResultIterator'):
+                # When collections are provided, describe_federated_question should NOT be called
+                client.ask_federated_question("q1", inputs={}, collections=["c1"])
+                mock_describe.assert_not_called()
+                client.ask_federated_question("q1", inputs={}, collections=None)
+                mock_describe.assert_called()
 
 class TestExplorerResultLoaders:
     """Test cases for explorer result loaders"""

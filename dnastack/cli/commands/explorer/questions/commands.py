@@ -152,6 +152,8 @@ def init_questions_commands(group: Group):
             if invalid_ids:
                 click.echo(f"Error: Invalid collection IDs for this question: {', '.join(invalid_ids)}", err=True)
                 raise click.Abort()
+        else:
+            collection_ids = [col.id for col in question.collections]
         
         # Execute the question
         results_iter = client.ask_federated_question(
