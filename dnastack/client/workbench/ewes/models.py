@@ -101,7 +101,7 @@ class ExtendedRunRequest(BaseModel):
     submitted_by: Optional[str]
     workflow_params: Optional[Dict]
     workflow_engine_parameters: Optional[Dict]
-    dependencies: Optional[Dict[str, RunDependency]]
+    dependencies: Optional[List[RunDependency]]
     tags: Optional[Dict]
 
 
@@ -141,7 +141,7 @@ class ExtendedRun(BaseModel):
     task_logs: Optional[List[Log]]
     task_logs_url: Optional[str]
     outputs: Optional[Dict]
-    dependencies: Optional[Dict[str, RunDependency]]
+    dependencies: Optional[List[RunDependency]]
     events: Optional[List[RunEvent]]
 
 
