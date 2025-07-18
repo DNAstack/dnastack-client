@@ -186,3 +186,41 @@ class WorkflowTransformationListResponse(PaginatedResource):
 
     def items(self) -> List[Any]:
         return self.transformations
+
+
+class WorkflowDependencyPrerequisite(BaseModel):
+    workflow_id: Optional[str]
+    workflow_version_id: Optional[str]
+
+
+class WorkflowDependency(BaseModel):
+    namespace: Optional[str]
+    id: Optional[str]
+    workflow_id: Optional[str]
+    workflow_version_id: Optional[str]
+    name: Optional[str]
+    dependencies: Optional[List[WorkflowDependencyPrerequisite]] = []
+    global_: Optional[bool] = Field(default=None, alias="global")
+    created_at: Optional[str]
+    updated_at: Optional[str]
+
+
+class WorkflowDependencyCreateRequest(BaseModel):
+    name: str
+    dependencies: List[WorkflowDependencyPrerequisite] = []
+
+
+class WorkflowDependencyUpdateRequest(BaseModel):
+    name: str
+    dependencies: List[WorkflowDependencyPrerequisite] = []
+
+
+class WorkflowDependencyListOptions(BaseListOptions):
+    pass
+
+
+class WorkflowDependencyListResponse(PaginatedResource):
+    dependencies: Optional[List[WorkflowDependency]] = []
+
+    def items(self) -> List[WorkflowDependency]:
+        return self.dependencies or []

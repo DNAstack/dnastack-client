@@ -82,7 +82,7 @@ make lint && make test-unit
 The CLI uses a modular command structure built on Click with custom formatting:
 - `dnastack/__main__.py` - Main CLI entry point with command group registration
 - `dnastack/cli/core/` - Core CLI framework with custom formatting and command specs
-- `dnastack/cli/commands/` - Individual command modules (auth, collections, dataconnect, etc.)
+- `dnastack/cli/commands/` - Individual command modules (auth, collections, dataconnect, workbench, etc.)
 - Commands use `@formatted_command` decorator with `ArgumentSpec` for consistent parameter handling
 
 ### Client Architecture
