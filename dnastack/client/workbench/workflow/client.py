@@ -12,7 +12,8 @@ from dnastack.client.workbench.workflow.models import WorkflowDescriptor, Workfl
     WorkflowVersionListOptions, WorkflowFile, WorkflowDefaultsListResponse, WorkflowDefaultsListOptions, \
     WorkflowTransformationListOptions, WorkflowTransformationListResponse, WorkflowDefaults, WorkflowDefaultsSelector, \
     ResolvedWorkflow, WorkflowDefaultsUpdateRequest, WorkflowTransformation, WorkflowTransformationCreate, \
-    WorkflowDefaultsCreateRequest
+    WorkflowDefaultsCreateRequest, WorkflowDependency, WorkflowDependencyListResponse, WorkflowDependencyListOptions, \
+    WorkflowDependencyCreateRequest, WorkflowDependencyUpdateRequest
 from dnastack.common.tracing import Span
 from dnastack.http.session import JsonPatch, HttpSession
 
@@ -92,6 +93,26 @@ class WorkflowVersionsListResultLoader(WorkbenchResultLoader):
 
     def extract_api_response(self, response_body: dict) -> WorkflowVersionListResponse:
         return WorkflowVersionListResponse(**response_body)
+
+
+class WorkflowDependencyListResultLoader(WorkbenchResultLoader):
+    def __init__(self,
+                 service_url: str,
+                 http_session: HttpSession,
+                 trace: Optional[Span],
+                 list_options: Optional[WorkflowDependencyListOptions] = None,
+                 max_results: int = None):
+        super().__init__(service_url=service_url,
+                         http_session=http_session,
+                         list_options=list_options,
+                         max_results=max_results,
+                         trace=trace)
+
+    def get_new_list_options(self) -> WorkflowDependencyListOptions:
+        return WorkflowDependencyListOptions()
+
+    def extract_api_response(self, response_body: dict) -> WorkflowDependencyListResponse:
+        return WorkflowDependencyListResponse(**response_body)
 
 
 class WorkflowClient(BaseWorkbenchClient):
@@ -359,3 +380,64 @@ class WorkflowClient(BaseWorkbenchClient):
                 json=workflow_transformation_create_request.dict()
             )
         return WorkflowTransformation(**response.json())
+
+    def list_workflow_dependencies(self, workflow_id: str, workflow_version_id: str,
+                                   list_options: Optional[WorkflowDependencyListOptions] = None,
+                                   max_results: int = None) -> Iterator[WorkflowDependency]:
+        return ResultIterator(WorkflowDependencyListResultLoader(
+            service_url=urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies'),
+            http_session=self.create_http_session(),
+            list_options=list_options,
+            max_results=max_results,
+            trace=None
+        ))
+
+    def get_workflow_dependency(self, workflow_id: str, workflow_version_id: str, dependency_id: str,
+                                trace: Optional[Span] = None) -> WorkflowDependency:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.get(urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies/{dependency_id}'),
+                                   trace_context=trace)
+            return WorkflowDependency(**response.json())
+
+    def create_workflow_dependency(self, workflow_id: str, workflow_version_id: str,
+                                   workflow_dependency_create_request: WorkflowDependencyCreateRequest,
+                                   admin_only_action: bool = False) -> WorkflowDependency:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
+        
+        with self.create_http_session() as session:
+            response = session.post(
+                urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies'),
+                json=workflow_dependency_create_request.dict(),
+                headers=headers
+            )
+        return WorkflowDependency(**response.json())
+
+    def update_workflow_dependency(self, workflow_id: str, workflow_version_id: str, dependency_id: str,
+                                   workflow_dependency_update_request: WorkflowDependencyUpdateRequest,
+                                   admin_only_action: bool = False) -> WorkflowDependency:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
+        
+        with self.create_http_session() as session:
+            response = session.submit("PUT",
+                urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies/{dependency_id}'),
+                json=workflow_dependency_update_request.dict(),
+                headers=headers
+            )
+        return WorkflowDependency(**response.json())
+
+    def delete_workflow_dependency(self, workflow_id: str, workflow_version_id: str, dependency_id: str,
+                                   admin_only_action: bool = False):
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
+        
+        with self.create_http_session() as session:
+            session.delete(
+                urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies/{dependency_id}'),
+                headers=headers
+            )
