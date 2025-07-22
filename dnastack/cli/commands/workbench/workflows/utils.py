@@ -215,3 +215,100 @@ class JavaScriptFunctionExtractor:
         if match:
             return match.group(1)
         return None
+
+
+class WorkflowDependencyParseError(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+def parse_workflow_dependency(dependency_str: str) -> tuple[str, Optional[str]]:
+    """
+    Parse a workflow dependency string in the format 'workflow-id/version-id' or 'workflow-id'.
+    
+    Args:
+        dependency_str: The dependency string to parse
+        
+    Returns:
+        A tuple of (workflow_id, version_id) where version_id may be None
+        
+    Raises:
+        WorkflowDependencyParseError: If the dependency string is invalid
+    """
+    if not dependency_str or not dependency_str.strip():
+        raise WorkflowDependencyParseError("Dependency string cannot be empty")
+    
+    dependency_str = dependency_str.strip()
+    
+    # Check for invalid characters or patterns
+    if dependency_str.startswith('/') or dependency_str.endswith('/'):
+        raise WorkflowDependencyParseError("Dependency string cannot start or end with '/'")
+    
+    if '//' in dependency_str:
+        raise WorkflowDependencyParseError("Dependency string cannot contain consecutive '/' characters")
+    
+    parts = dependency_str.split('/')
+    
+    if len(parts) == 1:
+        # Only workflow ID provided
+        workflow_id = parts[0]
+        if not workflow_id:
+            raise WorkflowDependencyParseError("Workflow ID cannot be empty")
+        return workflow_id, None
+    elif len(parts) == 2:
+        # Both workflow ID and version ID provided
+        workflow_id, version_id = parts
+        if not workflow_id:
+            raise WorkflowDependencyParseError("Workflow ID cannot be empty")
+        if not version_id:
+            raise WorkflowDependencyParseError("Version ID cannot be empty when specified")
+        return workflow_id, version_id
+    else:
+        raise WorkflowDependencyParseError("Invalid dependency format. Expected 'workflow-id' or 'workflow-id/version-id'")
+
+
+def get_latest_workflow_version(workflow_client: WorkflowClient, workflow_id: str) -> str:
+    """
+    Get the latest version ID for a workflow.
+    
+    Args:
+        workflow_client: The workflow client to use
+        workflow_id: The workflow ID to get the latest version for
+        
+    Returns:
+        The latest version ID
+        
+    Raises:
+        Exception: If the workflow is not found or has no versions
+    """
+    try:
+        workflow = workflow_client.get_workflow(workflow_id)
+        if not workflow.latestVersion:
+            raise Exception(f"Workflow {workflow_id} has no versions")
+        return workflow.latestVersion
+    except Exception as e:
+        raise Exception(f"Failed to get latest version for workflow {workflow_id}: {str(e)}")
+
+
+def resolve_workflow_dependency(workflow_client: WorkflowClient, dependency_str: str) -> tuple[str, str]:
+    """
+    Resolve a workflow dependency string to a (workflow_id, version_id) tuple.
+    If version_id is not provided, fetches the latest version.
+    
+    Args:
+        workflow_client: The workflow client to use
+        dependency_str: The dependency string to resolve
+        
+    Returns:
+        A tuple of (workflow_id, version_id)
+        
+    Raises:
+        WorkflowDependencyParseError: If the dependency string is invalid
+        Exception: If the workflow is not found or has no versions
+    """
+    workflow_id, version_id = parse_workflow_dependency(dependency_str)
+    
+    if version_id is None:
+        version_id = get_latest_workflow_version(workflow_client, workflow_id)
+    
+    return workflow_id, version_id
