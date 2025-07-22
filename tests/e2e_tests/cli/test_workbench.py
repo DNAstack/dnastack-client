@@ -922,7 +922,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
         test_create_workflow()
 
-        def test_name_description_and_label():
+        def test_workflow_creation_with_metadata_sets_all_attributes_correctly():
             created_workflow = Workflow(**self.simple_invoke(
                 'workbench', 'workflows', 'create',
                 '--name', 'foo',
@@ -939,7 +939,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 'Expected workflow with description')
             self.assertEqual(created_workflow.labels, ['alpha', 'beta'], 'Expected workflow with labels "alpha,beta".')
 
-        test_name_description_and_label()
+        test_workflow_creation_with_metadata_sets_all_attributes_correctly()
 
         def test_edit_workflow():
             edited_workflow = Workflow(**self.simple_invoke(

@@ -1,79 +1,61 @@
 import unittest
+from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+from assertpy import assert_that
 
 class TestWorkflowUtils(unittest.TestCase):
-    """Unit tests for workflow utilities"""
-
-    def test_get_labels_patch_none_input(self):
-        """Test that None input returns None"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_none_input_returns_none(self):
         result = _get_labels_patch(None)
-        self.assertIsNone(result)
+        assert_that(result).is_none()
 
-    def test_get_labels_patch_empty_string(self):
-        """Test that empty string returns remove operation"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_empty_string_returns_remove_operation(self):
         result = _get_labels_patch("")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "remove")
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("remove")
 
-    def test_get_labels_patch_whitespace_only(self):
-        """Test that whitespace-only string returns remove operation"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_whitespace_only_string_returns_remove_operation(self):
         result = _get_labels_patch("   ")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "remove")
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("remove")
 
-    def test_get_labels_patch_single_label(self):
-        """Test that single label returns replace operation"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_single_label_returns_replace_operation(self):
         result = _get_labels_patch("alpha")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "replace")
-        self.assertEqual(result.value, ["alpha"])
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("replace")
+        assert_that(result.value).is_equal_to(["alpha"])
 
-    def test_get_labels_patch_multiple_labels(self):
-        """Test that multiple labels returns replace operation with list"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_multiple_labels_returns_replace_operation_with_a_list(self):
         result = _get_labels_patch("alpha,beta,gamma")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "replace")
-        self.assertEqual(result.value, ["alpha", "beta", "gamma"])
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("replace")
+        assert_that(result.value).is_equal_to(["alpha", "beta", "gamma"])
 
-    def test_get_labels_patch_labels_with_whitespace(self):
-        """Test that labels with whitespace are properly trimmed"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_labels_with_whitespace_are_properly_trimmed(self):
         result = _get_labels_patch("alpha , beta , gamma ")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "replace")
-        self.assertEqual(result.value, ["alpha", "beta", "gamma"])
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("replace")
+        assert_that(result.value).is_equal_to(["alpha", "beta", "gamma"])
 
-    def test_get_labels_patch_empty_labels_in_list(self):
-        """Test that empty labels in comma-separated list are filtered out"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_empty_labels_in_a_comma_separated_list_are_filtered_out(self):
         result = _get_labels_patch("alpha,,beta,  ,gamma")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "replace")
-        self.assertEqual(result.value, ["alpha", "beta", "gamma"])
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("replace")
+        assert_that(result.value).is_equal_to(["alpha", "beta", "gamma"])
 
-    def test_get_labels_patch_all_empty_labels(self):
-        """Test that all empty labels results in remove operation"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_all_empty_labels_results_in_remove_operation(self):
         result = _get_labels_patch(",,  ,  ,")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "remove")
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("remove")
 
-    def test_get_labels_patch_single_label_with_spaces(self):
-        """Test that single label with spaces is properly trimmed"""
-        from dnastack.cli.commands.workbench.workflows.utils import _get_labels_patch
+    def test_that_single_label_with_spaces_is_properly_trimmed(self):
         result = _get_labels_patch("  alpha  ")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.path, "/labels")
-        self.assertEqual(result.op, "replace")
-        self.assertEqual(result.value, ["alpha"])
+        assert_that(result).is_not_none()
+        assert_that(result.path).is_equal_to("/labels")
+        assert_that(result.op).is_equal_to("replace")
+        assert_that(result.value).is_equal_to(["alpha"])
