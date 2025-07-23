@@ -307,8 +307,4 @@ def resolve_workflow_dependency(workflow_client: WorkflowClient, dependency_str:
         Exception: If the workflow is not found or has no versions
     """
     workflow_id, version_id = parse_workflow_dependency(dependency_str)
-    
-    if version_id is None:
-        version_id = get_latest_workflow_version(workflow_client, workflow_id)
-    
     return workflow_id, version_id

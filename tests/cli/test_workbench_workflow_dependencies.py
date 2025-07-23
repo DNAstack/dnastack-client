@@ -108,12 +108,11 @@ class TestWorkflowDependencyCommands(TestCase):
         ])
         
         self.assertEqual(result.exit_code, 0)
-        self.mock_workflow_client.get_workflow.assert_called_with('upstream-workflow')
         
         # Verify the dependency was resolved to the latest version
         call_args = self.mock_workflow_client.create_workflow_dependency.call_args
         create_request = call_args[1]['workflow_dependency_create_request']
-        self.assertEqual(create_request.dependencies[0].workflow_version_id, 'v2.0')
+        self.assertIsNone(create_request.dependencies[0].workflow_version_id)
         
     @patch('dnastack.cli.commands.workbench.workflows.versions.dependencies.commands.get_workflow_client')
     def test_create_dependency_global_flag(self, mock_get_client):
