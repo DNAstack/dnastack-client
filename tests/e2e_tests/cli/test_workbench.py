@@ -922,11 +922,12 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
         test_create_workflow()
 
-        def test_name_and_description():
+        def test_workflow_creation_with_metadata_sets_all_attributes_correctly():
             created_workflow = Workflow(**self.simple_invoke(
                 'workbench', 'workflows', 'create',
                 '--name', 'foo',
                 '--description', '@description.md',
+                '--labels', 'alpha,beta',
                 '--entrypoint', "main.wdl",
                 'main.wdl',
             ))
@@ -936,8 +937,9 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             self.assertTrue(
                 'TITLE' in created_workflow.description and 'DESCRIPTION' in created_workflow.description,
                 'Expected workflow with description')
+            self.assertEqual(created_workflow.labels, ['alpha', 'beta'], 'Expected workflow with labels "alpha,beta".')
 
-        test_name_and_description()
+        test_workflow_creation_with_metadata_sets_all_attributes_correctly()
 
         def test_edit_workflow():
             edited_workflow = Workflow(**self.simple_invoke(
@@ -945,12 +947,14 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 '--name', 'UPDATED',
                 '--authors', 'foo,bar',
                 '--description', 'updated',
+                '--labels', 'alpha,beta',
                 created_workflow.internalId
             ))
 
             self.assertEqual(edited_workflow.name, 'UPDATED')
             self.assertEqual(edited_workflow.description, 'updated')
             self.assertEqual(edited_workflow.authors, ['foo', 'bar'])
+            self.assertEqual(edited_workflow.labels, ['alpha', 'beta'])
 
             edited_workflow = Workflow(**self.simple_invoke(
                 'workbench', 'workflows', 'update',
