@@ -239,8 +239,11 @@ def init_workflows_commands(group: Group):
             entrypoint = loader.entrypoint
 
         if labels:
-            label_list = [label.strip() for label in labels.split(',') if label.strip()]
-            if not label_list:
+            # Parse and validate labels, but keep as string for WorkflowCreate
+            parsed_labels = [label.strip() for label in labels.split(',') if label.strip()]
+            if parsed_labels:
+                label_list = ','.join(parsed_labels)
+            else:
                 label_list = None
         else:
             label_list = None
