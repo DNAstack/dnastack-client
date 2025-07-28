@@ -73,7 +73,7 @@ class WorkflowCreate(BaseModel):
     version_name: Optional[str] = None
     entrypoint: str
     files: List[Path]
-    labels: Optional[str] = None
+    labels: Optional[List[str]] = None
 
 
 class WorkflowVersionCreate(BaseModel):
