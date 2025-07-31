@@ -10,9 +10,9 @@ class TestWorkflowUtils(unittest.TestCase):
 
     def test_remove_operation_cases(self):
         test_cases = [
-            ("", "empty string"),
-            ("   ", "whitespace only string"),
-            (",,  ,  ,", "all empty labels")
+            ([""], "empty string in list"),
+            (["   "], "whitespace only string in list"),
+            (["", "  ", "  ", ""], "all empty labels")
         ]
         
         for input_value, description in test_cases:
@@ -24,11 +24,11 @@ class TestWorkflowUtils(unittest.TestCase):
 
     def test_replace_operation_cases(self):
         test_cases = [
-            ("alpha", ["alpha"], "single label"),
-            ("alpha,beta,gamma", ["alpha", "beta", "gamma"], "multiple labels"),
-            ("alpha , beta , gamma ", ["alpha", "beta", "gamma"], "labels with whitespace"),
-            ("alpha,,beta,  ,gamma", ["alpha", "beta", "gamma"], "empty labels filtered out"),
-            ("  alpha  ", ["alpha"], "single label with spaces")
+            (["alpha"], ["alpha"], "single label"),
+            (["alpha", "beta", "gamma"], ["alpha", "beta", "gamma"], "multiple labels"),
+            (["alpha ", " beta ", " gamma "], ["alpha", "beta", "gamma"], "labels with whitespace"),
+            (["alpha", "", "beta", "  ", "gamma"], ["alpha", "beta", "gamma"], "empty labels filtered out"),
+            (["  alpha  "], ["alpha"], "single label with spaces")
         ]
         
         for input_value, expected_labels, description in test_cases:
