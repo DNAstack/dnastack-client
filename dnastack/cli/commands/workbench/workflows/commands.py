@@ -192,8 +192,9 @@ def init_workflows_commands(group: Group):
             ),
             ArgumentSpec(
                 name='labels',
-                arg_names=['--labels'],
-                help='Comma-separated list of labels for the workflow (e.g., "tag1,tag2,tag3")',
+                arg_names=['--label'],
+                help='Label for the workflow. This flag can be repeated to specify multiple labels (e.g., --label tag1 --label tag2)',
+                multiple=True,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -209,7 +210,7 @@ def init_workflows_commands(group: Group):
                         organization: Optional[str],
                         entrypoint: str,
                         workflow_file: List[FileOrValue],
-                        labels: Optional[str]):
+                        labels: List[str]):
         """
         Create a new workflow
 
@@ -239,8 +240,8 @@ def init_workflows_commands(group: Group):
             entrypoint = loader.entrypoint
 
         if labels:
-            # Parse and validate labels, but keep as string for WorkflowCreate
-            parsed_labels = [label.strip() for label in labels.split(',') if label.strip()]
+            # Filter out empty labels and strip whitespace
+            parsed_labels = [label.strip() for label in labels if label.strip()]
             if parsed_labels:
                 label_list = ','.join(parsed_labels)
             else:
@@ -334,8 +335,9 @@ def init_workflows_commands(group: Group):
             ),
             ArgumentSpec(
                 name='labels',
-                arg_names=['--labels'],
-                help='A list of labels to apply. This value can be a comma separated list, a file or JSON literal',
+                arg_names=['--label'],
+                help='Label to apply to the workflow. This flag can be repeated to specify multiple labels (e.g., --label tag1 --label tag2)',
+                multiple=True,
             ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -348,7 +350,7 @@ def init_workflows_commands(group: Group):
                         name: Optional[str],
                         description: FileOrValue,
                         authors: Optional[str],
-                        labels: Optional[str]):
+                        labels: List[str]):
         """
         Update an existing workflow
 

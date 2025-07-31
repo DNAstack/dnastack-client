@@ -202,14 +202,12 @@ def _get_replace_patch(path: str, value: str) -> Union[JsonPatch, None]:
     return None
 
 
-def _get_labels_patch(labels: Optional[str]) -> Union[JsonPatch, None]:
-    if labels is None:
+def _get_labels_patch(labels: Optional[List[str]]) -> Union[JsonPatch, None]:
+    if labels is None or len(labels) == 0:
         return None
-    if labels.strip() == "":
-        return JsonPatch(path="/labels", op="remove")
-
+    
     # Clean and validate labels
-    cleaned_labels = [label.strip() for label in labels.split(",") if label.strip()]
+    cleaned_labels = [label.strip() for label in labels if label and label.strip()]
     if not cleaned_labels:
         return JsonPatch(path="/labels", op="remove")
 
