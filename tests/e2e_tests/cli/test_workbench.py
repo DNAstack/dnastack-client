@@ -927,7 +927,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 'workbench', 'workflows', 'create',
                 '--name', 'foo',
                 '--description', '@description.md',
-                '--labels', 'alpha,beta',
+                '--label', 'alpha',
+                '--label', 'beta',
                 '--entrypoint', "main.wdl",
                 'main.wdl',
             ))
@@ -947,7 +948,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 '--name', 'UPDATED',
                 '--authors', 'foo,bar',
                 '--description', 'updated',
-                '--labels', 'alpha,beta',
+                '--label', 'alpha',
+                '--label', 'beta',
                 created_workflow.internalId
             ))
 
