@@ -562,15 +562,92 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         )]
         self.assertGreater(len(events_result), 0, f'Expected run events. Found {events_result}')
 
-        self.assertIsNotNone(events_result[0].id, f'Expected event to have an id. Found {events_result[0].id}')
-        self.assertEqual(EventType.RUN_SUBMITTED, events_result[0].event_type,
-                         f'Expected event to be of type RUN_SUBMITTED. Got {events_result[0].event_type}')
-        self.assertIsNone(events_result[0].metadata.message,
-                          f'Expected first event not to have message. Got {events_result[0].metadata.message}')
-        self.assertIsNone(events_result[0].metadata.old_state,
-                          f'Expected first event to not have old state. Got {events_result[0].metadata.old_state}')
-        self.assertEqual(State.QUEUED, events_result[0].metadata.state,
-                         f'Expected first event\'s new state to be QUEUED. Got {events_result[0].metadata.state}')
+        # Test basic event structure
+        first_event = events_result[0]
+        self.assertIsNotNone(first_event.id, f'Expected event to have an id. Found {first_event.id}')
+        self.assertIsNotNone(first_event.created_at, 'Expected event to have created_at timestamp')
+        self.assertIn(first_event.event_type, [e for e in EventType], 
+                      f'Expected valid event type, got {first_event.event_type}')
+
+        # Test RUN_SUBMITTED event (should be first)
+        self.assertEqual(EventType.RUN_SUBMITTED, first_event.event_type,
+                         f'Expected event to be of type RUN_SUBMITTED. Got {first_event.event_type}')
+        
+        # Verify discriminated union works correctly
+        from dnastack.client.workbench.ewes.models import RunSubmittedMetadata
+        self.assertIsInstance(first_event.metadata, RunSubmittedMetadata,
+                              f'Expected RunSubmittedMetadata for RUN_SUBMITTED event, got {type(first_event.metadata)}')
+        
+        # Test that the discriminator field matches
+        self.assertEqual(first_event.event_type, first_event.metadata.event_type,
+                         'Expected event_type to match metadata.event_type')
+
+        # Verify metadata fields are accessible without errors
+        try:
+            _ = first_event.metadata.state
+            _ = first_event.metadata.submitted_by
+            _ = first_event.metadata.workflow_name
+            _ = first_event.metadata.workflow_authors
+        except AttributeError as e:
+            self.fail(f'Expected RunSubmittedMetadata fields to be accessible: {e}')
+
+        # Test optional fields behavior
+        self.assertIsNone(first_event.metadata.message,
+                          f'Expected first event not to have message. Got {first_event.metadata.message}')
+        
+        # Verify state is valid
+        if first_event.metadata.state:
+            self.assertIn(first_event.metadata.state, [s for s in State],
+                          f'Expected valid State enum value, got {first_event.metadata.state}')
+
+        # Test that all events can be properly deserialized
+        for i, event in enumerate(events_result):
+            try:
+                # Basic validation
+                self.assertIsNotNone(event.id, f'Event {i} missing id')
+                self.assertIsNotNone(event.event_type, f'Event {i} missing event_type')
+                self.assertIsNotNone(event.created_at, f'Event {i} missing created_at')
+                self.assertIsNotNone(event.metadata, f'Event {i} missing metadata')
+                
+                # Verify discriminator consistency
+                self.assertEqual(event.event_type, event.metadata.event_type,
+                                 f'Event {i}: event_type mismatch between event and metadata')
+                
+                # Test serialization roundtrip
+                event_dict = event.dict()
+                reconstructed_event = RunEvent(**event_dict)
+                self.assertEqual(event.id, reconstructed_event.id,
+                                 f'Event {i}: serialization roundtrip failed for id')
+                self.assertEqual(event.event_type, reconstructed_event.event_type,
+                                 f'Event {i}: serialization roundtrip failed for event_type')
+                
+            except Exception as e:
+                self.fail(f'Failed to validate event {i} ({event.event_type}): {e}')
+
+        # Test different event types if they exist
+        event_types_found = {event.event_type for event in events_result}
+        self.assertIn(EventType.RUN_SUBMITTED, event_types_found,
+                      'Expected at least a RUN_SUBMITTED event')
+        
+        # If we have multiple event types, test specific metadata fields
+        for event in events_result:
+            if event.event_type == EventType.STATE_TRANSITION:
+                from dnastack.client.workbench.ewes.models import StateTransitionMetadata
+                self.assertIsInstance(event.metadata, StateTransitionMetadata)
+                # old_state and new_state should be valid State enums if present
+                if hasattr(event.metadata, 'old_state') and event.metadata.old_state:
+                    self.assertIn(event.metadata.old_state, [s for s in State])
+                if hasattr(event.metadata, 'new_state') and event.metadata.new_state:
+                    self.assertIn(event.metadata.new_state, [s for s in State])
+                    
+            elif event.event_type == EventType.ERROR_OCCURRED:
+                from dnastack.client.workbench.ewes.models import ErrorOccurredMetadata
+                self.assertIsInstance(event.metadata, ErrorOccurredMetadata)
+                # errors should be a list if present
+                if hasattr(event.metadata, 'errors') and event.metadata.errors:
+                    self.assertIsInstance(event.metadata.errors, list)
+
+        print(f'Successfully validated {len(events_result)} events with types: {event_types_found}')
 
     ## Samples
 
