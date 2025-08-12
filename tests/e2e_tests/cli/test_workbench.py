@@ -10,8 +10,9 @@ from dnastack.client.workbench.workflow.models import Workflow, WorkflowVersion,
 
 from dnastack.client.workbench.ewes.models import ExecutionEngine, EngineParamPreset, EngineHealthCheck
 from dnastack.client.workbench.ewes.models import ExtendedRunStatus, ExtendedRun, BatchActionResult, BatchRunResponse, \
-    MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, EventType, State, MinimalExtendedRun, \
+    MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, EventType, MinimalExtendedRun, \
     MinimalExtendedRunWithOutputs
+from dnastack.client.workbench.common.models import State
 from dnastack.client.workbench.samples.models import Sample, SampleFile, Instrument
 from dnastack.client.workbench.storage.models import StorageAccount, Provider, PlatformType
 from tests.e2e_tests.cli.base import WorkbenchCliTestCase

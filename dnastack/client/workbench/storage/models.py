@@ -1,19 +1,10 @@
-from enum import Enum
 from typing import Optional, List, Any, Literal, Union
 
 from pydantic import BaseModel
 
+from dnastack.client.workbench.common.models import CaseInsensitiveEnum
 from dnastack.client.workbench.models import BaseListOptions
 from dnastack.client.workbench.models import PaginatedResource
-
-
-class CaseInsensitiveEnum(Enum):
-    @classmethod
-    def _missing_(cls, value):
-        for member in cls:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 
 class Provider(str, CaseInsensitiveEnum):
@@ -24,6 +15,7 @@ class Provider(str, CaseInsensitiveEnum):
 
 class PlatformType(str, CaseInsensitiveEnum):
     pacbio = "pacbio"
+    custom = "custom"
 
 
 class AwsStorageAccountCredentials(BaseModel):
