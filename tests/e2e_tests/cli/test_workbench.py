@@ -8,7 +8,7 @@ from time import sleep
 from dnastack.client.workbench.workflow.models import Workflow, WorkflowVersion, WorkflowDefaults, \
     WorkflowTransformation
 
-from dnastack.client.workbench.ewes.models import ExecutionEngine, EngineParamPreset, EngineHealthCheck
+from dnastack.client.workbench.ewes.models import ExecutionEngine, EngineParamPreset, EngineHealthCheck, SimpleSample
 from dnastack.client.workbench.ewes.models import ExtendedRunStatus, ExtendedRun, BatchActionResult, BatchRunResponse, \
     MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, EventType, MinimalExtendedRun, \
     MinimalExtendedRunWithOutputs
@@ -533,7 +533,11 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 '--url', hello_world_workflow_url,
                 '--workflow-params', 'test.hello.name=foo',
                 '--tags', 'foo=bar',
-                '--samples', 'HG001,HG002,HG003,HG004',
+                '--sample', 'HG001',
+                '--sample', 'HG002',
+                '--sample', 'HG003',
+                '--sample', 'HG004',
+                '--storage-account', 'foo'
             ))
             self.assertEqual(len(submitted_batch_request.run_requests), 1,
                              'Expected exactly one run request submitted.')
@@ -543,10 +547,10 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                              "Expected workflow url to be the same.")
             self.assertEqual(submitted_batch_request.default_tags, {'foo': 'bar'}, "Expected tags to be the same.")
             self.assertEqual(submitted_batch_request.samples, [
-                Sample(id='HG001'),
-                Sample(id='HG002'),
-                Sample(id='HG003'),
-                Sample(id='HG004')], "Expected created samples classes with the same ids")
+                SimpleSample(id='HG001',storage_account_id='foo'),
+                SimpleSample(id='HG002',storage_account_id='foo'),
+                SimpleSample(id='HG003',storage_account_id='foo'),
+                SimpleSample(id='HG004',storage_account_id='foo')], "Expected created samples classes with the same ids")
 
         test_submit_batch_with_dry_run_option()
 
@@ -664,6 +668,30 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             'workbench', 'samples', 'describe', samples[0].id
         ))
         self.assertEqual(sample.id, samples[0].id)
+
+        def test_samples_list_with_filters(self):
+            """Test samples list with various filtering options"""
+            samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list'
+            )]
+            self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
+
+            # Test pagination
+            paginated_samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list', '--max-results', '2'
+            )]
+            self.assertLessEqual(len(paginated_samples), 2, 'Expected at most 2 samples with max-results filter')
+
+            # Test search filter
+            if samples:
+                first_sample_id = samples[0].id
+                searched_samples = [Sample(**sample) for sample in self.simple_invoke(
+                    'workbench', 'samples', 'list', '--search', first_sample_id
+                )]
+                self.assertTrue(any(s.id == first_sample_id for s in searched_samples),
+                              f'Expected to find sample {first_sample_id} in search results')
+
+        test_samples_list_with_filters()
 
     def test_samples_files_list(self):
         self._create_storage_account(provider=Provider.aws)
