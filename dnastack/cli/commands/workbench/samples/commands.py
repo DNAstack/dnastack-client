@@ -47,14 +47,16 @@ def init_samples_commands(group: Group):
             ArgumentSpec(
                 name='workflow_id',
                 arg_names=['--workflow'],
-                help="Returns samples that were processed by the specified workflow. If the workflow version is not specified returns all workflow versions." +
+                help="Returns samples that were processed by the specified workflow. "
+                     "If the workflow version is not specified returns all workflow versions. " 
                      "If the --perspective option is set to 'WORKFLOW', then the workflow-id is required",
                 required=False
             ),
             ArgumentSpec(
                 name='workflow_version_id',
                 arg_names=['--workflow-version'],
-                help="Returns samples that were processed by the specified workflow version. If the workflow is not specified returns all workflows." +
+                help="Returns samples that were processed by the specified workflow version. "
+                     "If the workflow is not specified returns all workflows. "
                      "If the --perspective option is set to 'WORKFLOW', then the workflow-version-id is required",
                 required=False
             ),
@@ -107,7 +109,7 @@ def init_samples_commands(group: Group):
             ArgumentSpec(
                 name='since',
                 arg_names=['--created-since'],
-                help='Returns samples created after the specified date'
+                help='Returns samples created after the specified date. '
                      'The timestamp can be in iso date, or datetime format. '
                      'e.g.: -t "2022-11-23", -t "2022-11-23T23:59:59.999Z"',
                 required=False
@@ -115,7 +117,7 @@ def init_samples_commands(group: Group):
             ArgumentSpec(
                 name='until',
                 arg_names=['--created-until'],
-                help='Returns samples created before the specified date'
+                help='Returns samples created before the specified date. '
                      'The timestamp can be in iso date, or datetime format. '
                      'e.g.: -t "2022-11-23", -t "2022-11-23T23:59:59.999Z"',
                 required=False
