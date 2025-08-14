@@ -5,42 +5,19 @@ from typing import Dict, List, Optional, Any, Literal, Union
 from pydantic import BaseModel, Field
 
 from dnastack.client.service_registry.models import Service
+from dnastack.client.workbench.common.models import State, CaseInsensitiveEnum
 from dnastack.client.workbench.models import BaseListOptions, PaginatedResource
-from dnastack.client.workbench.samples.models import Sample
 from dnastack.common.json_argument_parser import JSONType
 
 
-class Outcome(str, Enum):
+class Outcome(str, CaseInsensitiveEnum):
     SUCCESS = 'SUCCESS',
     FAILURE = 'FAILURE'
 
 
-class LogType(str, Enum):
+class LogType(str, CaseInsensitiveEnum):
     STDOUT = 'stdout',
     STDERR = 'stderr',
-
-
-class State(str, Enum):
-    PREPROCESSING = "PREPROCESSING"
-    UNKNOWN = "UNKNOWN"
-    QUEUED = "QUEUED"
-    INITIALIZING = "INITIALIZING"
-    RUNNING = "RUNNING"
-    PAUSED = "PAUSED"
-    CANCELING = "CANCELING"
-    COMPLETE = "COMPLETE"
-    EXECUTOR_ERROR = "EXECUTOR_ERROR"
-    SYSTEM_ERROR = "SYSTEM_ERROR"
-    CANCELED = "CANCELED"
-    COMPLETE_WITH_ERRORS = "COMPLETE_WITH_ERRORS"
-    PREPROCESSING_ERROR = "PREPROCESSING_ERROR"
-
-    def is_error(self) -> bool:
-        return self in [State.COMPLETE_WITH_ERRORS, State.EXECUTOR_ERROR, State.SYSTEM_ERROR]
-
-    def is_terminal(self) -> bool:
-        return self in [State.COMPLETE, State.COMPLETE_WITH_ERRORS, State.CANCELED, State.EXECUTOR_ERROR,
-                        State.SYSTEM_ERROR]
 
 
 class WesServiceInfo(Service):
@@ -52,6 +29,10 @@ class WesServiceInfo(Service):
     system_state_counts: Optional[Dict]
     auth_instructions_url: Optional[str]
     tags: Optional[Dict]
+
+class SimpleSample(BaseModel):
+    id: str
+    storage_account_id: Optional[str]
 
 
 class ExtendedRunStatus(BaseModel):
@@ -72,6 +53,7 @@ class ExtendedRunStatus(BaseModel):
     workflow_params: Optional[Dict]
     tags: Optional[Dict]
     workflow_engine_parameters: Optional[Dict]
+    samples: Optional[List[SimpleSample]]
 
 
 class Log(BaseModel):
@@ -103,6 +85,7 @@ class ExtendedRunRequest(BaseModel):
     workflow_engine_parameters: Optional[Dict]
     dependencies: Optional[List[RunDependency]]
     tags: Optional[Dict]
+    samples: Optional[List[SimpleSample]]
 
 
 class EventType(str, Enum):
@@ -112,12 +95,14 @@ class EventType(str, Enum):
     ERROR_OCCURRED = "ERROR_OCCURRED"
     ENGINE_STATUS_UPDATE = "ENGINE_STATUS_UPDATE"
     STATE_TRANSITION = "STATE_TRANSITION"
+    EVENT_METADATA = "EventMetadata"
 
 class SampleId(BaseModel):
     id: Optional[str]
     storage_account_id: Optional[str]
 
 class RunEventMetadata(BaseModel):
+    event_type: Literal[EventType.EVENT_METADATA]
     message: Optional[str]
 
 
@@ -156,8 +141,10 @@ class EngineStatusUpdateMetadata(RunEventMetadata):
     event_type: Literal[EventType.ENGINE_STATUS_UPDATE]
     # Add other fields as you discover them
 
+
 class RunSubmittedToEngineMetadata(RunEventMetadata):
     event_type: Literal[EventType.RUN_SUBMITTED_TO_ENGINE]
+    external_id: Optional[str]
 
 
 RunEventMetadataUnion = Union[
@@ -166,7 +153,8 @@ RunEventMetadataUnion = Union[
     ErrorOccurredMetadata,
     StateTransitionMetadata,
     EngineStatusUpdateMetadata,
-    RunSubmittedToEngineMetadata
+    RunSubmittedToEngineMetadata,
+    RunEventMetadata
 ]
 
 class RunEvent(BaseModel):
@@ -174,6 +162,7 @@ class RunEvent(BaseModel):
     event_type: EventType
     created_at: datetime
     metadata: RunEventMetadataUnion = Field(discriminator='event_type')
+
 
 class ExtendedRunEvents(BaseModel):
     events: Optional[List[RunEvent]]
@@ -222,7 +211,7 @@ class BatchRunRequest(BaseModel):
     default_workflow_engine_parameters: Optional[Dict]
     default_tags: Optional[Dict]
     run_requests: Optional[List[ExtendedRunRequest]]
-    samples: Optional[List[Sample]]
+    samples: Optional[List[SimpleSample]]
 
 
 class BatchRunResponse(BaseModel):
@@ -283,6 +272,8 @@ class ExtendedRunListOptions(BaseListOptions):
     workflow_type: Optional[str]
     workflow_type_version: Optional[str]
     tag: Optional[List[str]]
+    sample_ids: Optional[List[str]]
+    storage_account_id: Optional[str]
 
 
 class TaskListOptions(BaseListOptions):

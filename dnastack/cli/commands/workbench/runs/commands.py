@@ -7,17 +7,17 @@ from click import style, Group
 
 from dnastack.cli.commands.workbench.runs.utils import UnableToFindParameterError, NoDefaultEngineError
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, create_sort_arg
+from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, create_sort_arg, \
+    parse_to_datetime_iso_format
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
 from dnastack.client.workbench.ewes.models import ExtendedRunListOptions, ExtendedRunRequest, \
     BatchRunRequest, \
-    MinimalExtendedRunWithOutputs, MinimalExtendedRunWithInputs, State, \
-    ExecutionEngineListOptions
+    MinimalExtendedRunWithOutputs, MinimalExtendedRunWithInputs, ExecutionEngineListOptions, SimpleSample
+from dnastack.client.workbench.common.models import State
 from dnastack.client.workbench.ewes.models import LogType
-from dnastack.client.workbench.samples.models import Sample
 from dnastack.common.json_argument_parser import JsonLike, parse_and_merge_arguments, merge, merge_param_json_data
 from dnastack.common.tracing import Span
 
@@ -78,6 +78,17 @@ def init_runs_commands(group: Group):
                 help='Filter runs by one or more tags. Tags can be specified as a KV pair, inlined JSON, or as a json file preceded by the "@" symbol.',
                 type=JsonLike,
             ),
+            ArgumentSpec(
+                name='samples',
+                arg_names=['--sample'],
+                help='Filter runs by one or more sample IDs. Can be specified multiple times',
+                multiple=True,
+            ),
+            ArgumentSpec(
+                name='storage_account_id',
+                arg_names=['--storage-account'],
+                help='Filter runs by the storage account ID. This will return runs that have outputs stored in the specified storage account.',
+            ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -96,20 +107,14 @@ def init_runs_commands(group: Group):
                   engine: Optional[str],
                   search: Optional[str],
                   tags: JsonLike,
-                  states):
+                  samples: Optional[List[str]] = None,
+                  storage_account_id: Optional[str] = None,
+                  states: Optional[List[State]] = None):
         """
         List workflow runs
 
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/runs-list
         """
-
-        def parse_to_datetime_iso_format(date: str, start_of_day: bool = False, end_of_day: bool = False) -> str:
-            if (date is not None) and ("T" not in date):
-                if start_of_day:
-                    return f'{date}T00:00:00.000Z'
-                if end_of_day:
-                    return f'{date}T23:59:59.999Z'
-            return date
 
         order_direction = None
         if order:
@@ -134,11 +139,12 @@ def init_runs_commands(group: Group):
             until=parse_to_datetime_iso_format(date=submitted_until, end_of_day=True),
             engine_id=engine,
             search=search,
+            sample_ids=samples,
+            storage_account_id=storage_account_id,
             tag=tags
         )
         runs_list = client.list_runs(list_options, max_results)
         show_iterator(output_format=OutputFormat.JSON, iterator=runs_list)
-
 
     @formatted_command(
         group=group,
@@ -209,7 +215,6 @@ def init_runs_commands(group: Group):
                 ) for described_run in described_runs]
         click.echo(to_json(normalize(described_runs)))
 
-
     @formatted_command(
         group=group,
         name='cancel',
@@ -241,7 +246,6 @@ def init_runs_commands(group: Group):
             exit(1)
         result = client.cancel_runs(run_id)
         click.echo(to_json(normalize(result)))
-
 
     @formatted_command(
         group=group,
@@ -284,7 +288,6 @@ def init_runs_commands(group: Group):
             return
         result = client.delete_runs(run_id)
         click.echo(to_json(normalize(result)))
-
 
     @formatted_command(
         group=group,
@@ -385,12 +388,12 @@ def init_runs_commands(group: Group):
             return
 
         if task_id:
-            write_logs(client.stream_task_logs(run_id_or_log_url, task_id, log_type, max_bytes=max_bytes, offset=offset),
-                       output_writer)
+            write_logs(
+                client.stream_task_logs(run_id_or_log_url, task_id, log_type, max_bytes=max_bytes, offset=offset),
+                output_writer)
         else:
             write_logs(client.stream_run_logs(run_id_or_log_url, log_type, max_bytes=max_bytes, offset=offset),
                        output_writer)
-
 
     @formatted_command(
         group=group,
@@ -481,9 +484,23 @@ def init_runs_commands(group: Group):
                 multiple=True
             ),
             ArgumentSpec(
+                name="samples",
+                arg_names=['--sample'],
+                help='An optional flag that accepts a Sample IDs to use in the given workflow. '
+                     'If not specified, the workflow will be submitted without any samples. '
+                     'Can be specified multiple times',
+                multiple=True
+            ),
+            ArgumentSpec(
                 name='sample_ids',
                 arg_names=['--samples'],
-                help='An optional flag that accepts a comma separated list of Sample IDs to use in the given workflow.',
+                help='An optional flag that accepts a comma separated list of Sample IDs to use in the given workflow. '
+                     'This flag is deprecated, use --sample instead. '
+            ),
+            ArgumentSpec(
+                name='storage_account_id',
+                arg_names=['--storage-account'],
+                help='The storage account ID to restrict sample files to when submitting the workflow. ',
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -504,7 +521,9 @@ def init_runs_commands(group: Group):
                      input_overrides,
                      dry_run: bool,
                      run_requests: JsonLike,
-                     sample_ids: Optional[str]):
+                     sample_ids: Optional[str], # deprecated, use --samples instead
+                     samples: Optional[List[str]] = None,
+                     storage_account_id: Optional[str] = None):
         """
         Submit one or more workflows for execution
 
@@ -523,12 +542,14 @@ def init_runs_commands(group: Group):
 
         # Validation check for --version without --workflow
         if version and not workflow:
-            click.echo(style("Error: You must specify --workflow when using --version.", fg='red'), err=True, color=True)
+            click.echo(style("Error: You must specify --workflow when using --version.", fg='red'), err=True,
+                       color=True)
             exit(1)
 
         # Validation check for --workflow without --version
         if workflow and not version:
-            click.echo(style("Error: You must specify --version when using --workflow.", fg='red'), err=True, color=True)
+            click.echo(style("Error: You must specify --version when using --workflow.", fg='red'), err=True,
+                       color=True)
             exit(1)
 
         # Combine workflow and version if both are provided
@@ -538,11 +559,14 @@ def init_runs_commands(group: Group):
         ewes_client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
         def parse_samples():
-            if not sample_ids:
+            if samples:
+                sample_list = samples
+            elif sample_ids:
+                sample_list = sample_ids.split(',')
+            else:
                 return None
 
-            sample_list = sample_ids.split(',')
-            return [Sample(id=sample_id) for sample_id in sample_list]
+            return [SimpleSample(id=sample_id, storage_account_id=storage_account_id) for sample_id in sample_list]
 
         def get_default_engine_id():
             list_options = ExecutionEngineListOptions()
@@ -568,7 +592,8 @@ def init_runs_commands(group: Group):
                         param_preset = ewes_client.get_engine_param_preset(engine_id, param_id)
                         merge(param_presets, param_preset.preset_values)
                     except Exception as e:
-                        raise UnableToFindParameterError(f"Unable to find engine parameter preset with id {param_id}. {e}")
+                        raise UnableToFindParameterError(
+                            f"Unable to find engine parameter preset with id {param_id}. {e}")
 
             default_workflow_engine_parameters = param_presets
         else:
@@ -589,9 +614,8 @@ def init_runs_commands(group: Group):
 
         for run_request in run_requests:
             parsed_value = run_request.parsed_value() if run_request else None
-            parsed_run_request  = ExtendedRunRequest(**parsed_value)
+            parsed_run_request = ExtendedRunRequest(**parsed_value)
             batch_request.run_requests.append(parsed_run_request)
-
 
         for workflow_param in workflow_params:
             run_request = ExtendedRunRequest(
@@ -615,4 +639,3 @@ def init_runs_commands(group: Group):
         else:
             minimal_batch = ewes_client.submit_batch(batch_request)
             click.echo(to_json(normalize(minimal_batch)))
-

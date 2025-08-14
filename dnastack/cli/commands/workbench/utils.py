@@ -89,16 +89,10 @@ def get_storage_client(context_name: Optional[str] = None,
         return factory.get(StorageClient, endpoint_id=endpoint_id, context_name=context_name, namespace=namespace)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+def parse_to_datetime_iso_format(date: str, start_of_day: bool = False, end_of_day: bool = False) -> str:
+    if (date is not None) and ("T" not in date):
+        if start_of_day:
+            return f'{date}T00:00:00.000Z'
+        if end_of_day:
+            return f'{date}T23:59:59.999Z'
+    return date
