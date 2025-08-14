@@ -177,7 +177,6 @@ def init_samples_commands(group: Group):
         list_options: SampleListOptions = SampleListOptions(
             page=page,
             page_size=page_size,
-            max_results=max_results,
             storage_id=storage_id,
             platform_type=platform_type,
             instrument_id=instrument_id,
@@ -192,7 +191,7 @@ def init_samples_commands(group: Group):
             since=parse_to_datetime_iso_format(since, start_of_day=True),
             until=parse_to_datetime_iso_format(until, end_of_day=True)
         )
-        samples_list = client.list_samples(list_options)
+        samples_list = client.list_samples(list_options,max_results)
         show_iterator(output_format=OutputFormat.JSON, iterator=samples_list)
 
     @formatted_command(

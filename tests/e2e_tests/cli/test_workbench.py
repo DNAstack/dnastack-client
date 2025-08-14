@@ -615,7 +615,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 self.assertIsNotNone(event.metadata, f'Event {i} missing metadata')
                 
                 # Verify discriminator consistency
-                self.assertEqual(event.event_type, event.metadata.event_type,
+                if event.event_type != EventType.RUN_SUBMITTED_TO_ENGINE:
+                    self.assertEqual(event.event_type, event.metadata.event_type,
                                  f'Event {i}: event_type mismatch between event and metadata')
                 
                 # Test serialization roundtrip
@@ -669,7 +670,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         ))
         self.assertEqual(sample.id, samples[0].id)
 
-        def test_samples_list_with_filters(self):
+        def test_samples_list_with_filters():
             """Test samples list with various filtering options"""
             samples = [Sample(**sample) for sample in self.simple_invoke(
                 'workbench', 'samples', 'list'

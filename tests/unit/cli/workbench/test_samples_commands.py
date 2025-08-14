@@ -18,6 +18,7 @@ class TestSamplesListCommand(unittest.TestCase):
         self.mock_samples_client = Mock()
         
         # Mock sample data based on real API response
+
         self.mock_samples = [
             {
                 "id": "HG0005",
@@ -85,7 +86,7 @@ class TestSamplesListCommand(unittest.TestCase):
     def test_list_samples_with_pagination(self, mock_get_client):
         """Test samples list with pagination parameters"""
         mock_get_client.return_value = self.mock_samples_client
-        
+
         result = self.runner.invoke(
             self.group, 
             ['list', '--max-results', '50', '--page', '1', '--page-size', '25']

@@ -95,12 +95,14 @@ class EventType(str, Enum):
     ERROR_OCCURRED = "ERROR_OCCURRED"
     ENGINE_STATUS_UPDATE = "ENGINE_STATUS_UPDATE"
     STATE_TRANSITION = "STATE_TRANSITION"
+    EVENT_METADATA = "EventMetadata"
 
 class SampleId(BaseModel):
     id: Optional[str]
     storage_account_id: Optional[str]
 
 class RunEventMetadata(BaseModel):
+    event_type: Literal[EventType.EVENT_METADATA]
     message: Optional[str]
 
 
@@ -139,8 +141,10 @@ class EngineStatusUpdateMetadata(RunEventMetadata):
     event_type: Literal[EventType.ENGINE_STATUS_UPDATE]
     # Add other fields as you discover them
 
+
 class RunSubmittedToEngineMetadata(RunEventMetadata):
     event_type: Literal[EventType.RUN_SUBMITTED_TO_ENGINE]
+    external_id: Optional[str]
 
 
 RunEventMetadataUnion = Union[
@@ -149,7 +153,8 @@ RunEventMetadataUnion = Union[
     ErrorOccurredMetadata,
     StateTransitionMetadata,
     EngineStatusUpdateMetadata,
-    RunSubmittedToEngineMetadata
+    RunSubmittedToEngineMetadata,
+    RunEventMetadata
 ]
 
 class RunEvent(BaseModel):
