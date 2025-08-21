@@ -662,6 +662,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         samples = self._wait_for_samples()
         self._wait()
         self.assert_not_empty(samples, f'Expected at least one sample. Found {samples}')
+        self.assertGreaterEqual(len(samples), 2, 'Expected at least two samples. Found {samples}')
         for sample in samples:
             self.assert_not_empty(sample.id, 'Sample ID should not be empty')
 
@@ -684,13 +685,26 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             self.assertLessEqual(len(paginated_samples), 2, 'Expected at most 2 samples with max-results filter')
 
             # Test search filter
-            if samples:
-                first_sample_id = samples[0].id
-                searched_samples = [Sample(**sample) for sample in self.simple_invoke(
-                    'workbench', 'samples', 'list', '--search', first_sample_id
-                )]
-                self.assertTrue(any(s.id == first_sample_id for s in searched_samples),
-                              f'Expected to find sample {first_sample_id} in search results')
+            first_sample_id = samples[0].id
+            searched_samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list', '--search', first_sample_id
+            )]
+            self.assertTrue(any(s.id == first_sample_id for s in searched_samples),
+                          f'Expected to find sample {first_sample_id} in search results')
+
+            sample_id_filtered_samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list', '--sample', first_sample_id
+            )]
+            self.assertEqual(len(sample_id_filtered_samples), 1, 'Expected exactly 1 samples with --sample filter')
+            self.assertEqual(first_sample_id, sample_id_filtered_samples[0].id)
+
+            second_sample_id = samples[1].id
+            sample_ids_filtered_samples = [Sample(**sample) for sample in self.simple_invoke(
+                'workbench', 'samples', 'list', '--sample', second_sample_id
+            )]
+            self.assertEqual(len(sample_ids_filtered_samples), 1, 'Expected exactly 1 samples with --sample filter')
+            self.assertEqual(second_sample_id, sample_ids_filtered_samples[0].id)
+
 
         test_samples_list_with_filters()
 

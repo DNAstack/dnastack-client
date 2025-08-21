@@ -174,7 +174,6 @@ def init_samples_commands(group: Group):
 
         if perspective == PerspectiveType.workflow and not workflow_id:
             raise click.UsageError('When perspective is set to "WORKFLOW", the workflow-id is required.')
-
         client = get_samples_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
         list_options: SampleListOptions = SampleListOptions(
             page=page,
@@ -186,7 +185,7 @@ def init_samples_commands(group: Group):
             workflow_version_id=workflow_version_id,
             states=states,
             family_id=family_ids,
-            sample_id=sample_ids,
+            id=sample_ids,
             sexes=sexes,
             perspective=perspective,
             search=search,
