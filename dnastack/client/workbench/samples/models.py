@@ -65,7 +65,7 @@ class SampleListOptions(BaseListOptions):
     workflow_version_id: Optional[str] = None
     states: Optional[List[State]] = None
     family_id: Optional[List[str]] = None
-    sample_id: Optional[List[str]] = None
+    id: Optional[List[str]] = None
     sexes: Optional[List[Sex]] = None
     search: Optional[str] = None
     since: Optional[str] = None

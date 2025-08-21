@@ -163,7 +163,7 @@ class TestSamplesListCommand(unittest.TestCase):
         # Verify filters were passed correctly
         call_args = self.mock_samples_client.list_samples.call_args[0][0]
         self.assertEqual(call_args.family_id, ['family-1', 'family-2'])
-        self.assertEqual(call_args.sample_id, ['sample-123', 'sample-456'])
+        self.assertEqual(call_args.id, ['sample-123', 'sample-456'])
         # Note: Sex enum handling should be case-insensitive based on our CaseInsensitiveEnum
         self.assertIn(Sex.male, call_args.sexes)
         self.assertIn(Sex.female, call_args.sexes)
