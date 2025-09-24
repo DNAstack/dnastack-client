@@ -94,7 +94,8 @@ def init_questions_commands(group: Group):
             ArgumentSpec(
                 name='collections',
                 arg_names=['--collections'],
-                help='Comma-separated list of collection IDs to query (default: all collections for the question)'
+                type=JsonLike,
+                help='Comma-separated list of collection IDs to query, or @filename to read from file (default: all collections for the question)'
             ),
             ArgumentSpec(
                 name='output_file',
@@ -109,7 +110,7 @@ def init_questions_commands(group: Group):
     def ask_question(
         question_name: str,
         args: tuple,
-        collections: Optional[str],
+        collections: Optional[JsonLike],
         output_file: Optional[str],
         output: str,
         context: Optional[str],
@@ -118,9 +119,14 @@ def init_questions_commands(group: Group):
         """Ask a federated question with the provided parameters"""
         trace = Span()
         client = get_explorer_client(context=context, endpoint_id=endpoint_id, trace=trace)
-        
+
         # Parse collections if provided
-        collection_ids = parse_collections_argument(collections)
+        if collections:
+            # Handle JsonLike object - get the actual value (handles @ file reading)
+            collections_str = collections.value()
+            collection_ids = parse_collections_argument(collections_str)
+        else:
+            collection_ids = None
         
         # Parse arguments
         inputs = {}

@@ -33,19 +33,28 @@ def get_explorer_client(context: Optional[str] = None,
 
 def parse_collections_argument(collections_str: Optional[str]) -> Optional[List[str]]:
     """
-    Parse a comma-separated collections string into a list.
-    
+    Parse a collections string into a list.
+    Handles both comma-separated and newline-separated formats.
+
     Args:
-        collections_str: Comma-separated collection IDs (e.g., "id1,id2,id3")
-        
+        collections_str: Collection IDs as either:
+                        - Comma-separated (e.g., "id1,id2,id3")
+                        - Newline-separated (one ID per line)
+
     Returns:
         List[str] or None: List of collection IDs or None if input is None/empty
     """
     if not collections_str:
         return None
-    
-    # Split by comma and strip whitespace
-    collections = [col.strip() for col in collections_str.split(',')]
+
+    # Check if it contains newlines (multiline file format)
+    if '\n' in collections_str:
+        # Split by newlines and strip whitespace
+        collections = [col.strip() for col in collections_str.split('\n')]
+    else:
+        # Split by comma and strip whitespace
+        collections = [col.strip() for col in collections_str.split(',')]
+
     # Filter out empty strings
     return [col for col in collections if col]
 
