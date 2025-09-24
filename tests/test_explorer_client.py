@@ -1,4 +1,6 @@
 import pytest
+import tempfile
+import os
 from unittest.mock import MagicMock, patch
 from assertpy import assert_that
 
@@ -17,6 +19,7 @@ from dnastack.cli.commands.explorer.questions.tables import (
     format_question_detail_table,
     format_question_results_table
 )
+from dnastack.common.json_argument_parser import JsonLike
 
 
 class TestExplorerClient:
@@ -514,6 +517,70 @@ class TestExplorerUtils:
         """Test parsing collections with spaces"""
         result = parse_collections_argument(" collection1 , collection2 ")
         assert_that(result).is_equal_to(["collection1", "collection2"])
+
+    def test_should_parse_newline_separated_collections(self):
+        """Test parsing newline-separated collections"""
+        result = parse_collections_argument("collection1\ncollection2\ncollection3")
+        assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+
+    def test_should_parse_newline_separated_collections_with_empty_lines(self):
+        """Test parsing newline-separated collections with empty lines"""
+        result = parse_collections_argument("collection1\n\ncollection2\n\n\ncollection3\n")
+        assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+
+    def test_should_parse_newline_separated_collections_with_whitespace(self):
+        """Test parsing newline-separated collections with whitespace"""
+        result = parse_collections_argument(" collection1 \n collection2 \n collection3 ")
+        assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+
+    def test_should_parse_single_collection_with_trailing_newline(self):
+        """Test parsing single collection with trailing newline"""
+        result = parse_collections_argument("collection1\n")
+        assert_that(result).is_equal_to(["collection1"])
+
+    def test_should_filter_empty_strings_from_newline_separated(self):
+        """Test that empty strings are filtered out from newline-separated input"""
+        result = parse_collections_argument("\n\ncollection1\n\n\ncollection2\n\n")
+        assert_that(result).is_equal_to(["collection1", "collection2"])
+
+    def test_should_handle_mixed_whitespace_in_newline_format(self):
+        """Test handling of various whitespace in newline format"""
+        result = parse_collections_argument("  collection1  \n\t collection2 \t\n   collection3   ")
+        assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+
+    def test_should_parse_comma_separated_with_no_spaces(self):
+        """Test parsing comma-separated collections without spaces"""
+        result = parse_collections_argument("id1,id2,id3")
+        assert_that(result).is_equal_to(["id1", "id2", "id3"])
+
+    def test_should_parse_comma_separated_with_trailing_comma(self):
+        """Test parsing comma-separated collections with trailing comma"""
+        result = parse_collections_argument("collection1,collection2,")
+        assert_that(result).is_equal_to(["collection1", "collection2"])
+
+    def test_should_parse_realistic_collection_ids(self):
+        """Test parsing realistic collection IDs (UUIDs)"""
+        result = parse_collections_argument(
+            "7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5,"
+            "yFAS-2e200380-a0da-464e-8554-663fa485965c"
+        )
+        assert_that(result).is_equal_to([
+            "7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5",
+            "yFAS-2e200380-a0da-464e-8554-663fa485965c"
+        ])
+
+    def test_should_parse_realistic_newline_separated_collection_ids(self):
+        """Test parsing realistic collection IDs in newline format"""
+        result = parse_collections_argument(
+            "7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5\n"
+            "yFAS-2e200380-a0da-464e-8554-663fa485965c\n"
+            "Lu0K-cd1cdf5a-1cb0-4b47-bf52-d365f928a1b4"
+        )
+        assert_that(result).is_equal_to([
+            "7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5",
+            "yFAS-2e200380-a0da-464e-8554-663fa485965c",
+            "Lu0K-cd1cdf5a-1cb0-4b47-bf52-d365f928a1b4"
+        ])
     
     def test_should_flatten_simple_dictionary_result_for_export(self):
         """Test flattening simple result"""
@@ -1055,12 +1122,128 @@ class TestExplorerIntegration:
         mock_container.get.return_value = mock_factory
         
         from dnastack.cli.commands.explorer.questions.utils import get_explorer_client
-        
+
         # Test with specific context and endpoint_id
         client = get_explorer_client(context="test_context", endpoint_id="test_endpoint")
         assert_that(client).is_equal_to(mock_client)
         mock_factory.get.assert_called_once_with(
-            ExplorerClient, 
-            context_name="test_context", 
+            ExplorerClient,
+            context_name="test_context",
             endpoint_id="test_endpoint"
         )
+
+
+class TestJsonLikeCollections:
+    """Test cases for JsonLike collections parameter functionality"""
+
+    def test_should_read_csv_collections_from_file(self):
+        """Test reading CSV collections from file with @ prefix"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("collection1,collection2,collection3")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_read_newline_separated_collections_from_file(self):
+        """Test reading newline-separated collections from file with @ prefix"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("collection1\ncollection2\ncollection3")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_handle_direct_csv_string_without_at_prefix(self):
+        """Test handling direct CSV string without @ prefix"""
+        json_like = JsonLike("collection1,collection2,collection3")
+        content = json_like.value()
+        result = parse_collections_argument(content)
+        assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+
+    def test_should_read_realistic_collection_ids_from_file(self):
+        """Test reading realistic collection IDs from file"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5\n"
+                   "yFAS-2e200380-a0da-464e-8554-663fa485965c\n"
+                   "Lu0K-cd1cdf5a-1cb0-4b47-bf52-d365f928a1b4")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_equal_to([
+                "7VnJ-b6bb34b6-dc1b-4ede-9aee-627e64f878c5",
+                "yFAS-2e200380-a0da-464e-8554-663fa485965c",
+                "Lu0K-cd1cdf5a-1cb0-4b47-bf52-d365f928a1b4"
+            ])
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_handle_empty_file(self):
+        """Test handling empty file"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_none()
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_handle_file_with_only_whitespace(self):
+        """Test handling file with only whitespace and newlines"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("\n\n   \n\t\n")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            # Should return empty list as all entries are whitespace
+            assert_that(result).is_equal_to([])
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_handle_file_with_trailing_comma(self):
+        """Test handling file with trailing comma in CSV format"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("collection1,collection2,collection3,")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+        finally:
+            os.unlink(temp_file)
+
+    def test_should_handle_file_with_mixed_whitespace(self):
+        """Test handling file with mixed whitespace in newline format"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("  collection1  \n\t collection2 \t\n   collection3   \n")
+            temp_file = f.name
+
+        try:
+            json_like = JsonLike(f"@{temp_file}")
+            content = json_like.value()
+            result = parse_collections_argument(content)
+            assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
+        finally:
+            os.unlink(temp_file)
