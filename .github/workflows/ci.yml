@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
     
     - name: Run Ruff
-      uses: astral-sh/ruff-action@v3
+      uses: astral-sh/ruff-action@57714a7c8a2e59f32539362ba31877a1957dded1 # v3
       with:
         version: "0.12.0"
 
@@ -26,10 +26,10 @@ jobs:
         python-version: ['3.11', '3.12']
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
     
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
       with:
         enable-cache: true
         cache-dependency-glob: |
@@ -37,7 +37,7 @@ jobs:
           **/uv.lock
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
       with:
         python-version: ${{ matrix.python-version }}
     
@@ -51,7 +51,7 @@ jobs:
         uv run pytest tests -m unit -v --cov=dnastack --cov-report=xml --cov-report=term-missing
     
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457 # v3
       with:
         file: ./coverage.xml
         flags: unittests
@@ -59,7 +59,7 @@ jobs:
         fail_ci_if_error: false
     
     - name: Python Coverage Comment
-      uses: orgoro/coverage@v3.2
+      uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac # v3.2
       if: github.event_name == 'pull_request'
       with:
         coverageFile: ./coverage.xml
