@@ -6,6 +6,44 @@ TESTING_IMAGE_NAME=dnastack/client-library-testing
 # Check if uv is available
 UV_AVAILABLE := $(shell command -v uv 2> /dev/null)
 
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help:
+	@echo "DNAstack Client Library - Available Make Targets"
+	@echo ""
+	@echo "Development Setup:"
+	@echo "  setup                    Set up development environment with uv"
+	@echo "  reset                    Clean configuration and session files"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test-unit                Run unit tests"
+	@echo "  test-unit-cov            Run unit tests with coverage report"
+	@echo "  test-unit-watch          Run unit tests in watch mode"
+	@echo "  test-e2e                 Run E2E tests"
+	@echo "  test-all                 Run both unit and E2E tests"
+	@echo ""
+	@echo "Linting:"
+	@echo "  lint                     Run ruff linter to check code"
+	@echo "  lint-fix                 Auto-fix linting issues"
+	@echo ""
+	@echo "Package Management:"
+	@echo "  package-test             Build and test package installation"
+	@echo "  publish                  Build package for distribution"
+	@echo ""
+	@echo "Docker Testing:"
+	@echo "  docker-test-all          Run tests across all Python versions"
+	@echo "  docker-test-all-baseline Test with Python $(PY_VERSION_BASELINE) (baseline)"
+	@echo "  docker-test-all-stable   Test with Python $(PY_VERSION_STABLE) (stable)"
+	@echo "  docker-test-all-latest   Test with Python $(PY_VERSION_LATEST) (latest)"
+	@echo "  docker-test-all-anaconda Test with Anaconda"
+	@echo "  docker-test-all-pypy     Test with PyPy"
+	@echo ""
+	@echo "Notebooks:"
+	@echo "  run-notebooks            Start Jupyter notebook server"
+	@echo "  run-notebooks-dev        Start Jupyter with development mounts"
+	@echo ""
+
 .PHONY: check-uv
 check-uv:
 ifndef UV_AVAILABLE
