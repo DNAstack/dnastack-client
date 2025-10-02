@@ -50,7 +50,7 @@ steps:
 
   # Build the package
   - id: build-package
-    name: python:3.11-slim@sha256:e9f0a08f0d1bfbe10dbdaef481acda96ceac20c9755ad58343de1fcd45fce23a
+    name: python:3.13-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689
     entrypoint: bash
     args:
       - '-ec'
@@ -73,7 +73,7 @@ steps:
   # Perform the sanity check for the CLI
   # NOTE: This is to ensure that the CLI works with the minimum requirements.
   - id: sanity-check
-    name: python:3.11-slim@sha256:e9f0a08f0d1bfbe10dbdaef481acda96ceac20c9755ad58343de1fcd45fce23a
+    name: python:3.13-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689
     entrypoint: bash
     args:
       - '-ec'
@@ -87,7 +87,7 @@ steps:
 
   # Test with the latest stable release of Python.
   - id: python-3.12
-    name: python:3.12-slim@sha256:744a20876a5eb3cfb2b21c62f1755e286da9af3715ad92179f1f78e853f00bee
+    name: python:3.13-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689
     entrypoint: bash
     args:
       - '-ec'
@@ -102,7 +102,7 @@ steps:
 
   # Publish the package
   - id: publish-package
-    name: python:3.11-slim@sha256:e9f0a08f0d1bfbe10dbdaef481acda96ceac20c9755ad58343de1fcd45fce23a
+    name: python:3.13-slim@sha256:5f55cdf0c5d9dc1a415637a5ccc4a9e18663ad203673173b8cda8f8dcacef689
     entrypoint: bash
     args:
       - '-ec'
