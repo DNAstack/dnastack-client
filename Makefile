@@ -123,7 +123,7 @@ test-unit-cov:
 
 .PHONY: test-unit-watch
 test-unit-watch:
-	uv run pytest-watch tests -m unit -v -n auto
+	uv run pytest-watch tests -m unit -v
 
 .PHONY: lint
 lint:
