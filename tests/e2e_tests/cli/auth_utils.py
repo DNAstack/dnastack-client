@@ -128,7 +128,8 @@ def _login_via_personal_access_token(driver: WebDriver, email: str, token: str, 
         wallet_login_uri = urljoin(device_code_url, "/login")
         driver.get(f'{wallet_login_uri}')
     WebDriverWait(driver, 10).until(
-        EC.visibility_of_element_located((By.XPATH, "//a[contains(@href, 'login')]"))
+        EC.presence_of_element_located((By.CSS_SELECTOR, "form[name='token']")),
+        message='Expecting token login form'
     )
     driver.execute_script(
         f"document.querySelector('form[name=\"token\"] input[name=\"token\"]').value = '{token}';"
@@ -160,8 +161,8 @@ def confirm_device_code(device_code_url: str, email: str, token: str):
         driver.get(device_code_url)
         # Assert login page is loaded
         WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located((By.XPATH, "//a[contains(@href, 'login')]")),
-            message='Expecting login page'
+            EC.presence_of_element_located((By.CSS_SELECTOR, "form[name='token']")),
+            message='Expecting token login form'
         )
         # Login via personal access token
         _login_via_personal_access_token(driver=driver, email=email, token=token, device_code_url=device_code_url)
