@@ -89,6 +89,12 @@ def init_runs_commands(group: Group):
                 arg_names=['--storage-account'],
                 help='Filter runs by the storage account ID. This will return runs that have outputs stored in the specified storage account.',
             ),
+            ArgumentSpec(
+                name='show_hidden',
+                arg_names=['--show-hidden'],
+                help='Include workflow runs with the visibility:hidden tag in the results. By default, hidden runs are excluded.',
+                type=bool,
+            ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -109,6 +115,7 @@ def init_runs_commands(group: Group):
                   tags: JsonLike,
                   samples: Optional[List[str]] = None,
                   storage_account_id: Optional[str] = None,
+                  show_hidden: Optional[bool] = False,
                   states: Optional[List[State]] = None):
         """
         List workflow runs
@@ -141,6 +148,7 @@ def init_runs_commands(group: Group):
             search=search,
             sample_ids=samples,
             storage_account_id=storage_account_id,
+            show_hidden=show_hidden,
             tag=tags
         )
         runs_list = client.list_runs(list_options, max_results)
