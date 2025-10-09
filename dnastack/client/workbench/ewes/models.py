@@ -274,6 +274,7 @@ class ExtendedRunListOptions(BaseListOptions):
     tag: Optional[List[str]]
     sample_ids: Optional[List[str]]
     storage_account_id: Optional[str]
+    show_hidden: Optional[bool] = False
 
 
 class TaskListOptions(BaseListOptions):
