@@ -12,6 +12,7 @@ from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
 from dnastack.client.workbench.workflow.models import WorkflowTransformationListOptions, \
     WorkflowTransformationCreate
+from dnastack.common.json_argument_parser import FileOrValue
 
 
 @formatted_group('transformations')
@@ -173,6 +174,7 @@ def delete_workflow_transformation(context: Optional[str],
                  ' You do not need to return the entire context object, only the parts that you want to modify. '
                  'Results of transformations are merged into the final context object. '
                  'The context object is a JSON object that contains the workflow parameters and other metadata.',
+            type=FileOrValue,
             required=True,
         ),
         ArgumentSpec(
@@ -214,23 +216,17 @@ def add_workflow_transformation(context: Optional[str],
                                 namespace: Optional[str],
                                 workflow_id: str,
                                 version_id: str,
-                                script: str,
+                                script: FileOrValue,
                                 transformation_id: Optional[str],
                                 next_transformation_id: Optional[str],
                                 labels: List[str]):
     """Create a new workflow transformation"""
     client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
-    if script.startswith("@"):
-        extractor = JavaScriptFunctionExtractor(script.split("@")[1])
-        script_content = extractor.extract_first_function()
-    else:
-        script_content = script
-
     workflow_transformation = WorkflowTransformationCreate(
         id=transformation_id,
         next_transformation_id=next_transformation_id,
-        script=script_content,
+        script=script.value(),
         labels=labels
     )
 
