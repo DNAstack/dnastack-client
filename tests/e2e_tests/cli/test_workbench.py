@@ -10,7 +10,7 @@ from dnastack.client.workbench.workflow.models import Workflow, WorkflowVersion,
 
 from dnastack.client.workbench.ewes.models import ExecutionEngine, EngineParamPreset, EngineHealthCheck, SimpleSample
 from dnastack.client.workbench.ewes.models import ExtendedRunStatus, ExtendedRun, BatchActionResult, BatchRunResponse, \
-    MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, EventType, MinimalExtendedRun, \
+    MinimalExtendedRunWithInputs, BatchRunRequest, RunEvent, MinimalExtendedRun, \
     MinimalExtendedRunWithOutputs
 from dnastack.client.workbench.common.models import State
 from dnastack.client.workbench.samples.models import Sample, SampleFile, Instrument
@@ -571,11 +571,12 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         first_event = events_result[0]
         self.assertIsNotNone(first_event.id, f'Expected event to have an id. Found {first_event.id}')
         self.assertIsNotNone(first_event.created_at, 'Expected event to have created_at timestamp')
-        self.assertIn(first_event.event_type, [e for e in EventType], 
+        valid_event_types = ["RUN_SUBMITTED", "PREPROCESSING", "ERROR_OCCURRED", "STATE_TRANSITION", "ENGINE_STATUS_UPDATE", "RUN_SUBMITTED_TO_ENGINE"]
+        self.assertIn(first_event.event_type, valid_event_types,
                       f'Expected valid event type, got {first_event.event_type}')
 
         # Test RUN_SUBMITTED event (should be first)
-        self.assertEqual(EventType.RUN_SUBMITTED, first_event.event_type,
+        self.assertEqual("RUN_SUBMITTED", first_event.event_type,
                          f'Expected event to be of type RUN_SUBMITTED. Got {first_event.event_type}')
         
         # Verify discriminated union works correctly
@@ -615,7 +616,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                 self.assertIsNotNone(event.metadata, f'Event {i} missing metadata')
                 
                 # Verify discriminator consistency
-                if event.event_type != EventType.RUN_SUBMITTED_TO_ENGINE:
+                if event.event_type != "RUN_SUBMITTED_TO_ENGINE":
                     self.assertEqual(event.event_type, event.metadata.event_type,
                                  f'Event {i}: event_type mismatch between event and metadata')
                 
@@ -632,12 +633,12 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
         # Test different event types if they exist
         event_types_found = {event.event_type for event in events_result}
-        self.assertIn(EventType.RUN_SUBMITTED, event_types_found,
+        self.assertIn("RUN_SUBMITTED", event_types_found,
                       'Expected at least a RUN_SUBMITTED event')
         
         # If we have multiple event types, test specific metadata fields
         for event in events_result:
-            if event.event_type == EventType.STATE_TRANSITION:
+            if event.event_type == "STATE_TRANSITION":
                 from dnastack.client.workbench.ewes.models import StateTransitionMetadata
                 self.assertIsInstance(event.metadata, StateTransitionMetadata)
                 # old_state and new_state should be valid State enums if present
@@ -645,8 +646,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                     self.assertIn(event.metadata.old_state, [s for s in State])
                 if hasattr(event.metadata, 'new_state') and event.metadata.new_state:
                     self.assertIn(event.metadata.new_state, [s for s in State])
-                    
-            elif event.event_type == EventType.ERROR_OCCURRED:
+
+            elif event.event_type == "ERROR_OCCURRED":
                 from dnastack.client.workbench.ewes.models import ErrorOccurredMetadata
                 self.assertIsInstance(event.metadata, ErrorOccurredMetadata)
                 # errors should be a list if present

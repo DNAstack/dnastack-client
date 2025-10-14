@@ -70,9 +70,9 @@ class TestClient(BaseWorkbenchTestCase):
 
         # Test first event (should be RUN_SUBMITTED)
         first_event = run_events.events[0]
-        from dnastack.client.workbench.ewes.models import EventType, RunSubmittedMetadata
-        
-        self.assertEqual(first_event.event_type, EventType.RUN_SUBMITTED,
+        from dnastack.client.workbench.ewes.models import RunSubmittedMetadata
+
+        self.assertEqual(first_event.event_type, "RUN_SUBMITTED",
                          'Expected first event to be RUN_SUBMITTED')
         
         # Test discriminated union deserialization
