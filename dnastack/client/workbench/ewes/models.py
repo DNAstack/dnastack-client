@@ -35,6 +35,17 @@ class SimpleSample(BaseModel):
     storage_account_id: Optional[str]
 
 
+class Hook(BaseModel):
+    id: Optional[str]
+    type: Optional[str]
+    result_data: Optional[Dict]
+    config: Optional[Dict]
+    state: Optional[str]
+    created_at: Optional[datetime]
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
 class ExtendedRunStatus(BaseModel):
     run_id: str
     external_id: Optional[str]
@@ -54,6 +65,7 @@ class ExtendedRunStatus(BaseModel):
     tags: Optional[Dict]
     workflow_engine_parameters: Optional[Dict]
     samples: Optional[List[SimpleSample]]
+    hooks: Optional[List[Hook]]
 
 
 class Log(BaseModel):
@@ -86,82 +98,133 @@ class ExtendedRunRequest(BaseModel):
     dependencies: Optional[List[RunDependency]]
     tags: Optional[Dict]
     samples: Optional[List[SimpleSample]]
+    hooks: Optional[List[Hook]]
 
-
-class EventType(str, Enum):
-    PREPROCESSING = "PREPROCESSING"
-    RUN_SUBMITTED = "RUN_SUBMITTED"
-    RUN_SUBMITTED_TO_ENGINE = "RUN_SUBMITTED_TO_ENGINE"
-    ERROR_OCCURRED = "ERROR_OCCURRED"
-    ENGINE_STATUS_UPDATE = "ENGINE_STATUS_UPDATE"
-    STATE_TRANSITION = "STATE_TRANSITION"
-    EVENT_METADATA = "EventMetadata"
 
 class SampleId(BaseModel):
     id: Optional[str]
     storage_account_id: Optional[str]
 
-class RunEventMetadata(BaseModel):
-    event_type: Literal[EventType.EVENT_METADATA]
-    message: Optional[str]
+
+# Base metadata class for unknown event types
+class UnknownEventMetadata(BaseModel):
+    """Fallback metadata for unknown event types from the server."""
+    event_type: str
+    message: Optional[str] = None
+
+    # Allow arbitrary fields for unknown event types (Pydantic v1)
+    class Config:
+        extra = 'allow'
 
 
-class RunSubmittedMetadata(RunEventMetadata):
-    event_type: Literal[EventType.RUN_SUBMITTED]
-    start_time: Optional[str]
-    submitted_by: Optional[str]
-    state: Optional[State]
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
-    workflow_url: Optional[str]
-    workflow_name: Optional[str]
-    workflow_version: Optional[str]
-    workflow_authors: Optional[List[str]]
-    workflow_type: Optional[str]
-    workflow_type_version: Optional[str]
-    tags: Optional[dict[str, str]]
-    sample_ids: Optional[List[SampleId]]
-
-class PreprocessingMetadata(RunEventMetadata):
-    event_type: Literal[EventType.PREPROCESSING]
-    outcome: Optional[str]
-
-class ErrorOccurredMetadata(RunEventMetadata):
-    event_type: Literal[EventType.ERROR_OCCURRED]
-    errors: Optional[List[str]]
-
-class StateTransitionMetadata(RunEventMetadata):
-    event_type: Literal[EventType.STATE_TRANSITION]
-    end_time: Optional[str]
-    old_state: Optional[State]
-    new_state: Optional[State]
-    errors: Optional[List[str]]
-
-class EngineStatusUpdateMetadata(RunEventMetadata):
-    event_type: Literal[EventType.ENGINE_STATUS_UPDATE]
-    # Add other fields as you discover them
+class RunSubmittedMetadata(BaseModel):
+    event_type: Literal["RUN_SUBMITTED"]
+    message: Optional[str] = None
+    start_time: Optional[str] = None
+    submitted_by: Optional[str] = None
+    state: Optional[State] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    workflow_url: Optional[str] = None
+    workflow_name: Optional[str] = None
+    workflow_version: Optional[str] = None
+    workflow_authors: Optional[List[str]] = None
+    workflow_type: Optional[str] = None
+    workflow_type_version: Optional[str] = None
+    tags: Optional[dict[str, str]] = None
+    sample_ids: Optional[List[SampleId]] = None
 
 
-class RunSubmittedToEngineMetadata(RunEventMetadata):
-    event_type: Literal[EventType.RUN_SUBMITTED_TO_ENGINE]
-    external_id: Optional[str]
+class PreprocessingMetadata(BaseModel):
+    event_type: Literal["PREPROCESSING"]
+    message: Optional[str] = None
+    outcome: Optional[str] = None
 
 
-RunEventMetadataUnion = Union[
+class ErrorOccurredMetadata(BaseModel):
+    event_type: Literal["ERROR_OCCURRED"]
+    message: Optional[str] = None
+    errors: Optional[List[str]] = None
+
+
+class StateTransitionMetadata(BaseModel):
+    event_type: Literal["STATE_TRANSITION"]
+    message: Optional[str] = None
+    end_time: Optional[str] = None
+    old_state: Optional[State] = None
+    new_state: Optional[State] = None
+    errors: Optional[List[str]] = None
+
+
+class EngineStatusUpdateMetadata(BaseModel):
+    event_type: Literal["ENGINE_STATUS_UPDATE"]
+    message: Optional[str] = None
+
+
+class RunSubmittedToEngineMetadata(BaseModel):
+    event_type: Literal["RUN_SUBMITTED_TO_ENGINE"]
+    message: Optional[str] = None
+    external_id: Optional[str] = None
+
+
+# Custom validator to handle unknown event types gracefully
+def parse_event_metadata(data: Dict[str, Any]) -> Union[
     RunSubmittedMetadata,
     PreprocessingMetadata,
     ErrorOccurredMetadata,
     StateTransitionMetadata,
     EngineStatusUpdateMetadata,
     RunSubmittedToEngineMetadata,
-    RunEventMetadata
-]
+    UnknownEventMetadata
+]:
+    """Parse event metadata, falling back to UnknownEventMetadata for unknown types."""
+    if not isinstance(data, dict):
+        raise ValueError("metadata must be a dict")
+
+    event_type = data.get('event_type')
+    if not event_type:
+        raise ValueError("event_type is required in metadata")
+
+    # Try to parse as known types
+    type_mapping = {
+        "RUN_SUBMITTED": RunSubmittedMetadata,
+        "PREPROCESSING": PreprocessingMetadata,
+        "ERROR_OCCURRED": ErrorOccurredMetadata,
+        "STATE_TRANSITION": StateTransitionMetadata,
+        "ENGINE_STATUS_UPDATE": EngineStatusUpdateMetadata,
+        "RUN_SUBMITTED_TO_ENGINE": RunSubmittedToEngineMetadata,
+    }
+
+    metadata_class = type_mapping.get(event_type)
+    if metadata_class:
+        return metadata_class(**data)
+    else:
+        # Unknown event type - use fallback
+        return UnknownEventMetadata(**data)
+
 
 class RunEvent(BaseModel):
     id: str
-    event_type: EventType
+    event_type: str
     created_at: datetime
-    metadata: RunEventMetadataUnion = Field(discriminator='event_type')
+    metadata: Union[
+        RunSubmittedMetadata,
+        PreprocessingMetadata,
+        ErrorOccurredMetadata,
+        StateTransitionMetadata,
+        EngineStatusUpdateMetadata,
+        RunSubmittedToEngineMetadata,
+        UnknownEventMetadata
+    ]
+
+    @classmethod
+    def parse_obj(cls, obj: Any) -> 'RunEvent':
+        """Custom validation to handle unknown event types (Pydantic v1)."""
+        if isinstance(obj, dict):
+            # Parse metadata with our custom function
+            if 'metadata' in obj:
+                obj = {**obj, 'metadata': parse_event_metadata(obj['metadata'])}
+        return super().parse_obj(obj)
 
 
 class ExtendedRunEvents(BaseModel):
@@ -275,6 +338,7 @@ class ExtendedRunListOptions(BaseListOptions):
     sample_ids: Optional[List[str]]
     storage_account_id: Optional[str]
     show_hidden: Optional[bool] = False
+
 
 
 class TaskListOptions(BaseListOptions):
