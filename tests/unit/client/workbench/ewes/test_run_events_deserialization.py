@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from dnastack.client.workbench.ewes.models import (
-    RunEvent, EventType, State,
+    RunEvent, State, UnknownEventMetadata,
     RunSubmittedMetadata, PreprocessingMetadata, ErrorOccurredMetadata,
     StateTransitionMetadata, EngineStatusUpdateMetadata, RunSubmittedToEngineMetadata,
     ExtendedRunEvents, SampleId
@@ -134,10 +134,10 @@ class TestRunEventDeserialization:
     def test_run_submitted_event_deserialization(self, sample_run_submitted_data):
         """Test deserialization of RUN_SUBMITTED event."""
         event = RunEvent(**sample_run_submitted_data)
-        
-        assert event.event_type == EventType.RUN_SUBMITTED
+
+        assert event.event_type == "RUN_SUBMITTED"
         assert isinstance(event.metadata, RunSubmittedMetadata)
-        assert event.metadata.event_type == EventType.RUN_SUBMITTED
+        assert event.metadata.event_type == "RUN_SUBMITTED"
         assert event.metadata.message == "Run submitted successfully"
         assert event.metadata.submitted_by == "user@example.com"
         assert event.metadata.state == State.QUEUED
@@ -151,29 +151,29 @@ class TestRunEventDeserialization:
     def test_preprocessing_event_deserialization(self, sample_preprocessing_data):
         """Test deserialization of PREPROCESSING event."""
         event = RunEvent(**sample_preprocessing_data)
-        
-        assert event.event_type == EventType.PREPROCESSING
+
+        assert event.event_type == "PREPROCESSING"
         assert isinstance(event.metadata, PreprocessingMetadata)
-        assert event.metadata.event_type == EventType.PREPROCESSING
+        assert event.metadata.event_type == "PREPROCESSING"
         assert event.metadata.outcome == "SUCCESS"
 
     def test_error_occurred_event_deserialization(self, sample_error_occurred_data):
         """Test deserialization of ERROR_OCCURRED event."""
         event = RunEvent(**sample_error_occurred_data)
-        
-        assert event.event_type == EventType.ERROR_OCCURRED
+
+        assert event.event_type == "ERROR_OCCURRED"
         assert isinstance(event.metadata, ErrorOccurredMetadata)
-        assert event.metadata.event_type == EventType.ERROR_OCCURRED
+        assert event.metadata.event_type == "ERROR_OCCURRED"
         assert len(event.metadata.errors) == 2
         assert "Task 'process_sample' failed" in event.metadata.errors[0]
 
     def test_state_transition_event_deserialization(self, sample_state_transition_data):
         """Test deserialization of STATE_TRANSITION event."""
         event = RunEvent(**sample_state_transition_data)
-        
-        assert event.event_type == EventType.STATE_TRANSITION
+
+        assert event.event_type == "STATE_TRANSITION"
         assert isinstance(event.metadata, StateTransitionMetadata)
-        assert event.metadata.event_type == EventType.STATE_TRANSITION
+        assert event.metadata.event_type == "STATE_TRANSITION"
         assert event.metadata.old_state == State.RUNNING
         assert event.metadata.new_state == State.COMPLETE
         assert event.metadata.errors == []
@@ -181,18 +181,18 @@ class TestRunEventDeserialization:
     def test_engine_status_update_event_deserialization(self, sample_engine_status_update_data):
         """Test deserialization of ENGINE_STATUS_UPDATE event."""
         event = RunEvent(**sample_engine_status_update_data)
-        
-        assert event.event_type == EventType.ENGINE_STATUS_UPDATE
+
+        assert event.event_type == "ENGINE_STATUS_UPDATE"
         assert isinstance(event.metadata, EngineStatusUpdateMetadata)
-        assert event.metadata.event_type == EventType.ENGINE_STATUS_UPDATE
+        assert event.metadata.event_type == "ENGINE_STATUS_UPDATE"
 
     def test_run_submitted_to_engine_event_deserialization(self, sample_run_submitted_to_engine_data):
         """Test deserialization of RUN_SUBMITTED_TO_ENGINE event."""
         event = RunEvent(**sample_run_submitted_to_engine_data)
-        
-        assert event.event_type == EventType.RUN_SUBMITTED_TO_ENGINE
+
+        assert event.event_type == "RUN_SUBMITTED_TO_ENGINE"
         assert isinstance(event.metadata, RunSubmittedToEngineMetadata)
-        assert event.metadata.event_type == EventType.RUN_SUBMITTED_TO_ENGINE
+        assert event.metadata.event_type == "RUN_SUBMITTED_TO_ENGINE"
 
     def test_extended_run_events_deserialization(self, sample_run_submitted_data, sample_error_occurred_data):
         """Test deserialization of ExtendedRunEvents containing multiple events."""
@@ -202,28 +202,29 @@ class TestRunEventDeserialization:
                 sample_error_occurred_data
             ]
         }
-        
-        extended_run_events = ExtendedRunEvents(**events_data)
-        
-        assert len(extended_run_events.events) == 2
-        assert extended_run_events.events[0].event_type == EventType.RUN_SUBMITTED
-        assert extended_run_events.events[1].event_type == EventType.ERROR_OCCURRED
 
-    def test_invalid_event_type_raises_validation_error(self, base_run_event_data):
-        """Test that invalid event type raises ValidationError."""
-        invalid_data = {
+        extended_run_events = ExtendedRunEvents(**events_data)
+
+        assert len(extended_run_events.events) == 2
+        assert extended_run_events.events[0].event_type == "RUN_SUBMITTED"
+        assert extended_run_events.events[1].event_type == "ERROR_OCCURRED"
+
+    def test_invalid_event_type_uses_fallback(self, base_run_event_data):
+        """Test that unknown/invalid event types use the UnknownEventMetadata fallback."""
+        unknown_data = {
             **base_run_event_data,
             "event_type": "INVALID_EVENT_TYPE",
             "metadata": {
                 "event_type": "INVALID_EVENT_TYPE",
-                "message": "This should fail"
+                "message": "This should use fallback"
             }
         }
-        
-        with pytest.raises(ValidationError) as exc_info:
-            RunEvent(**invalid_data)
-        
-        assert "event_type" in str(exc_info.value)
+
+        # Should NOT raise an error, should use UnknownEventMetadata
+        event = RunEvent.parse_obj(unknown_data)
+        assert event.event_type == "INVALID_EVENT_TYPE"
+        assert isinstance(event.metadata, UnknownEventMetadata)
+        assert event.metadata.message == "This should use fallback"
 
 
     def test_missing_metadata_raises_validation_error(self, base_run_event_data):
@@ -323,31 +324,31 @@ class TestRunEventDeserialization:
                 "new_state": "COMPLETE"
             }
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
-            RunEvent(**invalid_data)
-        
+            RunEvent.parse_obj(invalid_data)
+
         assert "old_state" in str(exc_info.value)
 
     @pytest.mark.parametrize("event_type,metadata_class", [
-        (EventType.RUN_SUBMITTED, RunSubmittedMetadata),
-        (EventType.PREPROCESSING, PreprocessingMetadata),
-        (EventType.ERROR_OCCURRED, ErrorOccurredMetadata),
-        (EventType.STATE_TRANSITION, StateTransitionMetadata),
-        (EventType.ENGINE_STATUS_UPDATE, EngineStatusUpdateMetadata),
-        (EventType.RUN_SUBMITTED_TO_ENGINE, RunSubmittedToEngineMetadata),
+        ("RUN_SUBMITTED", RunSubmittedMetadata),
+        ("PREPROCESSING", PreprocessingMetadata),
+        ("ERROR_OCCURRED", ErrorOccurredMetadata),
+        ("STATE_TRANSITION", StateTransitionMetadata),
+        ("ENGINE_STATUS_UPDATE", EngineStatusUpdateMetadata),
+        ("RUN_SUBMITTED_TO_ENGINE", RunSubmittedToEngineMetadata),
     ])
     def test_discriminator_mapping(self, base_run_event_data, event_type, metadata_class):
         """Test that discriminator correctly maps event types to metadata classes."""
         data = {
             **base_run_event_data,
-            "event_type": event_type.value,
+            "event_type": event_type,
             "metadata": {
-                "event_type": event_type.value,
-                "message": f"Test {event_type.value} event"
+                "event_type": event_type,
+                "message": f"Test {event_type} event"
             }
         }
-        
+
         event = RunEvent(**data)
         assert isinstance(event.metadata, metadata_class)
         assert event.metadata.event_type == event_type
@@ -404,6 +405,81 @@ class TestRunEventDeserialization:
     def test_no_events_field(self):
         """Test ExtendedRunEvents with no events field."""
         data = {}
-        
+
         extended_run_events = ExtendedRunEvents(**data)
         assert extended_run_events.events is None
+
+    def test_unknown_event_type_uses_fallback(self, base_run_event_data):
+        """Test that unknown event types from server are handled gracefully using UnknownEventMetadata."""
+        # Simulate a new event type from the server that the CLI doesn't know about yet
+        unknown_event_data = {
+            **base_run_event_data,
+            "event_type": "HOOK_COMPLETED",  # New event type not in our models
+            "metadata": {
+                "event_type": "HOOK_COMPLETED",
+                "message": "Hook execution completed",
+                "hook_id": "hook-123",
+                "duration_ms": 1500,
+                "custom_field": "custom_value"
+            }
+        }
+
+        # This should NOT raise an error
+        event = RunEvent.parse_obj(unknown_event_data)
+
+        # Verify basic event properties
+        assert event.event_type == "HOOK_COMPLETED"
+        assert isinstance(event.metadata, UnknownEventMetadata)
+        assert event.metadata.event_type == "HOOK_COMPLETED"
+        assert event.metadata.message == "Hook execution completed"
+
+        # Verify that extra fields are preserved (due to extra='allow')
+        assert hasattr(event.metadata, 'hook_id')
+        assert event.metadata.hook_id == "hook-123"  # type: ignore
+        assert event.metadata.duration_ms == 1500  # type: ignore
+        assert event.metadata.custom_field == "custom_value"  # type: ignore
+
+    def test_multiple_unknown_event_types_in_list(self, base_run_event_data, sample_run_submitted_data):
+        """Test that a mix of known and unknown event types can be deserialized together."""
+        events_data = {
+            "events": [
+                sample_run_submitted_data,  # Known event type
+                {
+                    **base_run_event_data,
+                    "id": "unknown-event-1",
+                    "event_type": "HOOK_COMPLETED",  # Unknown event type
+                    "metadata": {
+                        "event_type": "HOOK_COMPLETED",
+                        "message": "Hook completed"
+                    }
+                },
+                {
+                    **base_run_event_data,
+                    "id": "unknown-event-2",
+                    "event_type": "WORKFLOW_VALIDATED",  # Another unknown event type
+                    "metadata": {
+                        "event_type": "WORKFLOW_VALIDATED",
+                        "message": "Workflow validated successfully",
+                        "validation_time_ms": 250
+                    }
+                }
+            ]
+        }
+
+        extended_run_events = ExtendedRunEvents.parse_obj(events_data)
+
+        assert len(extended_run_events.events) == 3
+
+        # First event should be the known type with proper class
+        assert extended_run_events.events[0].event_type == "RUN_SUBMITTED"
+        assert isinstance(extended_run_events.events[0].metadata, RunSubmittedMetadata)
+
+        # Second event should use UnknownEventMetadata
+        assert extended_run_events.events[1].event_type == "HOOK_COMPLETED"
+        assert isinstance(extended_run_events.events[1].metadata, UnknownEventMetadata)
+        assert extended_run_events.events[1].metadata.message == "Hook completed"
+
+        # Third event should also use UnknownEventMetadata
+        assert extended_run_events.events[2].event_type == "WORKFLOW_VALIDATED"
+        assert isinstance(extended_run_events.events[2].metadata, UnknownEventMetadata)
+        assert extended_run_events.events[2].metadata.validation_time_ms == 250  # type: ignore
