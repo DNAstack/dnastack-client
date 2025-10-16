@@ -80,7 +80,8 @@ test = [
 dev = [
     {include-group = "test"},
     "ruff==0.12.0",
-    "pre-commit>=4.2.0"
+    "pre-commit>=4.2.0",
+    "pyrefly>=0.1.0"
 ]
 
 [tool.uv]
@@ -89,3 +90,12 @@ package = true
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+
+[tool.pyrefly]
+project-includes = ["**/*"]
+project-excludes = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/*venv/**/*",
+    "tests/**/*",
+]
