@@ -16,9 +16,10 @@ class TestUser(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
-    id_token: Optional[str]
-    refresh_token: Optional[str]
-    expires_in: str
+    id_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    expires_in: int
+    scope: Optional[str] = None
 
 
 class Principal(BaseModel):
@@ -73,6 +74,8 @@ class WalletHelper:
                                                 resource=resource,
                                                 scope=scope),
                                     headers={'Authorization': self._basic_auth()})
+            print("FOOOOO")
+            print(response.json())
             return TokenResponse(**response.json()).access_token
 
     def configure_oauth_settings(self,

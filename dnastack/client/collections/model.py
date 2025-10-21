@@ -10,7 +10,7 @@ from dnastack.client.base_exceptions import ApiError
 
 
 class Tag(BaseModel):
-    id: Optional[str]
+    id: Optional[str] = None
     label: str
 
 
@@ -40,9 +40,9 @@ class Collection(BaseModel):
     slugName: str
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     description: Optional[str] = None
-    itemsQuery: Optional[str]
+    itemsQuery: Optional[str] = None
     tags: Optional[List[Tag]] = Field(default_factory=list)
-    createdAt: Optional[datetime]
+    createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
     dbSchemaName: Optional[str] = None
     itemsChangedAt: Optional[datetime] = None
@@ -69,53 +69,53 @@ class PageableApiError(ApiError):
 
 
 class Pagination(BaseModel):
-    nextPageUrl: Optional[str]
+    nextPageUrl: Optional[str] = None
 
 
 class PaginatedResource(BaseModel):
-    pagination: Optional[Pagination]
+    pagination: Optional[Pagination] = None
 
     def items(self) -> List[Any]:
         pass
 
 class CollectionItem(BaseModel):
     id: str
-    collectionId: Optional[str]
-    type: Optional[str]
-    name: Optional[str]
-    displayName: Optional[str]
-    dataSourceName: Optional[str]
-    dataSourceType: Optional[str]
-    cachedAt: Optional[str]
-    createdTime: Optional[str]
-    updatedTime: Optional[str]
-    itemUpdatedTime: Optional[str]
-    sourceKey: Optional[str]
-    metadataUrl: Optional[str]
-    dataSourceUrl: Optional[str]
-    sizeUnit: Optional[str]
-    size: Optional[int]
+    collectionId: Optional[str] = None
+    type: Optional[str] = None
+    name: Optional[str] = None
+    displayName: Optional[str] = None
+    dataSourceName: Optional[str] = None
+    dataSourceType: Optional[str] = None
+    cachedAt: Optional[str] = None
+    createdTime: Optional[str] = None
+    updatedTime: Optional[str] = None
+    itemUpdatedTime: Optional[str] = None
+    sourceKey: Optional[str] = None
+    metadataUrl: Optional[str] = None
+    dataSourceUrl: Optional[str] = None
+    sizeUnit: Optional[str] = None
+    size: Optional[int] = None
 
 
 class CollectionItemListResponse(BaseModel):
     items: List[CollectionItem]
-    pagination: Optional[Pagination]
+    pagination: Optional[Pagination] = None
 
 
 class CollectionItemListOptions(BaseModel):
-    type: Optional[str]
-    limit: Optional[int]
+    type: Optional[str] = None
+    limit: Optional[int] = None
 
 
 class CreateCollectionItemsRequest(BaseModel):
     dataSourceId: str
-    dataSourceType: Optional[str]
+    dataSourceType: Optional[str] = None
     sourceKeys: List[str]
 
 
 class DeleteCollectionItemRequest(BaseModel):
     dataSourceId: str
-    dataSourceType: Optional[str]
+    dataSourceType: Optional[str] = None
     sourceKey: str
 
 
@@ -127,11 +127,11 @@ class CollectionValidationStatus(str, Enum):
 
 
 class CollectionValidationMissingItems(BaseModel):
-    files: Optional[int]
-    tables: Optional[int]
+    files: Optional[int] = None
+    tables: Optional[int] = None
 
 
 class CollectionStatus(BaseModel):
     validationsStatus: CollectionValidationStatus
-    lastChecked: Optional[datetime]
-    missingItems: Optional[int]
+    lastChecked: Optional[datetime] = None
+    missingItems: Optional[int] = None

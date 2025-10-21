@@ -10,32 +10,32 @@ from dnastack.client.workbench.storage.models import PlatformType
 
 class OntologyClass(BaseModel):
     id: str
-    label: Optional[str]
+    label: Optional[str] = None
 
 
 class PhenotypicFeature(BaseModel):
-    created_at: Optional[datetime]
-    last_updated_at: Optional[datetime]
-    type: Optional[OntologyClass]
+    created_at: Optional[datetime] = None
+    last_updated_at: Optional[datetime] = None
+    type: Optional[OntologyClass] = None
 
 
 class SampleMetrics(BaseModel):
-    file_count: Optional[int]
-    instrument_types: Optional[List[str]]
+    file_count: Optional[int] = None
+    instrument_types: Optional[List[str]] = None
 
 
 class RunMetadata(BaseModel):
-    run_id: Optional[str]
-    state: Optional[State]
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    updated_time: Optional[datetime]
-    submitted_by: Optional[str]
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
-    workflow_name: Optional[str]
-    workflow_version: Optional[str]
-    last_recorded_event_time: Optional[datetime]
+    run_id: Optional[str] = None
+    state: Optional[State] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    updated_time: Optional[datetime] = None
+    submitted_by: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    workflow_name: Optional[str] = None
+    workflow_version: Optional[str] = None
+    last_recorded_event_time: Optional[datetime] = None
     tags: Optional[dict[str, str]]
 
 
@@ -76,27 +76,27 @@ class SampleListOptions(BaseListOptions):
 class SampleFile(BaseModel):
     sample_id: str
     path: str
-    storage_account_id: Optional[str]
-    platform_type: Optional[PlatformType]
-    instrument_id: Optional[str]
-    created_at: Optional[datetime]
-    last_updated_at: Optional[datetime]
-    size: Optional[int]
+    storage_account_id: Optional[str] = None
+    platform_type: Optional[PlatformType] = None
+    instrument_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    last_updated_at: Optional[datetime] = None
+    size: Optional[int] = None
 
 
 class Sample(BaseModel):
     id: str
-    created_at: Optional[datetime]
-    last_updated_at: Optional[datetime]
-    father_id: Optional[str]
-    mother_id: Optional[str]
-    family_id: Optional[str]
-    sex: Optional[str]
-    metrics: Optional[SampleMetrics]
-    phenotypes: Optional[List[PhenotypicFeature]]
-    runs: Optional[List[RunMetadata]]
-    affected_status: Optional[AffectedStatus]
-    has_been_analyzed: Optional[bool]
+    created_at: Optional[datetime] = None
+    last_updated_at: Optional[datetime] = None
+    father_id: Optional[str] = None
+    mother_id: Optional[str] = None
+    family_id: Optional[str] = None
+    sex: Optional[str] = None
+    metrics: Optional[SampleMetrics] = None
+    phenotypes: Optional[List[PhenotypicFeature]] = None
+    runs: Optional[List[RunMetadata]] = None
+    affected_status: Optional[AffectedStatus] = None
+    has_been_analyzed: Optional[bool] = None
 
 
 class SampleListResponse(PaginatedResource):
@@ -107,10 +107,10 @@ class SampleListResponse(PaginatedResource):
 
 
 class SampleFilesListOptions(BaseListOptions):
-    storage_id: Optional[str]
-    platform_type: Optional[PlatformType]
-    instrument_id: Optional[str]
-    search: Optional[str]
+    storage_id: Optional[str] = None
+    platform_type: Optional[PlatformType] = None
+    instrument_id: Optional[str] = None
+    search: Optional[str] = None
 
 
 class SampleFileListResponse(PaginatedResource):
@@ -121,7 +121,7 @@ class SampleFileListResponse(PaginatedResource):
 
 
 class InstrumentListOptions(BaseListOptions):
-    platform_type: Optional[PlatformType]
+    platform_type: Optional[PlatformType] = None
 
 
 class Instrument(BaseModel):

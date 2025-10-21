@@ -192,7 +192,7 @@ def submit(context: Optional[str],
                     'this run request will not be submitted to the service endpoint.',
                     fg='yellow',
                     err=True)
-        click.secho(run_request.json(indent=2), dim=True)
+        click.secho(run_request.model_dump_json(indent=2), dim=True)
     else:
         _execute(context=context,
                  endpoint_id=endpoint_id,

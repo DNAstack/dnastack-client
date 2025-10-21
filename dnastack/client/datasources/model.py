@@ -6,6 +6,6 @@ class DataSourceListOptions(BaseModel):
     pass
 
 class DataSource(BaseModel):
-    id: Optional[str]
-    name: Optional[str]
-    type: Optional[str]
+    id: Optional[str] = None
+    name: Optional[str] = None
+    type: Optional[str] = None

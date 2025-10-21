@@ -141,8 +141,8 @@ class DrsObjectAccessMethod(BaseModel):
 
 
 class DrsObjectChecksum(BaseModel):
-    checksum: Optional[str]
-    type: Optional[str]
+    checksum: Optional[str] = None
+    type: Optional[str] = None
 
 
 class DrsObject(BaseModel):
@@ -314,7 +314,7 @@ class Blob(AbstractContextManager):
     def get_access_url_object(self) -> DrsObjectAccessUrl:
         """ Get the DRS Access URL Object """
         drs_obj = self.get_object()
-        self._logger.debug(f'DRS Object:\n\n{drs_obj.json(indent=2)}\n')
+        self._logger.debug(f'DRS Object:\n\n{drs_obj.model_dump_json(indent=2)}\n')
 
         if drs_obj.access_methods:
             for access_method in drs_obj.access_methods:

@@ -29,5 +29,5 @@ class Configuration(BaseModel):
     ###############################################################
     # Version 3 (for object migration and backward compatibility) #
     ###############################################################
-    defaults: Optional[Dict[str, str]]
-    endpoints: Optional[List[Endpoint]]
+    defaults: Optional[Dict[str, str]] = None
+    endpoints: Optional[List[Endpoint]] = None

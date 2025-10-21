@@ -10,21 +10,21 @@ GRANT_TYPE_TOKEN_EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange'
 
 class OAuth2Authentication(BaseModel, HashableModel):
     """OAuth2 Authentication Information"""
-    authorization_endpoint: Optional[str]
-    client_id: Optional[str]
-    client_secret: Optional[str]
-    device_code_endpoint: Optional[str]
+    authorization_endpoint: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    device_code_endpoint: Optional[str] = None
     grant_type: str
-    personal_access_endpoint: Optional[str]
-    personal_access_email: Optional[str]
-    personal_access_token: Optional[str]
-    redirect_url: Optional[str]
+    personal_access_endpoint: Optional[str] = None
+    personal_access_email: Optional[str] = None
+    personal_access_token: Optional[str] = None
+    redirect_url: Optional[str] = None
     resource_url: str
-    scope: Optional[str]
-    token_endpoint: Optional[str]
+    scope: Optional[str] = None
+    token_endpoint: Optional[str] = None
     type: str = 'oauth2'
-    subject_token: Optional[str]
-    subject_token_type: Optional[str]
-    requested_token_type: Optional[str]
-    audience: Optional[str]
-    cloud_provider: Optional[str]  # Currently supported: 'gcp'
+    subject_token: Optional[str] = None
+    subject_token_type: Optional[str] = None
+    requested_token_type: Optional[str] = None
+    audience: Optional[str] = None
+    cloud_provider: Optional[str] = None  # Currently supported: 'gcp'
