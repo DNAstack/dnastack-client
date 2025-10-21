@@ -62,7 +62,7 @@ steps:
 
         # Install uv
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="/root/.local/bin:$PATH"
+        export PATH="/root/.local/bin:$$PATH"
 
         # Build using uv
         uv build
@@ -116,7 +116,7 @@ steps:
 
         # Install uv
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="/root/.local/bin:$PATH"
+        export PATH="/root/.local/bin:$$PATH"
 
         cp /root/.pypirc ~/.pypirc
         uv publish --verbose dist/*.whl
