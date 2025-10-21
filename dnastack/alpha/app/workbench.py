@@ -164,7 +164,7 @@ class Workbench:
 			raise WorkbenchRunException("Could not submit run, unexpected run state '"+result.state)
 		return result.run_id
 
-	def cancel_batch(self, batch_id: str) -> RunStatus:
+	def cancel_batch(self, batch_id: str) -> None:
 		bad_run_ids=[]
 		for run_status in self.describe_batch(batch_id):
 			r=RunStatus(run_status.state)
@@ -173,7 +173,7 @@ class Workbench:
 					self.cancel_run(run_status.run_id)
 				except Exception:
 					bad_run_ids.append(run_status.run_id)
-		if(len(bad_run_ids) > 0):
+		if len(bad_run_ids) > 0:
 			raise WorkbenchRunException("Could not cancel all runs in batch "+batch_id+".  Run IDs: "+"\n".join(bad_run_ids), run_ids=bad_run_ids)
 
 	def cancel_run(self, run_id) -> RunStatus:
