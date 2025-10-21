@@ -59,8 +59,8 @@ class UnitTest(TestCase):
                                             http_client_factory=http_client_factory)
 
         # Set up the test.
-        issued_at = time() - 120
-        valid_until = time() - 60
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
         refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
         existing_session_info = SessionInfo(
             refresh_token=refresh_token,
@@ -108,8 +108,8 @@ class UnitTest(TestCase):
                                             http_client_factory=http_client_factory)
 
         # Set up the test.
-        issued_at = time() - 120
-        valid_until = time() - 60
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
         refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
         existing_session_info = SessionInfo(
             refresh_token=refresh_token,
