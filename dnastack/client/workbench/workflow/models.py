@@ -12,17 +12,17 @@ class WorkflowDescriptor(BaseModel):
     input_schema: Dict
     output_schema: Dict
     wdl_version: str
-    errors: Optional[Any]
+    errors: Optional[Any] = None
 
 
 class WorkflowVersion(BaseModel):
-    workflowId: Optional[str]
+    workflowId: Optional[str] = None
     id: str
-    externalId: Optional[str]
+    externalId: Optional[str] = None
     versionName: str
     workflowName: str
-    createdAt: Optional[str]
-    lastUpdatedAt: Optional[str]
+    createdAt: Optional[str] = None
+    lastUpdatedAt: Optional[str] = None
     descriptorType: str
     authors: Optional[List[str]] = None
     description: Optional[str] = None
@@ -34,14 +34,14 @@ class Workflow(BaseModel):
     internalId: str
     source: str
     name: str
-    description: Optional[str]
-    lastUpdatedAt: Optional[str]
+    description: Optional[str] = None
+    lastUpdatedAt: Optional[str] = None
     latestVersion: str
-    authors: Optional[List[str]]
-    versions: Optional[List[WorkflowVersion]]
-    deleted: Optional[bool]
-    etag: Optional[str]
-    labels: Optional[List[str]]
+    authors: Optional[List[str]] = None
+    versions: Optional[List[WorkflowVersion]] = None
+    deleted: Optional[bool] = None
+    etag: Optional[str] = None
+    labels: Optional[List[str]] = None
 
 
 class WorkflowFileType(str, Enum):
@@ -83,12 +83,12 @@ class WorkflowVersionCreate(BaseModel):
 
 
 class WorkflowListOptions(BaseListOptions):
-    search: Optional[str]
-    source: Optional[WorkflowSource]
-    deleted: Optional[bool]
-    sort: Optional[str]
+    search: Optional[str] = None
+    source: Optional[WorkflowSource] = None
+    deleted: Optional[bool] = None
+    sort: Optional[str] = None
     order: Optional[str] = Field(default=None, deprecated=True)
-    direction: Optional[str]
+    direction: Optional[str] = None
 
 
 class WorkflowListResponse(PaginatedResource):
@@ -99,7 +99,7 @@ class WorkflowListResponse(PaginatedResource):
 
 
 class WorkflowVersionListOptions(BaseListOptions):
-    deleted: Optional[bool]
+    deleted: Optional[bool] = None
 
 
 class WorkflowVersionListResponse(PaginatedResource):
@@ -113,42 +113,42 @@ class ResolvedWorkflow(BaseModel):
     internalId: str
     source: str
     name: str
-    description: Optional[str]
-    lastUpdatedAt: Optional[str]
-    versionId: Optional[str]
-    version: Optional[WorkflowVersion]
-    authors: Optional[List[str]]
-    etag: Optional[str]
+    description: Optional[str] = None
+    lastUpdatedAt: Optional[str] = None
+    versionId: Optional[str] = None
+    version: Optional[WorkflowVersion] = None
+    authors: Optional[List[str]] = None
+    etag: Optional[str] = None
 
 class WorkflowDefaultsSelector(BaseModel):
-    engine: Optional[str]
-    provider: Optional[str]
-    region: Optional[str]
+    engine: Optional[str] = None
+    provider: Optional[str] = None
+    region: Optional[str] = None
 
 
 class WorkflowDefaults(BaseModel):
-    id: Optional[str]
-    name: Optional[str]
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
-    created_at: Optional[str]
-    updated_at: Optional[str]
-    selector: Optional[WorkflowDefaultsSelector]
-    values: Optional[Dict]
-    etag: Optional[str]
+    id: Optional[str] = None
+    name: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    selector: Optional[WorkflowDefaultsSelector] = None
+    values: Optional[Dict] = None
+    etag: Optional[str] = None
 
 
 class WorkflowDefaultsCreateRequest(BaseModel):
-    id: Optional[str]
-    name: Optional[str]
-    selector: Optional[WorkflowDefaultsSelector]
-    values: Optional[Dict]
+    id: Optional[str] = None
+    name: Optional[str] = None
+    selector: Optional[WorkflowDefaultsSelector] = None
+    values: Optional[Dict] = None
 
 
 class WorkflowDefaultsUpdateRequest(BaseModel):
-    name: Optional[str]
-    selector: Optional[WorkflowDefaultsSelector]
-    values: Optional[Dict]
+    name: Optional[str] = None
+    selector: Optional[WorkflowDefaultsSelector] = None
+    values: Optional[Dict] = None
 
 
 class WorkflowDefaultsListResponse(PaginatedResource):
@@ -159,24 +159,24 @@ class WorkflowDefaultsListResponse(PaginatedResource):
 
 
 class WorkflowDefaultsListOptions(BaseListOptions):
-    sort: Optional[str]
+    sort: Optional[str] = None
 
 
 class WorkflowTransformationCreate(BaseModel):
-    id: Optional[str]
-    next_transformation_id: Optional[str]
-    script: Optional[str]
-    labels: Optional[List[str]]
+    id: Optional[str] = None
+    next_transformation_id: Optional[str] = None
+    script: Optional[str] = None
+    labels: Optional[List[str]] = None
 
 
 class WorkflowTransformation(BaseModel):
-    id: Optional[str]
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
-    next_transformation_id: Optional[str]
-    script: Optional[str]
-    labels: Optional[List[str]]
-    created_at: Optional[str]
+    id: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    next_transformation_id: Optional[str] = None
+    script: Optional[str] = None
+    labels: Optional[List[str]] = None
+    created_at: Optional[str] = None
 
 
 class WorkflowTransformationListOptions(BaseListOptions):
@@ -191,20 +191,20 @@ class WorkflowTransformationListResponse(PaginatedResource):
 
 
 class WorkflowDependencyPrerequisite(BaseModel):
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
 
 
 class WorkflowDependency(BaseModel):
-    namespace: Optional[str]
-    id: Optional[str]
-    workflow_id: Optional[str]
-    workflow_version_id: Optional[str]
-    name: Optional[str]
+    namespace: Optional[str] = None
+    id: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    name: Optional[str] = None
     dependencies: Optional[List[WorkflowDependencyPrerequisite]] = []
     global_: Optional[bool] = Field(default=None, alias="global")
-    created_at: Optional[str]
-    updated_at: Optional[str]
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class WorkflowDependencyCreateRequest(BaseModel):

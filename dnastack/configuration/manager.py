@@ -51,10 +51,14 @@ class ConfigurationManager:
         """ Load the configuration object """
         self.__logger.debug(f'Reading the configuration from {self.__file_path}...')
         raw_config = self.load_raw()
-        if not raw_config:
+        if not raw_config or raw_config.strip() in ('', '{}'):
             return Configuration()
         try:
-            config = Configuration(**yaml.load(raw_config, Loader=yaml.SafeLoader))
+            parsed_config = yaml.load(raw_config, Loader=yaml.SafeLoader)
+            # Handle empty or None yaml results
+            if not parsed_config or parsed_config == {}:
+                return Configuration()
+            config = Configuration(**parsed_config)
             return self.migrate(config)
         except ValidationError as e:
             raise InvalidExistingConfigurationError(f'The existing configuration file at {self.__file_path} is invalid.') from e

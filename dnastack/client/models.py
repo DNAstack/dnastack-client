@@ -41,21 +41,21 @@ class ServiceEndpoint(BaseModel, HashableModel):
         This is in junction with GA4GH Service Information.
     """
 
-    type: Optional[ServiceType]
+    type: Optional[ServiceType] = None
     """ Service Type """
 
     url: str
     """ Base URL """
 
     # DEPRECATED: It is here only for the migration.
-    mode: Optional[str]
+    mode: Optional[str] = None
     """ Client mode ("standard" or "explorer") - only applicable if the client supports.
-    
+
         DO NOT USE THIS. This is replaced by "type" in model version 2.0.
     """
 
     # DEPRECATED: It is here only for the migration.
-    source: Optional[EndpointSource]
+    source: Optional[EndpointSource] = None
     """ The source of the endpoint configuration (e.g., service registry) """
 
     def get_authentications(self) -> List[Dict[str, Any]]:

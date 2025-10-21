@@ -164,7 +164,7 @@ class FileSessionStorage(BaseSessionStorage):
         final_file_path = self.__get_file_path(id)
         temp_file_path = f'{final_file_path}.{time()}.swap'
 
-        content: str = session.json(indent=2)
+        content: str = session.model_dump_json(indent=2)
 
         os.makedirs(os.path.dirname(final_file_path), exist_ok=True)
         with open(temp_file_path, 'w') as f:
