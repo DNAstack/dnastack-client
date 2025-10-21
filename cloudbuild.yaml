@@ -56,12 +56,16 @@ steps:
       - '-ec'
       # language=bash
       - |
-        apt update --quiet && apt install -qqy git
+        apt update --quiet && apt install -qqy git curl
 
         git config --global --add safe.directory /workspace
 
-        # Public release
-        ./scripts/build-package.py
+        # Install uv
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="/root/.local/bin:$PATH"
+
+        # Build using uv
+        uv build
 
         # Pre-release
         #./scripts/build-package.py --pre-release a  # a=alpha, b=beta, rc=release-candidate
@@ -108,9 +112,14 @@ steps:
       - '-ec'
       # language=bash
       - |
+        apt update --quiet && apt install -qqy curl
+
+        # Install uv
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="/root/.local/bin:$PATH"
+
         cp /root/.pypirc ~/.pypirc
-        pip3 install --quiet twine
-        twine upload --verbose --non-interactive --disable-progress-bar dist/*.whl
+        uv publish --verbose dist/*.whl
     volumes:
       - name: 'homedir'
         path: /root

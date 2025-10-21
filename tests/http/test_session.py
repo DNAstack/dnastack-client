@@ -157,8 +157,8 @@ class TestHttpSession(TestCase):
     def _make_mock_session_info(self, ttl: int) -> SessionInfo:
         return SessionInfo(access_token='at',
                            refresh_token='rt',
-                           issued_at=time(),
-                           valid_until=time() + ttl,
+                           issued_at=int(time()),
+                           valid_until=int(time() + ttl),
                            token_type='faux')
 
     def _make_mock_response(self, status_code: int, headers: Optional[Dict] = None, text: Any = None,
