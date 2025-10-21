@@ -74,8 +74,6 @@ class WalletHelper:
                                                 resource=resource,
                                                 scope=scope),
                                     headers={'Authorization': self._basic_auth()})
-            print("FOOOOO")
-            print(response.json())
             return TokenResponse(**response.json()).access_token
 
     def configure_oauth_settings(self,

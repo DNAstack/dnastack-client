@@ -356,7 +356,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
     def _create_transformation_script_file():
         with tempfile.NamedTemporaryFile(delete=False) as transformation_file:
             transformation_file.write(b"""
-                            const myTransformation = (context) => { 
+                            (context) => { 
                                 return { 'baz': 'waz' } 
                             }
                             """)
