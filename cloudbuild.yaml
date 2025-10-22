@@ -112,23 +112,9 @@ steps:
       - '-ec'
       # language=bash
       - |
-        apt update --quiet && apt install -qqy curl
-
-        # Install uv
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="$$HOME/.local/bin:$$PATH"
-
-        # Extract credentials from .pypirc
         cp /root/.pypirc ~/.pypirc
-
-        # Parse .pypirc to extract username and password (without echoing to logs)
-        PYPI_USERNAME=$$(grep -A 2 '\[pypi\]' ~/.pypirc | grep 'username' | cut -d'=' -f2 | tr -d ' ')
-        PYPI_PASSWORD=$$(grep -A 2 '\[pypi\]' ~/.pypirc | grep 'password' | cut -d'=' -f2 | tr -d ' ')
-
-        # Publish using uv with credentials passed via flags
-        # Using --username and --password flags is safer than environment variables
-        # as they won't appear in process listings
-        uv publish --username "$$PYPI_USERNAME" --password "$$PYPI_PASSWORD" --verbose dist/*.whl
+        pip3 install --quiet twine
+        twine upload --verbose --non-interactive --disable-progress-bar dist/*.whl
     volumes:
       - name: 'homedir'
         path: /root
