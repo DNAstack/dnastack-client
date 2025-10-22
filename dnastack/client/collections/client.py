@@ -210,7 +210,7 @@ class CollectionServiceClient(BaseServiceClient):
             res = session.post(urljoin(self.url, 'collections') + '?includeInternalItemsQuery=true',
                                json=collection.model_dump(),
                                trace_context=trace)
-            return Collection(**res.model_dump_json())
+            return Collection(**res.json())
 
     def list_collection_items(self,
                               collection_id_or_slug_name_or_db_schema_name: str,
@@ -235,7 +235,7 @@ class CollectionServiceClient(BaseServiceClient):
         with self.create_http_session() as session:
             res = session.get(urljoin(self.url, f'collection/{collection_id_or_slug_name_or_db_schema_name}/status'),
                               trace_context=trace)
-            return CollectionStatus(**res.model_dump_json())
+            return CollectionStatus(**res.json())
 
     def create_collection_items(self,
                                 collection_id_or_slug_name_or_db_schema_name: str,
