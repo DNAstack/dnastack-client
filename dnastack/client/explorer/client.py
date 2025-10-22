@@ -210,7 +210,7 @@ class FederatedQuestionQueryResultLoader(ResultLoader):
             try:
                 response = session.post(
                     self.__service_url,
-                    json=self.__request_payload.dict(),
+                    json=self.__request_payload.model_dump(),
                     trace_context=self.__trace
                 )
                 

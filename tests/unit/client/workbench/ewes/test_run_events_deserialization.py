@@ -358,7 +358,7 @@ class TestRunEventDeserialization:
         event = RunEvent(**sample_run_submitted_data)
         
         # Serialize to JSON
-        json_str = event.json()
+        json_str = event.model_dump_json()
         json_dict = json.loads(json_str)
         
         # Deserialize from JSON
@@ -377,7 +377,7 @@ class TestRunEventDeserialization:
         event = RunEvent(**sample_error_occurred_data)
         
         # Convert to dict
-        event_dict = event.dict()
+        event_dict = event.model_dump()
         
         # Create new instance from dict
         event_from_dict = RunEvent(**event_dict)

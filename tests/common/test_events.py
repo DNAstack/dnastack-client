@@ -63,7 +63,7 @@ class TestUnit(TestCase):
 
         # Attempt to dispatch to unregistered events
         with self.assertRaises(EventTypeNotRegistered):
-            fixed_event_source.dispatch('foxtrot', dict())
+            fixed_event_source.dispatch('foxtrot', {})
 
         # Expect content from still-listening events
         self.assertIn('alpha', events)

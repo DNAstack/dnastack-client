@@ -54,4 +54,4 @@ def get_table_info(context: Optional[str],
     """ List all accessible tables """
     client = _switch_to_data_connect(_get_context(context), _get(context, endpoint_id), collection, no_auth=no_auth)
     obj = client.table(table_name, no_auth=no_auth).info
-    click.echo((to_json if output == 'json' else to_yaml)(obj.dict()))
+    click.echo((to_json if output == 'json' else to_yaml)(obj.model_dump()))

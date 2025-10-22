@@ -31,7 +31,7 @@ def registry_command_group():
 def list_registries():
     """ List registered service registries """
     click.echo(to_json([
-        endpoint.dict(exclude_none=True)
+        endpoint.model_dump(exclude_none=True)
         for endpoint in ServiceRegistryCommandHandler().get_registry_endpoint_iterator()
     ]))
 
@@ -126,7 +126,7 @@ def sync(registry_endpoint_id: str):
 def list_endpoints(registry_endpoint_id: str):
     """ List all service endpoints imported from given registry """
     click.echo(to_json([
-        endpoint.dict(exclude_none=True)
+        endpoint.model_dump(exclude_none=True)
         for endpoint in ServiceRegistryCommandHandler().list_endpoints_associated_to(registry_endpoint_id)
     ]))
 

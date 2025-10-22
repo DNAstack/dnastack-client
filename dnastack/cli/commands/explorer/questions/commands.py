@@ -43,7 +43,7 @@ def init_questions_commands(group: Group):
         show_iterator(
             output_format=output,
             iterator=questions,
-            transform=lambda q: q.dict()
+            transform=lambda q: q.model_dump()
         )
 
     @formatted_command(
@@ -71,7 +71,7 @@ def init_questions_commands(group: Group):
         show_iterator(
             output_format=output,
             iterator=[question],  # Single item as list
-            transform=lambda q: q.dict()
+            transform=lambda q: q.model_dump()
         )
 
     @formatted_command(

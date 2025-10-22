@@ -55,7 +55,7 @@ class OAuth2Authenticator(Authenticator):
         self._session_info: Optional[SessionInfo] = None
 
     def _get_logger_name(self):
-        metadata = dict()
+        metadata = {}
 
         if self._auth_info:
             auth_info = OAuth2Authentication(**self._auth_info)
@@ -81,14 +81,14 @@ class OAuth2Authenticator(Authenticator):
 
     def get_state(self) -> AuthState:
         status = AuthStateStatus.READY
-        session_info: Dict[str, Any] = dict()
+        session_info: Dict[str, Any] = {}
 
         try:
             session = self.restore_session()
-            session_info.update(session.dict())
+            session_info.update(session.model_dump())
         except RefreshRequired as e:
             status = AuthStateStatus.REFRESH_REQUIRED
-            session_info.update(e.session.dict())
+            session_info.update(e.session.model_dump())
         except AuthenticationRequired:
             status = AuthStateStatus.UNINITIALIZED
         except (ReauthenticationRequiredDueToConfigChange, ReauthenticationRequired):
@@ -137,7 +137,7 @@ class OAuth2Authenticator(Authenticator):
             self.events.relay_from(adapter.events, auth_event_type)
 
         raw_response = adapter.exchange_tokens(trace_context)
-        self._session_info = self._convert_token_response_to_session(auth_info.dict(), raw_response)
+        self._session_info = self._convert_token_response_to_session(auth_info.model_dump(), raw_response)
         self._session_manager.save(session_id, self._session_info)
 
         event_details['session_info'] = self._session_info
@@ -227,7 +227,7 @@ class OAuth2Authenticator(Authenticator):
                 refresh_token_json['refresh_token'] = refresh_token
 
                 # Update the session
-                updated_session_info = self._convert_token_response_to_session(auth_info.dict(), refresh_token_json)
+                updated_session_info = self._convert_token_response_to_session(auth_info.model_dump(), refresh_token_json)
                 session_info.access_token = updated_session_info.access_token
                 session_info.token_type = updated_session_info.token_type
                 session_info.valid_until = updated_session_info.valid_until
@@ -280,7 +280,7 @@ class OAuth2Authenticator(Authenticator):
 
                 if currently_in_debug_mode():
                     exception_details['_internal'] = {
-                        'session_info': session_info.dict(),
+                        'session_info': session_info.model_dump(),
                         'session_manager': str(self._session_manager),
                     }
 
@@ -420,7 +420,7 @@ class OAuth2Authenticator(Authenticator):
             self.events.relay_from(adapter.events, auth_event_type)
 
         token_response = adapter.exchange_tokens(trace_context)
-        self._session_info = self._convert_token_response_to_session(auth_info.dict(), token_response)
+        self._session_info = self._convert_token_response_to_session(auth_info.model_dump(), token_response)
         self._session_manager.save(session_id, self._session_info)
 
         event_details['session_info'] = self._session_info

@@ -102,7 +102,7 @@ class TestClient(BaseWorkbenchTestCase):
         for i, event in enumerate(run_events.events):
             try:
                 # Convert to dict and back
-                event_dict = event.dict()
+                event_dict = event.model_dump()
                 from dnastack.client.workbench.ewes.models import RunEvent
                 reconstructed_event = RunEvent(**event_dict)
                 

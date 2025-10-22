@@ -74,7 +74,7 @@ class WorkflowSourceLoaderTestcase(unittest.TestCase):
         self.tempdir.cleanup()
 
     def create_files(self, workflow_files: List[WorkflowFile]) -> List[MockWorkflowFile]:
-        test_files: List[MockWorkflowFile] = list()
+        test_files: List[MockWorkflowFile] = []
         for workflow_to_write in workflow_files:
             path = Path(f"{self.tempdir.name}/{workflow_to_write.path}")
             path.parent.mkdir(parents=True, exist_ok=True)

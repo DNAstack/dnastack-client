@@ -145,7 +145,7 @@ class Workbench:
 		return self._get_ewes_client().list_runs(list_options=ExtendedRunListOptions(tag=[f"batch_id:{batch_id}"]))
 
 	def submit_batch(self, batch: BatchRunRequest, batch_id:Optional[str]=None) -> str:
-		self._logger.debug("Submitting batch request: "+json.dumps(batch.dict()))
+		self._logger.debug("Submitting batch request: "+json.dumps(batch.model_dump()))
 		if batch_id is None:
 			batch_id = self._get_short_uuid()
 
@@ -181,7 +181,7 @@ class Workbench:
 		if type(result) is RunId:
 			return RunStatus(RunId.state)
 		else:
-			raise WorkbenchRunException("Run "+run_id+" could not be canceled: "+json.dumps(result.dict()))
+			raise WorkbenchRunException("Run "+run_id+" could not be canceled: "+json.dumps(result.model_dump()))
 
 	# Returns the state that all of the runs are in unless:
 	# - If any run has a failed status, then that status is returned, otherwise

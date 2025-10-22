@@ -53,7 +53,7 @@ class StorageClient(BaseWorkbenchClient):
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/storage'),
-                json=storage_account.dict()
+                json=storage_account.model_dump()
             )
         return StorageAccount(**response.json())
 
@@ -62,7 +62,7 @@ class StorageClient(BaseWorkbenchClient):
         with self.create_http_session() as session:
             response = session.submit("PUT",
                                       urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'),
-                                      json=storage_account.dict(),
+                                      json=storage_account.model_dump(),
                                       headers={"If-Match": if_match}
                                       )
         return StorageAccount(**response.json())

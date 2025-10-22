@@ -195,14 +195,14 @@ class EWesClient(BaseWorkbenchClient):
         trace = trace or Span(origin=self)
         with self.create_http_session() as session:
             response = session.post(urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/runs'),
-                                    json=data.dict(),
+                                    json=data.model_dump(),
                                     trace_context=trace)
         return MinimalExtendedRun(**response.json())
 
     def submit_batch(self, data: BatchRunRequest, trace: Optional[Span] = None) -> BatchRunResponse:
         with self.create_http_session() as session:
             response = session.post(urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/batch'),
-                                    json=data.dict(),
+                                    json=data.model_dump(),
                                     trace_context=trace)
         return BatchRunResponse(**response.json())
 
@@ -240,7 +240,7 @@ class EWesClient(BaseWorkbenchClient):
                        trace: Optional[Span] = None) -> Iterable[bytes]:
         trace = trace or Span()
 
-        params = dict()
+        params = {}
         if max_bytes:
             params['max'] = max_bytes
 

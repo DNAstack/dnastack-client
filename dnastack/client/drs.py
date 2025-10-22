@@ -538,7 +538,7 @@ class DrsClient(BaseServiceClient):
         if max_worker_count < 2:
             max_worker_count = 2
 
-        future_to_url_map: Dict[Future, str] = dict()
+        future_to_url_map: Dict[Future, str] = {}
 
         with ThreadPoolExecutor(max_workers=max_worker_count) as pool:
             for url in unique_urls:

@@ -1089,7 +1089,7 @@ class TestExplorerModels:
         }
         
         question = FederatedQuestion(**question_data)
-        question_dict = question.dict()
+        question_dict = question.model_dump()
         
         assert_that(question_dict).contains_key('id')
         assert_that(question_dict).contains_key('name')

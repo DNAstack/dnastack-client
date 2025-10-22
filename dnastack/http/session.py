@@ -164,7 +164,7 @@ class HttpSession(AbstractContextManager):
                **kwargs) -> Response | None | Any:
         trace_context = trace_context or Span(origin=self)
 
-        retry_history = retry_history or list()
+        retry_history = retry_history or []
         session = self._session
 
         logger = trace_context.create_span_logger(self.__logger)
@@ -211,7 +211,7 @@ class HttpSession(AbstractContextManager):
 
             sub_logger.debug(f'Request/{http_method.upper()} {url}')
 
-            existing_headers = kwargs.get('headers') or dict()
+            existing_headers = kwargs.get('headers') or {}
             existing_headers.update(sub_span.create_http_headers())
             kwargs['headers'] = existing_headers
 
@@ -369,7 +369,7 @@ class HttpSession(AbstractContextManager):
         final_comments = [
             f'Platform/{platform.platform()}',  # OS information + CPU architecture
             'Python/{}.{}.{}'.format(*sys.version_info),  # Python version
-            *(comments or list()),
+            *(comments or []),
             *[
                 f'Module/{interested_module_name}'
                 for interested_module_name in interested_module_names

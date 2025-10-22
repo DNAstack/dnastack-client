@@ -6,7 +6,7 @@ import json
 class JsonModelMixin:
     def get_content_hash(self):
         # noinspection PyUnresolvedReferences
-        return self.hash(self.dict(exclude_none=True))
+        return self.hash(self.model_dump(exclude_none=True))
 
     @classmethod
     def hash(self, content):

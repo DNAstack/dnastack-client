@@ -17,7 +17,7 @@ class Event(BaseModel):
 
     @classmethod
     def make(cls, details: Optional[Dict[str, Any]] = None):
-        return Event(details=deepcopy(details) if details else dict())
+        return Event(details=deepcopy(details) if details else {})
 
 
 class EventHandler:
@@ -70,8 +70,8 @@ class EventSource(AbstractEventSource):
                 self._alias = f'{type(self._origin).__name__}/{hash(self._origin)}/{self._alias}'
 
         self._event_logger = get_logger(self._alias, logging.WARNING)
-        self._event_handlers: Dict[str, List[Union[EventHandler, Callable[[Event], None]]]] = dict()
-        self._fixed_types = fixed_types or list()
+        self._event_handlers: Dict[str, List[Union[EventHandler, Callable[[Event], None]]]] = {}
+        self._fixed_types = fixed_types or []
 
         self._event_logger.debug('Initialized')
 
@@ -110,7 +110,7 @@ class EventSource(AbstractEventSource):
         self._raise_error_for_non_registered_event_type(event_type)
 
         if event_type not in self._event_handlers:
-            self._event_handlers[event_type] = list()
+            self._event_handlers[event_type] = []
 
         if handler in self._event_handlers[event_type]:
             self._event_logger.debug(f'E/{event_type}: IGNORE BINDING {handler} (duplicate)')
@@ -124,7 +124,7 @@ class EventSource(AbstractEventSource):
         self._raise_error_for_non_registered_event_type(event_type)
 
         if event_type not in self._event_handlers:
-            self._event_handlers[event_type] = list()
+            self._event_handlers[event_type] = []
 
         new_handlers = [
             existing_handler
@@ -166,9 +166,9 @@ class EventSource(AbstractEventSource):
     def _compute_event_hash(obj: Event) -> str:
         h = hashlib.new('sha1')
         try:
-            h.update(obj.json().encode('utf-8'))
+            h.update(obj.model_dump_json().encode('utf-8'))
         except TypeError:
-            h.update(str(obj.dict()).encode('utf-8'))
+            h.update(str(obj.model_dump()).encode('utf-8'))
         return h.hexdigest()[:8]
 
     def __repr__(self):

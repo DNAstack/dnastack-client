@@ -58,7 +58,7 @@ class Collection(PerCollectionApiMixin, BlobApiMixin):
         url = urljoin(endpoint.url, f'collections/{self._collection.slugName}/tables/{table_name}/filter/query'
                                     '?includeSharedQueryUrl=true')
         headers = {'Content-Type': 'application/json'}
-        return FilterInfo(**session.post(url, data=json.dumps(filters), headers=headers).json())
+        return FilterInfo(**session.post(url, data=json.dumps(filters), headers=headers).model_dump_json())
 
     def data_connect(self):
         default_no_auth_properties = {'authentication': None, 'fallback_authentications': None}

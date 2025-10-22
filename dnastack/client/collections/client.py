@@ -58,7 +58,7 @@ class CollectionItemListResultLoader(ResultLoader):
         self.__max_results = int(max_results) if max_results else None
         self.__loaded_results = 0
         self.__active = True
-        self.__visited_urls: List[str] = list()
+        self.__visited_urls: List[str] = []
         self.__trace = trace
         self.__next_page_url = None
 
@@ -119,7 +119,7 @@ class CollectionItemListResultLoader(ResultLoader):
             response_text = response.text
 
             try:
-                response_body = response.json() if response_text else dict()
+                response_body = response.json() if response_text else {}
             except Exception:
                 self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise PageableApiError(
@@ -208,9 +208,9 @@ class CollectionServiceClient(BaseServiceClient):
         trace = trace or Span(origin=self)
         with self.create_http_session() as session:
             res = session.post(urljoin(self.url, 'collections') + '?includeInternalItemsQuery=true',
-                               json=collection.dict(),
+                               json=collection.model_dump(),
                                trace_context=trace)
-            return Collection(**res.json())
+            return Collection(**res.model_dump_json())
 
     def list_collection_items(self,
                               collection_id_or_slug_name_or_db_schema_name: str,
@@ -235,7 +235,7 @@ class CollectionServiceClient(BaseServiceClient):
         with self.create_http_session() as session:
             res = session.get(urljoin(self.url, f'collection/{collection_id_or_slug_name_or_db_schema_name}/status'),
                               trace_context=trace)
-            return CollectionStatus(**res.json())
+            return CollectionStatus(**res.model_dump_json())
 
     def create_collection_items(self,
                                 collection_id_or_slug_name_or_db_schema_name: str,
@@ -245,7 +245,7 @@ class CollectionServiceClient(BaseServiceClient):
         trace = trace or Span(origin=self)
         with self.create_http_session() as session:
             session.post(urljoin(self.url, f'collections/{collection_id_or_slug_name_or_db_schema_name}/items'),
-                         json=create_items_request.dict(), trace_context=trace)
+                         json=create_items_request.model_dump(), trace_context=trace)
             return None
 
     def delete_collection_items(self,

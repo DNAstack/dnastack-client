@@ -60,7 +60,7 @@ class DataConnectError(RuntimeError):
                  details: Any = None,
                  urls: Optional[List[str]] = None,
                  url: Optional[str] = None):
-        self.__urls = list()
+        self.__urls = []
         self.__status = response_status
         self.__summary = summary or details
         self.__details = details if self.__summary != details else None

@@ -620,7 +620,7 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
                                  f'Event {i}: event_type mismatch between event and metadata')
                 
                 # Test serialization roundtrip
-                event_dict = event.dict()
+                event_dict = event.model_dump()
                 reconstructed_event = RunEvent(**event_dict)
                 self.assertEqual(event.id, reconstructed_event.id,
                                  f'Event {i}: serialization roundtrip failed for id')

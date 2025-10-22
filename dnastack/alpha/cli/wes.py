@@ -115,7 +115,7 @@ def submit(context: Optional[str],
 
         dnastack alpha wes submit --endpoint-id testing_wes -u hello_world.wdl -a samples/workflows/no_input/hello_world.wdl
     """
-    actual_params = dict()
+    actual_params = {}
 
     re_parameter = re.compile(r'^(?P<key>[a-zA-Z0-9_\.]+)(?P<op>:?=@?)(?P<value>.+)$')
 
@@ -138,7 +138,7 @@ def submit(context: Optional[str],
 
         param_counter += 1
 
-    actual_tags = dict(agent=f'dnastack-client-library/{__version__}')
+    actual_tags = {'agent': f'dnastack-client-library/{__version__}'}
     if tags:
         tag_counter = 0
         for tag in tags:

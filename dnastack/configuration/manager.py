@@ -73,7 +73,7 @@ class ConfigurationManager:
 
         # Perform sanity checks
         for context_name, context in configuration.contexts.items():
-            duplicate_endpoint_id_count_map = dict()
+            duplicate_endpoint_id_count_map = {}
             for endpoint in context.endpoints:
                 if endpoint.id not in duplicate_endpoint_id_count_map:
                     duplicate_endpoint_id_count_map[endpoint.id] = 0
@@ -84,7 +84,7 @@ class ConfigurationManager:
                 f'in the "{context_name}" context'
 
         # Save the changes.
-        new_content = yaml.dump(configuration.dict(exclude_none=True), Dumper=yaml.SafeDumper)
+        new_content = yaml.dump(configuration.model_dump(exclude_none=True), Dumper=yaml.SafeDumper)
         if not os.path.exists(os.path.dirname(self.__swap_file_path)):
             os.makedirs(os.path.dirname(self.__swap_file_path), exist_ok=True)
         with open(self.__swap_file_path, 'w') as f:

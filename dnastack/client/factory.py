@@ -65,7 +65,7 @@ class EndpointRepository:
         self.__cacheable = cacheable
         self.__endpoints = self.__set_endpoints(endpoints)
         self.__additional_service_client_classes = additional_service_client_classes
-        self.__default_event_interceptors = default_event_interceptors or dict()
+        self.__default_event_interceptors = default_event_interceptors or {}
 
         self.__logger.debug('Initialized')
 

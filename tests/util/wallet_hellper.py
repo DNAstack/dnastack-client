@@ -24,7 +24,7 @@ class TokenResponse(BaseModel):
 
 class Principal(BaseModel):
     type: str
-    email: Optional[str]
+    email: Optional[str] = None
 
 
 class Resource(BaseModel):
@@ -39,9 +39,9 @@ class Statement(BaseModel):
 
 class Policy(BaseModel):
     id: str
-    version: Optional[str]
+    version: Optional[str] = None
     statements: List[Statement]
-    tags: Optional[List[str]]
+    tags: Optional[List[str]] = None
 
 
 class WalletHelper:
@@ -70,9 +70,7 @@ class WalletHelper:
         with self._create_http_session() as session:
             response = session.post(urljoin(self.__wallet_base_uri,
                                             '/oauth/token'),
-                                    params=dict(grant_type='client_credentials',
-                                                resource=resource,
-                                                scope=scope),
+                                    params={'grant_type': 'client_credentials', 'resource': resource, 'scope': scope},
                                     headers={'Authorization': self._basic_auth()})
             return TokenResponse(**response.json()).access_token
 
@@ -111,7 +109,7 @@ class WalletHelper:
         # First authenticate with wallet
         session.get(
             urljoin(self.__wallet_base_uri, '/login/token'),
-            params=dict(email=email, token=personal_access_token)
+            params={'email': email, 'token': personal_access_token}
         )
 
         # If custom login handler is provided, use it
@@ -151,7 +149,7 @@ class WalletHelper:
     def create_access_policy(self, policy: Policy) -> Policy:
         with self._create_http_session() as session:
             response = session.post(urljoin(self.__wallet_base_uri, '/policies'),
-                                    json=policy.dict(),
+                                    json=policy.model_dump(),
                                     headers={'Authorization': self._bearer_auth()})
             created_policy = Policy(**response.json())
             created_policy.version = response.headers['ETag'].replace('\"', '')

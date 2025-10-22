@@ -15,7 +15,7 @@ def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[st
 
     authentications = [
         _parse_authentication_info(auth_info)
-        for auth_info in (service.authentication or list())
+        for auth_info in (service.authentication or [])
     ]
 
     if authentications:
@@ -26,16 +26,9 @@ def parse_ga4gh_service_info(service: Service, alternate_service_id: Optional[st
 
 
 def _parse_authentication_info(auth_info: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(
-        type='oauth2',
-        authorization_endpoint=auth_info.get('authorizationUrl'),
-        client_id=auth_info.get('clientId'),
-        client_secret=auth_info.get('clientSecret'),
-        device_code_endpoint=auth_info.get('deviceCodeUrl'),
-        grant_type=auth_info.get('grantType'),
-        redirect_url=auth_info.get('redirectUrl'),
-        resource_url=auth_info.get('resource'),
-        scope=auth_info.get('scope'),
-        token_endpoint=auth_info.get('accessTokenUrl'),
-        platform_credentials=auth_info.get('grantType') == GRANT_TYPE_TOKEN_EXCHANGE,
-    )
+    return {'type': 'oauth2', 'authorization_endpoint': auth_info.get('authorizationUrl'),
+            'client_id': auth_info.get('clientId'), 'client_secret': auth_info.get('clientSecret'),
+            'device_code_endpoint': auth_info.get('deviceCodeUrl'), 'grant_type': auth_info.get('grantType'),
+            'redirect_url': auth_info.get('redirectUrl'), 'resource_url': auth_info.get('resource'),
+            'scope': auth_info.get('scope'), 'token_endpoint': auth_info.get('accessTokenUrl'),
+            'platform_credentials': auth_info.get('grantType') == GRANT_TYPE_TOKEN_EXCHANGE}

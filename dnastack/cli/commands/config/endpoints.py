@@ -83,10 +83,10 @@ def show_schema():
     This is mainly for development.
     """
     echo_header('Service Endpoint')
-    click.echo(to_json(ServiceEndpoint.schema()))
+    click.echo(to_json(ServiceEndpoint.model_json_schema()))
 
     echo_header('OAuth2 Authentication Information')
-    click.echo(to_json(OAuth2Authentication.schema()))
+    click.echo(to_json(OAuth2Authentication.model_json_schema()))
 
 
 @formatted_command(
@@ -109,7 +109,7 @@ def list_endpoints(context: Optional[str],
     handler = EndpointCommandHandler(context_name=context)
     full_type = handler.parse_given_service_type(short_or_full_type)[1] if short_or_full_type else None
     show_iterator(output_format=output, iterator=[
-        endpoint.dict(exclude_none=True)
+        endpoint.model_dump(exclude_none=True)
         for endpoint in handler.list_endpoints()
         if not full_type or endpoint.type == full_type
     ])
@@ -282,7 +282,7 @@ def unset_default(context: Optional[str],
 class EndpointCommandHandler:
     def __init__(self, context_name: Optional[str] = None):
         self.__logger = get_logger(type(self).__name__)
-        self.__schema: Dict[str, Any] = self.__resolve_json_reference(ServiceEndpoint.schema())
+        self.__schema: Dict[str, Any] = self.__resolve_json_reference(ServiceEndpoint.model_json_schema())
         self.__config_manager: ConfigurationManager = container.get(ConfigurationManager)
         self.__config = self.__config_manager.load()
         self.__context_name = context_name
@@ -446,7 +446,7 @@ class EndpointCommandHandler:
         raise None
 
     def __repair_path(self, obj, path: str, overridden_path_defaults: Dict[str, Any] = None):
-        overridden_path_defaults = overridden_path_defaults or dict()
+        overridden_path_defaults = overridden_path_defaults or {}
 
         selectors = path.split(r'.')
         visited = []
@@ -498,11 +498,11 @@ class EndpointCommandHandler:
         if hasattr(node, property_name) and getattr(node, property_name) is not None:
             return
         elif str(annotation).startswith('typing.Dict['):
-            setattr(node, property_name, dict())
+            setattr(node, property_name, {})
         elif str(annotation).startswith('typing.List['):
-            setattr(node, property_name, list())
+            setattr(node, property_name, [])
         elif issubclass(annotation, BaseModel):
-            required_properties = annotation.schema().get('required') or []
+            required_properties = annotation.model_json_schema().get('required') or []
             placeholders = {
                 p: self.__get_place_holder(annotation.__annotations__[p])
                 for p in required_properties
@@ -522,30 +522,49 @@ class EndpointCommandHandler:
             raise NotImplementedError(cls)
 
     def __list_all_json_path(self, obj: Dict[str, Any], prefix_path: List[str] = None) -> List[str]:
-        properties = obj.get('properties') or dict()
+        properties = obj.get('properties') or {}
         paths = []
 
-        prefix_path = prefix_path or list()
+        prefix_path = prefix_path or []
 
         if len(prefix_path) == 1 and prefix_path[0] == 'authentication':
             return [
                 f'{prefix_path[0]}.{oauth2_path}'
-                for oauth2_path in self.__list_all_json_path(OAuth2Authentication.schema())
+                for oauth2_path in self.__list_all_json_path(OAuth2Authentication.model_json_schema())
             ]
         else:
             if obj['type'] == 'object':
                 for property_name, obj_property in properties.items():
                     if 'anyOf' in obj_property:
+                        # In Pydantic v2, anyOf is used for Optional types
+                        # Check if there's a non-null type in anyOf
+                        has_ref_or_object = False
                         for property_to_resolve in obj_property['anyOf']:
-                            paths.extend(
-                                self.__list_all_json_path(
-                                    self.__fetch_json_reference(
-                                        property_to_resolve['$ref'],
-                                        self.__schema
-                                    ),
-                                    prefix_path + [property_name]
+                            if '$ref' in property_to_resolve:
+                                has_ref_or_object = True
+                                paths.extend(
+                                    self.__list_all_json_path(
+                                        self.__fetch_json_reference(
+                                            property_to_resolve['$ref'],
+                                            self.__schema
+                                        ),
+                                        prefix_path + [property_name]
+                                    )
                                 )
-                            )
+                            elif property_to_resolve.get('type') == 'object':
+                                has_ref_or_object = True
+                                # Handle inlined object schemas
+                                paths.extend(
+                                    self.__list_all_json_path(
+                                        property_to_resolve,
+                                        prefix_path + [property_name]
+                                    )
+                                )
+
+                        # If anyOf contains simple types (string, int, etc), treat as simple property
+                        if not has_ref_or_object:
+                            prefix_path_string = '.'.join(prefix_path)
+                            paths.append(f'{prefix_path_string}{"." if prefix_path_string else ""}{property_name}')
                     elif obj_property['type'] == 'object':
                         paths.extend(
                             self.__list_all_json_path(
@@ -574,7 +593,7 @@ class EndpointCommandHandler:
 
     def __resolve_json_reference(self, obj: Dict[str, Any], root: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         root = root or obj
-        properties = obj.get('properties') or dict()
+        properties = obj.get('properties') or {}
         for property_name, obj_property in properties.items():
             if obj_property.get('$ref'):
                 properties[property_name] = self.__fetch_json_reference(obj_property.get('$ref'), root)

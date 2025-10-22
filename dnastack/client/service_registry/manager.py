@@ -75,7 +75,7 @@ class ServiceRegistryManager:
 
         # Add the registry endpoint.
         self.__context.endpoints.append(registry_endpoint)
-        self.events.dispatch('endpoint-sync', dict(action='add', endpoint=registry_endpoint))
+        self.events.dispatch('endpoint-sync', {'action': 'add', 'endpoint': registry_endpoint})
 
         # Initiate the first sync.
         return self.__synchronize_endpoints_with(ServiceRegistry.make(registry_endpoint))
@@ -133,7 +133,7 @@ class ServiceRegistryManager:
             if sync_operation.action in ('add', 'update', 'keep'):
                 new_endpoint_list.append(endpoint)
 
-            self.events.dispatch('endpoint-sync', dict(action=sync_operation.action, endpoint=endpoint))
+            self.events.dispatch('endpoint-sync', {'action': sync_operation.action, 'endpoint': endpoint})
 
         endpoints.clear()
         endpoints.extend(sorted([endpoint for endpoint in new_endpoint_list], key=lambda e: e.id))
@@ -183,11 +183,11 @@ class ServiceRegistryManager:
                     endpoint.id == registry_endpoint_id
                     or (endpoint.source and endpoint.source.source_id == registry_endpoint_id)
             ):
-                self.events.dispatch('endpoint-sync', dict(action='remove', endpoint=endpoint))
+                self.events.dispatch('endpoint-sync', {'action': 'remove', 'endpoint': endpoint})
                 continue
             else:
                 new_endpoint_list.append(endpoint)
-                self.events.dispatch('endpoint-sync', dict(action='keep', endpoint=endpoint))
+                self.events.dispatch('endpoint-sync', {'action': 'keep', 'endpoint': endpoint})
 
         endpoints.clear()
         endpoints.extend(new_endpoint_list)

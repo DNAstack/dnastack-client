@@ -365,7 +365,7 @@ class TestRunEventEdgeCases:
         assert len(event.metadata.errors) == 100
         
         # Test serialization doesn't break
-        event_dict = event.dict()
+        event_dict = event.model_dump()
         assert len(event_dict["metadata"]["message"]) == 10000
 
     @pytest.mark.parametrize("field_type,field_name,empty_value", [
@@ -502,7 +502,7 @@ class TestRunEventEdgeCases:
         }
         
         event = RunEvent(**data)
-        serialized = event.json()
+        serialized = event.model_dump_json()
         deserialized = RunEvent(**json.loads(serialized))
         
         # Verify timestamps are preserved (noting that datetime precision might be limited)

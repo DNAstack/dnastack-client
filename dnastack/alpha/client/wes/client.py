@@ -74,10 +74,7 @@ class RunRequest(BaseModel):
                         )
                     ))
 
-        return dict(
-            # data=form_data,
-            files=multipart_data
-        )
+        return {'files': multipart_data}
 
 
 class _Id(BaseModel):
@@ -165,7 +162,7 @@ class RunListLoader(ResultLoader):
         with self.__http_session as session:
             current_url = self.__initial_url
 
-            params = dict()
+            params = {}
             if self.__page_size:
                 params['page_size'] = self.__page_size
             if self.__page_token:
@@ -195,7 +192,7 @@ class RunListLoader(ResultLoader):
             response_text = response.text
 
             try:
-                response_body = response.json() if response_text else dict()
+                response_body = response.json() if response_text else {}
             except Exception:
                 self.logger.error(f'{self.__initial_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise DataConnectError(
@@ -254,7 +251,7 @@ class Run:
 
     def info(self) -> _Run:
         # GET /runs/{id}
-        raw_data = self.__session.get(self.__base_url).json()
+        raw_data = self.__session.get(self.__base_url).model_dump_json()
         try:
             return _Run(**raw_data)
         except ValidationError:
@@ -328,7 +325,7 @@ class WesClient(BaseServiceClient):
 
     def submit(self, run: RunRequest) -> str:
         workflow_url_is_external = run.workflow_url.startswith('http://') or run.workflow_url.startswith('https://')
-        workflow_url_is_in_attachments = run.workflow_url in [os.path.basename(p) for p in (run.attachments or list())]
+        workflow_url_is_in_attachments = run.workflow_url in [os.path.basename(p) for p in (run.attachments or [])]
         if not workflow_url_is_external and not workflow_url_is_in_attachments:
             if not workflow_url_is_in_attachments:
                 raise RuntimeError('The workflow file from the local drive is defined but it is apparently not in the '

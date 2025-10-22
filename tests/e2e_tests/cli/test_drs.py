@@ -14,7 +14,7 @@ class TestDrsCommand(DeprecatedPublisherCliTestCase):
     drs_uris = []
 
     primary_factory: Optional[EndpointRepository] = None
-    collection_blob_items_map: Dict[str, List[Dict[str, Any]]] = dict()
+    collection_blob_items_map: Dict[str, List[Dict[str, Any]]] = {}
 
     def setUp(self):
         super().setUp()

@@ -17,7 +17,7 @@ def init_config_commands(group: Group):
     )
     def config_schema():
         """Show the schema of the configuration file"""
-        click.echo(json.dumps(Configuration.schema(), indent=2, sort_keys=True))
+        click.echo(json.dumps(Configuration.model_json_schema(), indent=2, sort_keys=True))
 
 
     @formatted_command(

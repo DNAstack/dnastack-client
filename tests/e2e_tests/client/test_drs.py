@@ -15,7 +15,7 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
     sample_size = 3
 
     primary_factory: Optional[EndpointRepository] = None
-    collection_blob_items_map: Dict[str, List[Dict[str, Any]]] = dict()
+    collection_blob_items_map: Dict[str, List[Dict[str, Any]]] = {}
 
     @staticmethod
     def reuse_session() -> bool:
@@ -83,10 +83,10 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
                 # Retrieve the DRS URL from the metadata URL.
                 drs_urls.append(item['metadata_url'])
 
-        errors: Dict[str, Exception] = dict()
+        errors: Dict[str, Exception] = {}
 
         # Download with IDs
-        id_blob_map_1: Dict[str, Blob] = dict()
+        id_blob_map_1: Dict[str, Blob] = {}
         for drs_id in drs_ids:
             try:
                 blob = self.drs_client.get_blob(id=drs_id) if explicit else self.drs_client.get_blob(drs_id)
@@ -107,7 +107,7 @@ class TestDrsClient(DeprecatedBasePublisherTestCase):
         errors.clear()
 
         # Download with URLs
-        id_blob_map_2: Dict[str, Blob] = dict()
+        id_blob_map_2: Dict[str, Blob] = {}
         for drs_url in drs_urls:
             try:
                 blob = self.drs_client.get_blob(url=drs_url) if explicit else self.drs_client.get_blob(drs_url)

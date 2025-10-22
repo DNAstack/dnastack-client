@@ -36,7 +36,7 @@ class RunMetadata(BaseModel):
     workflow_name: Optional[str] = None
     workflow_version: Optional[str] = None
     last_recorded_event_time: Optional[datetime] = None
-    tags: Optional[dict[str, str]]
+    tags: Optional[dict[str, str]] = None
 
 
 class Sex(str, CaseInsensitiveEnum):

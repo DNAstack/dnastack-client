@@ -37,9 +37,9 @@ class CollectionServiceClient(StandardCollectionServiceClient):
 
         collection_id = collection.id if collection else id
 
-        given_overriding_properties = (collection.dict() if collection else (attrs or dict()))
+        given_overriding_properties = (collection.model_dump() if collection else (attrs or {}))
         update_patches = [
-            JsonPatch(op='replace', path=f'/{k}', value=v).dict()
+            JsonPatch(op='replace', path=f'/{k}', value=v).model_dump()
             for k, v in given_overriding_properties.items()
             if k not in COLLECTION_READ_ONLY_PROPERTIES and v is not None
         ]
@@ -52,7 +52,6 @@ class CollectionServiceClient(StandardCollectionServiceClient):
             resource_url = self._get_single_collection_url(collection_id)
             get_response = session.get(resource_url, trace_context=trace)
 
-            # trace_logger = trace.create_span_logger(self._logger)
             assert get_response.status_code == 200, 'Unexpected Response'
 
             etag = (get_response.headers.get('etag') or '').replace('"', '')

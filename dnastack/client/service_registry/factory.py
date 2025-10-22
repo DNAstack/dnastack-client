@@ -88,7 +88,7 @@ class ClientFactory:
             yield entry
 
     def _merge_auth_info_list(self, entries: List[RegisteredServiceInfo]):
-        auth_info_groups: Dict[str, List[Dict[str, Any]]] = dict()
+        auth_info_groups: Dict[str, List[Dict[str, Any]]] = {}
         for entry in entries:
             for auth_info in (entry.info.authentication or []):
                 if auth_info.get('type') is None or auth_info.get('type') == 'oauth2':
@@ -103,7 +103,7 @@ class ClientFactory:
 
                 group_key = self._make_auth_info_group_key(auth_info)
                 if group_key not in auth_info_groups:
-                    auth_info_groups[group_key] = list()
+                    auth_info_groups[group_key] = []
                 auth_info_groups[group_key].append(auth_info)
 
         for group_key, auth_info_list in auth_info_groups.items():
@@ -118,7 +118,7 @@ class ClientFactory:
         # The current implementation makes an optimistic assumption that when the client has authorization for
         # a resource at the root level, i.e., https://foo.io/, it will have access to all resources as long as
         # all necessary scopes are requested.
-        url_to_scopes_map: Dict[str, Set[str]] = dict()
+        url_to_scopes_map: Dict[str, Set[str]] = {}
 
         # Separate scopes per domain
         for auth_info in auth_info_list:

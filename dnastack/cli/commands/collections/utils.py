@@ -110,7 +110,7 @@ def _abort_with_collection_list(collection_service_client: CollectionServiceClie
 def _transform_to_public_collection(collection: Collection) -> Dict[str, Any]:
     return {
         field_name: value
-        for field_name, value in (collection.dict() if isinstance(collection, Collection) else collection).items()
+        for field_name, value in (collection.model_dump() if isinstance(collection, Collection) else collection).items()
         if field_name not in ['itemsQuery', 'accessTypeLabels']
     }
 

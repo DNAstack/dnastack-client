@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class QuestionParam(BaseModel):
@@ -21,9 +21,7 @@ class QuestionParam(BaseModel):
     table: Optional[str] = None
     column: Optional[str] = None
     values: Optional[str] = None
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class QuestionCollection(BaseModel):
@@ -34,9 +32,7 @@ class QuestionCollection(BaseModel):
     slug: str
     name: str
     question_id: str = Field(alias="questionId")
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FederatedQuestion(BaseModel):

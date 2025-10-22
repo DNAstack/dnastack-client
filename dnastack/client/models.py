@@ -70,12 +70,12 @@ class ServiceEndpoint(BaseModel, HashableModel):
         return [self.__convert_to_dict(raw_auth) for raw_auth in raw_auths]
 
     def __convert_to_dict(self, model: Union[Dict[str, Any], BaseModel]) -> Dict[str, Any]:
-        converted_model: Dict[str, Any] = dict()
+        converted_model: Dict[str, Any] = {}
 
         if isinstance(model, dict):
             converted_model.update(model)
         elif isinstance(model, BaseModel):
-            converted_model.update(model.dict())
+            converted_model.update(model.model_dump())
         else:
             raise NotImplementedError(f'No interpretation for {model}')
 

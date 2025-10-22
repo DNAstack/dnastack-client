@@ -39,7 +39,7 @@ class RefreshRequired(RuntimeError):
 
     def __init__(self, session: Optional[SessionInfo]):
         super().__init__('Session refresh required')
-        self.__session = session.copy(deep=True)
+        self.__session = session.model_copy(deep=True)
 
     @property
     def session(self):
@@ -141,7 +141,7 @@ class Authenticator(AuthBase, ABC):
 
     def initialize(self, trace_context: Span) -> SessionInfo:
         """ Initialize the authenticator """
-        self.events.dispatch('initialization-before', dict(origin=f'{self.class_name}'))
+        self.events.dispatch('initialization-before', {'origin': f'{self.class_name}'})
         logger = trace_context.create_span_logger(self._logger)
         try:
             logger.debug('initialize: Restoring the session...')

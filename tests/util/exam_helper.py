@@ -56,7 +56,7 @@ def initialize_test_endpoint(resource_url: str,
                              type: Optional[ServiceType] = None,
                              secure: bool = True,
                              overriding_auth: Optional[Dict[str, str]] = None) -> ServiceEndpoint:
-    overriding_auth = overriding_auth or dict()
+    overriding_auth = overriding_auth or {}
 
     actual_client_id = overriding_auth.get('client_id') or env('E2E_CLIENT_ID', required=False)
     if actual_client_id:
@@ -81,7 +81,7 @@ def initialize_test_endpoint(resource_url: str,
         grant_type='client_credentials',
         resource_url=actual_resource_url,
         token_endpoint=actual_token_endpoint,
-    ).dict() if secure else None
+    ).model_dump() if secure else None
 
     return ServiceEndpoint(
         id=f'auto-test-{uuid4()}',
@@ -110,7 +110,7 @@ def make_mock_response(status_code: int,
                        text: Any = None,
                        json_data: Any = None) -> Response:
     mock_response = MagicMock(Response)
-    mock_response.headers = headers or dict()
+    mock_response.headers = headers or {}
     mock_response.status_code = status_code
     mock_response.ok = 200 <= status_code < 300
 
@@ -142,7 +142,7 @@ class BaseTestCase(TestCase):
     _config_file_path = env(key='DNASTACK_CONFIG_FILE', default=f"{default_temp.name}/config.auto_testing.yml")
     _config_overriding_allowed = flag('E2E_CONFIG_OVERRIDING_ALLOWED')
     _base_logger = get_logger('BaseTestCase', logging.DEBUG if currently_in_debug_mode() else logging.INFO)
-    _states: Dict[str, Any] = dict(email=None, token=None)
+    _states: Dict[str, Any] = {'email': None, 'token': None}
 
     _user_verification_thread: Optional[Thread] = None
     _user_verification_lock: Lock = Lock()
@@ -151,7 +151,7 @@ class BaseTestCase(TestCase):
         super().__init__(*args, **kwargs)
         self._logger = get_logger(f'{type(self).__name__}', self.log_level())
         self._revert_operation_lock = Lock()
-        self._revert_operations: List[CallableProxy] = list()
+        self._revert_operations: List[CallableProxy] = []
 
     @staticmethod
     def reuse_session() -> bool:
@@ -362,7 +362,7 @@ class BaseTestCase(TestCase):
         while True:
             # noinspection PyBroadException
             try:
-                return callable_obj(*(args or tuple()), **(kwargs or dict()))
+                return callable_obj(*(args or ()), **(kwargs or {}))
             except Exception:
                 if time.time() - starting_time < timeout:
                     time.sleep(pause_period)
@@ -500,7 +500,7 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
                                  _explorer_hostname,
                                  _collection_service_hostname,
                              ]))
-    _endpoint_repositories: Dict[str, EndpointRepository] = dict()
+    _endpoint_repositories: Dict[str, EndpointRepository] = {}
     _base_logger = get_logger('BasePublisherTestCase')
 
     explorer_urls = _raw_explorer_urls.split(',')
@@ -583,7 +583,7 @@ class DeprecatedBasePublisherTestCase(BaseTestCase):
             self.fail(f'The collection service is required for this test but unavailable. '
                       f'(AVAILABLE: {available_endpoints})')
 
-        items: Dict[str, List[Dict[str, Any]]] = dict()
+        items: Dict[str, List[Dict[str, Any]]] = {}
         current_count = 0
 
         for collection in self._get_testable_collections(cs, test_types=['blob']):

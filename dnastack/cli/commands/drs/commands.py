@@ -119,7 +119,7 @@ def init_drs_commands(group: Group):
         drs.events.on('download-ok', display_ok)
         drs.events.on('download-failure', display_failure)
 
-        stats: Dict[str, DownloadProgressEvent] = dict()
+        stats: Dict[str, DownloadProgressEvent] = {}
 
         if not full_output:
             drs._download_files(id_or_urls=download_urls,

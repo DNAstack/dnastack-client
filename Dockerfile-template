@@ -20,4 +20,4 @@ COPY ./tests ./tests
 # Install the project and all dependencies to system Python
 RUN uv pip install --system -e .
 
-CMD ["bash", "-c", "./scripts/run-e2e-tests.sh -fv tests/cli/test_* tests/client/test_*"]
+CMD ["bash", "-c", "uv run pytest tests -v -n auto"]

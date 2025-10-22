@@ -44,7 +44,7 @@ class MockWebHandler(BaseHTTPRequestHandler):
     @classmethod
     def get_collected_data(cls) -> DataCollection:
         """ Provide a copy of the collected data. """
-        return cls._data_collection.copy(deep=True)
+        return cls._data_collection.model_copy(deep=True)
 
     def _collect_request_data(self):
         """ Collect the information on the incoming request """
@@ -164,7 +164,7 @@ class TestHttpSession(TestCase):
     def _make_mock_response(self, status_code: int, headers: Optional[Dict] = None, text: Any = None,
                             json: Any = None) -> Response:
         mock_response = MagicMock(Response)
-        mock_response.headers = headers or dict()
+        mock_response.headers = headers or {}
         mock_response.status_code = status_code
         mock_response.ok = 200 <= status_code < 300
 

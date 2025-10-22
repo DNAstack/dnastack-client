@@ -81,7 +81,7 @@ class InMemoryContextMap(ContextMap):
         self._current_context_name: Optional[str] = None
 
         # Internal context maps
-        self._reference_contexts: Dict[str, Context] = reference_contexts or dict()
+        self._reference_contexts: Dict[str, Context] = reference_contexts or {}
 
     def all(self) -> Dict[str, Context]:
         return self._reference_contexts
@@ -327,7 +327,7 @@ class BaseContextManager:
         # Initiate the authentication procedure.
         if no_auth:
             self._logger.debug('AUTH disabled')
-            self.events.dispatch('auth-disabled', dict())
+            self.events.dispatch('auth-disabled', {})
         else:
             self._logger.debug('AUTH enabled')
             auth_manager = AuthManager(context=self._contexts.current_context)

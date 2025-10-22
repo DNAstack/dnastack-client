@@ -192,7 +192,7 @@ class TestOAuth2AuthenticatorUnitTest(BaseAuthTest):
                                                 'faux_refresh_token_1')
 
         session_storage = InMemorySessionStorage()
-        session_storage[OAuth2Authentication(**self.auth_info).get_content_hash()] = stale_session.copy()
+        session_storage[OAuth2Authentication(**self.auth_info).get_content_hash()] = stale_session.model_copy()
 
         session_manager = SessionManager(session_storage)
 
@@ -240,7 +240,7 @@ class TestOAuth2AuthenticatorUnitTest(BaseAuthTest):
         try:
             self.assertNotEqual(current_session, stale_session)
         except AssertionError as assertion_failure:
-            for p_name in current_session.dict():
+            for p_name in current_session.model_dump():
                 a = getattr(stale_session, p_name)
                 b = getattr(current_session, p_name)
                 self._logger.error(f'Compare two sessions: {p_name}: {"✅" if a == b else "❌"} {a} → {b}')
@@ -332,8 +332,8 @@ class TestOAuth2AuthenticatorEndToEnd(BaseAuthTest):
             import pprint
             pprint.pprint(
                 {
-                    'a': a.dict(),
-                    'b': b.dict(),
+                    'a': a.model_dump(),
+                    'b': b.model_dump(),
                 }, indent=4
             )
 

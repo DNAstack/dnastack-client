@@ -42,7 +42,7 @@ class DataConnectTestCaseMixin:
                 try:
                     client = DataConnectClient.make(endpoint)
 
-                    futures: List[Future] = list()
+                    futures: List[Future] = []
 
                     for target_table in client.list_tables():
                         futures.append(
@@ -119,8 +119,5 @@ class DataConnectTestCaseMixin:
             raise RuntimeError(f'Requested Data Connect-compatible endpoint #{index} but it does not exist.')
 
         compatible_endpoint = compatible_endpoints[index]
-
-        # import pprint
-        # pprint.pprint(compatible_endpoint.dict(), indent=2)
 
         return DataConnectClient.make(compatible_endpoint)

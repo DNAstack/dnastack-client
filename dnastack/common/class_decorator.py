@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Optional, Any, Dict, get_origin, get_args, Union, Type
+from typing import Any, Dict, get_origin, get_args, Union, Type
 
 
 @dataclass(repr=True)
@@ -20,11 +20,11 @@ class UndefinedInitializedPropertyError(RuntimeError):
         return f'{self.__cls.__module__}.{self.__cls.__name__}: "{self.__property_name}" not defined'
 
 
-def simple_constructor(overwrite_init: Optional[bool] = None):
+def simple_constructor():
     """ Provide a simple constructor by turning all annotated properties into non-static instance variables. """
 
     def wrapper(cls):
-        property_map: Dict[str, _Property] = dict()
+        property_map: Dict[str, _Property] = {}
 
         for p, a in cls.__annotations__.items():
             special_type = get_origin(a)

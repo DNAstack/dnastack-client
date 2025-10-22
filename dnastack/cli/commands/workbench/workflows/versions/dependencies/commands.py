@@ -151,7 +151,7 @@ def create(context: Optional[str] = None,
         admin_only_action=global_action
     )
 
-    click.echo(json.dumps(dependency.dict(), indent=2))
+    click.echo(json.dumps(dependency.model_dump(), indent=2))
 
 
 @formatted_command(
@@ -249,7 +249,7 @@ def describe(context: Optional[str] = None,
                     workflow_version_id=version_id,
                     dependency_id=dependency_id
                 )
-                dependencies.append(dependency.dict())
+                dependencies.append(dependency.model_dump())
             except Exception as e:
                 logger.error(f"Failed to get dependency {dependency_id}: {e}")
                 raise click.ClickException(f"Failed to get dependency {dependency_id}: {e}")
@@ -318,7 +318,7 @@ def update(context: Optional[str] = None,
             admin_only_action=global_action
         )
 
-        click.echo(json.dumps(dependency.dict(), indent=2))
+        click.echo(json.dumps(dependency.model_dump(), indent=2))
 
     except Exception as e:
         logger.error(f"Failed to update workflow dependency: {e}")

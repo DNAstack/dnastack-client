@@ -42,10 +42,10 @@ class WorkflowSourceLoader(object):
             if import_path not in _visited:
                 _visited.append(import_path)
             else:
-                return list()
+                return []
 
-            resolved_content = list()
-            all_imported_contents = list()
+            resolved_content = []
+            all_imported_contents = []
             if path.name.endswith(".wdl"):
                 pattern = re.compile(r'^\s*import\s["\'](?!http)(.+)["\'].*$')
                 with import_path.open('r') as fp:
@@ -67,8 +67,8 @@ class WorkflowSourceLoader(object):
             os.chdir(cwd)
 
     def _load_files(self):
-        path_and_contents: List[Tuple[Path, bytes]] = list()
-        _visited = list()
+        path_and_contents: List[Tuple[Path, bytes]] = []
+        _visited = []
         for path in self.source_files:
             path_and_contents.extend(self._resolve_content(None, Path(path), _visited))
         wdl_files = [wdl_file for wdl_file in path_and_contents if wdl_file[0].name.endswith(".wdl")]

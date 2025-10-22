@@ -24,7 +24,7 @@ def normalize(content: Any, map_decimal: Type = str, sort_keys: bool = True) -> 
     if isinstance(content, Decimal):
         return map_decimal(content)
     elif isinstance(content, BaseModel):
-        return normalize(content.dict(), map_decimal=map_decimal)
+        return normalize(content.model_dump(), map_decimal=map_decimal)
     elif isinstance(content, dict):
         # Handle a dictionary
         DEFAULT_WEIGHT = 99999

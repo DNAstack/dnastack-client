@@ -259,7 +259,7 @@ class WorkflowClient(BaseWorkbenchClient):
 
     def update_workflow(self, workflow_id: str, etag: str, updates: List[JsonPatch]) -> Workflow:
         with self.create_http_session() as session:
-            updates = [update.dict() for update in updates]
+            updates = [update.model_dump() for update in updates]
             response = session.json_patch(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}'),
                 headers={'If-Match': etag},
@@ -270,7 +270,7 @@ class WorkflowClient(BaseWorkbenchClient):
     def update_workflow_version(self, workflow_id: str, version_id: str, etag: str,
                                 updates: List[JsonPatch]) -> WorkflowVersion:
         with self.create_http_session() as session:
-            updates = [update.dict() for update in updates]
+            updates = [update.model_dump() for update in updates]
             response = session.json_patch(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}'),
                 headers={'If-Match': etag},
@@ -325,7 +325,7 @@ class WorkflowClient(BaseWorkbenchClient):
             response = session.post(
                 urljoin(self.endpoint.url,
                         f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults'),
-                json=workflow_defaults.dict()
+                json=workflow_defaults.model_dump()
             )
             return WorkflowDefaults(**response.json())
 
@@ -343,7 +343,7 @@ class WorkflowClient(BaseWorkbenchClient):
             response = session.submit("PUT",
                 urljoin(self.endpoint.url,
                         f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults/{default_id}'),
-                json=workflow_defaults.dict(),
+                json=workflow_defaults.model_dump(),
                 headers={"If-Match": if_match}
             )
             return WorkflowDefaults(**response.json())
@@ -378,7 +378,7 @@ class WorkflowClient(BaseWorkbenchClient):
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/transformations'),
-                json=workflow_transformation_create_request.dict()
+                json=workflow_transformation_create_request.model_dump()
             )
         return WorkflowTransformation(**response.json())
 
@@ -411,7 +411,7 @@ class WorkflowClient(BaseWorkbenchClient):
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies'),
-                json=workflow_dependency_create_request.dict(),
+                json=workflow_dependency_create_request.model_dump(),
                 headers=headers
             )
         return WorkflowDependency(**response.json())
@@ -426,7 +426,7 @@ class WorkflowClient(BaseWorkbenchClient):
         with self.create_http_session() as session:
             response = session.submit("PUT",
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/dependencies/{dependency_id}'),
-                json=workflow_dependency_update_request.dict(),
+                json=workflow_dependency_update_request.model_dump(),
                 headers=headers
             )
         return WorkflowDependency(**response.json())

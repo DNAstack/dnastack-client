@@ -616,7 +616,7 @@ def init_runs_commands(group: Group):
             default_workflow_engine_parameters=default_workflow_engine_parameters,
             default_workflow_params=default_workflow_params,
             default_tags=tags.parsed_value() if tags else None,
-            run_requests=list(),
+            run_requests=[],
             samples=parse_samples()
         )
 
@@ -634,12 +634,12 @@ def init_runs_commands(group: Group):
         override_data = parse_and_merge_arguments(input_overrides)
         if override_data:
             if not batch_request.default_workflow_params:
-                batch_request.default_workflow_params = dict()
+                batch_request.default_workflow_params = {}
             merge(batch_request.default_workflow_params, override_data)
 
             for run_request in batch_request.run_requests:
                 if not run_request.workflow_params:
-                    run_request.workflow_params = dict()
+                    run_request.workflow_params = {}
                 merge(run_request.workflow_params, override_data)
 
         if dry_run:

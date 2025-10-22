@@ -58,7 +58,7 @@ class StorageAccount(BaseModel):
     created_at: Optional[str] = None
     last_updated_at: Optional[str] = None
     bucket: Optional[str] = None
-    credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]]
+    credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]] = None
 
 
 class StorageListOptions(BaseListOptions):

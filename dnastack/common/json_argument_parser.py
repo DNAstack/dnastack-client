@@ -160,7 +160,7 @@ def get_argument_type(argument: str) -> str:
 
 def parse_kv_arguments(arguments: List[str]) -> Union[List[JSONType], Dict[str, JSONType]]:
     arg_types = KeyValueArgType(*SEPARATOR_GROUP_NESTED_JSON_ITEMS)
-    kv_pairs = list()
+    kv_pairs = []
     for argument in arguments:
         arg_type = arg_types(argument)
         if arg_type.sep == SEPARATOR_DATA_EMBED_FILE_CONTENTS:
@@ -180,8 +180,8 @@ def parse_kv_arguments(arguments: List[str]) -> Union[List[JSONType], Dict[str, 
 
 
 def parse_and_merge_arguments(arguments: List[JsonLike]) -> Dict[str, JSONType]:
-    arguments_results = dict()
-    kv_arguments = list()
+    arguments_results = {}
+    kv_arguments = []
     for argument in arguments:
         if argument.argument_type == ArgumentType.KV_PARAM_TYPE:
             kv_arguments.extend(split_arguments_list(argument.value()))
@@ -198,7 +198,7 @@ def parse_and_merge_arguments(arguments: List[JsonLike]) -> Dict[str, JSONType]:
 
 def merge_param_json_data(kv_pairs_list: List[str], json_literals_list: List[str],
                           files_list: List[str]) -> Dict[str, JSONType]:
-    param_presets = dict()
+    param_presets = {}
 
     # in this ordering the JSON content of the file will be overwritten by any keys with the same values
     if files_list:

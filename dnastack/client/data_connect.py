@@ -40,7 +40,7 @@ class DataConversionError(RuntimeError):
 
 class Error(BaseModel):
     """ Error representation """
-    status: Any
+    status: Any = None
     title: str
     details: Optional[str] = None
 
@@ -91,7 +91,7 @@ class PageableResultLoader(ResultLoader):
         self._initial_url = initial_url
         self._current_url: Optional[str] = None
         self._active = True
-        self._visited_urls: List[str] = list()
+        self._visited_urls: List[str] = []
 
     def _post_request(self, api_response: Union[ListTablesResponse, TableDataResponse]):
         if api_response.errors:
@@ -161,7 +161,7 @@ class TableListLoader(PageableResultLoader):
             response_text = response.text
 
             try:
-                response_body = response.json() if response_text else dict()
+                response_body = response.json() if response_text else {}
             except Exception:
                 self.logger.error(f'{self._initial_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise DataConnectError(
@@ -425,7 +425,7 @@ class QueryLoader(PageableResultLoader):
         super(QueryLoader, self).__init__(initial_url=initial_url, http_session=http_session)
 
         self.__query = query
-        self.__schema: Dict[str, Any] = dict()
+        self.__schema: Dict[str, Any] = {}
         self.__trace = trace
 
     def load(self) -> List[Dict[str, Any]]:
@@ -456,11 +456,7 @@ class QueryLoader(PageableResultLoader):
                     self._visited_urls.append(self._current_url)
             except ClientError as e:
                 status_code = e.response.status_code
-                common_error_properties = dict(
-                    visited_urls=self._visited_urls,
-                    response=e.response,
-                    trace=e.trace,
-                )
+                common_error_properties = {'visited_urls': self._visited_urls, 'response': e.response, 'trace': e.trace}
                 if status_code == 400:
                     if not self._current_url:
                         if self.__query:

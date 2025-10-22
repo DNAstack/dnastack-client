@@ -113,7 +113,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
                                      scope='wes'
                                  )
                              )
-                         ).json())))
+                         ).model_dump_json())))
     namespace: str = None
     hello_world_workflow: Workflow = None
     engine_params = {
@@ -233,7 +233,7 @@ class BaseWorkbenchTestCase(WithTestUserTestCase):
     @classmethod
     def _create_execution_engine(cls, session: HttpSession) -> ExecutionEngine:
         response = session.post(urljoin(cls.workbench_base_url, f'/services/ewes-service/{cls.namespace}/engines'),
-                                json=cls.execution_engine.dict())
+                                json=cls.execution_engine.model_dump())
         return ExecutionEngine(**response.json())
 
     @classmethod

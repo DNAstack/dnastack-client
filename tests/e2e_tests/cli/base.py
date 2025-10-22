@@ -67,7 +67,7 @@ class CliTestCase(BaseTestCase):
             # noinspection PyTypeChecker
             return self._runner.invoke(cli_app, cli_blocks, env=test_envs)
         else:
-            shared_memory = dict()
+            shared_memory = {}
 
             def runner():
                 # noinspection PyTypeChecker

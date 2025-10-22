@@ -31,22 +31,13 @@ class ClientCredentialAdapter(OAuth2Adapter):
         auth_info = self._auth_info
         resource_urls = self._prepare_resource_urls_for_request(auth_info.resource_url)
 
-        trace_info = dict(
-            oauth='client-credentials',
-            token_url=auth_info.token_endpoint,
-            client_id=auth_info.client_id,
-            grant_type=self.__grant_type,
-            resource_urls=resource_urls,
-            scope=auth_info.scope,
-        )
+        trace_info = {'oauth': 'client-credentials', 'token_url': auth_info.token_endpoint,
+                      'client_id': auth_info.client_id, 'grant_type': self.__grant_type, 'resource_urls': resource_urls,
+                      'scope': auth_info.scope}
         logger.debug(f'exchange_token: Authenticating with {trace_info}')
 
-        auth_params = dict(
-            client_id=auth_info.client_id,
-            client_secret=auth_info.client_secret,
-            grant_type=self.__grant_type,
-            resource=resource_urls,
-        )
+        auth_params = {'client_id': auth_info.client_id, 'client_secret': auth_info.client_secret,
+                       'grant_type': self.__grant_type, 'resource': resource_urls}
 
         if auth_info.scope:
             auth_params['scope'] = auth_info.scope

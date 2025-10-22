@@ -111,7 +111,7 @@ class InMemorySessionStorage(BaseSessionStorage):
 
     def __init__(self):
         self.__logger = get_logger(type(self).__name__)
-        self.__cache_map: Dict[str, SessionInfo] = dict()
+        self.__cache_map: Dict[str, SessionInfo] = {}
 
     def __contains__(self, id: str) -> bool:
         return id in self.__cache_map
@@ -210,7 +210,7 @@ class SessionManager:
                  static_session_file: Optional[str] = None):
         self.__logger = get_logger(type(self).__name__)
         self.__storage = storage
-        self.__change_locks: Dict[str, Lock] = dict()
+        self.__change_locks: Dict[str, Lock] = {}
         self.__static_session: Optional[SessionInfo] = None
 
         self.__logger.debug('Session Storage: %s', self.__storage)

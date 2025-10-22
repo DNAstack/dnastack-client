@@ -17,6 +17,7 @@ help:
 	@echo "  reset                    Clean configuration and session files"
 	@echo ""
 	@echo "Testing:"
+	@echo "  test-setup               Sync test dependencies (auto-run by test targets)"
 	@echo "  test-unit                Run unit tests"
 	@echo "  test-unit-cov            Run unit tests with coverage report"
 	@echo "  test-unit-watch          Run unit tests in watch mode"
@@ -32,7 +33,7 @@ help:
 	@echo "  publish                  Build package for distribution"
 	@echo ""
 	@echo "Docker Testing:"
-	@echo "  docker-test-all          Run tests across all Python versions"
+	@echo "  docker-test-all          Run all tests across all Python versions"
 	@echo "  docker-test-all-baseline Test with Python $(PY_VERSION_BASELINE) (baseline)"
 	@echo "  docker-test-all-stable   Test with Python $(PY_VERSION_STABLE) (stable)"
 	@echo "  docker-test-all-latest   Test with Python $(PY_VERSION_LATEST) (latest)"
@@ -111,18 +112,19 @@ reset:
 
 .PHONY: test-setup
 test-setup: check-uv
-	uv pip install --group test
+	@echo "Syncing test dependencies..."
+	@uv sync --group test --quiet 2>/dev/null || uv sync --group test
 
 .PHONY: test-unit
-test-unit:
+test-unit: test-setup
 	uv run pytest tests -m unit -v -n auto
 
 .PHONY: test-unit-cov
-test-unit-cov:
+test-unit-cov: test-setup
 	uv run pytest tests -m unit -v --cov=dnastack --cov-report=html --cov-report=term-missing -n auto
 
 .PHONY: test-unit-watch
-test-unit-watch:
+test-unit-watch: test-setup
 	uv run pytest-watch tests -m unit -v
 
 .PHONY: lint

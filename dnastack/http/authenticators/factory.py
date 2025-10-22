@@ -37,13 +37,13 @@ class HttpAuthenticatorFactory:
 
             # NOTE: Should raise a custom exception if it fails the model validation.
 
-            return config.dict()
+            return config.model_dump()
         else:
             raise UnsupportedAuthenticationInformationError(auth_info)
 
     @staticmethod
     def get_unique_auth_info_list(endpoints: List[ServiceEndpoint]) -> List[Dict[str, Any]]:
-        unique_auth_info_map: Dict[str, Dict[str, Any]] = dict()
+        unique_auth_info_map: Dict[str, Dict[str, Any]] = {}
 
         for endpoint in endpoints:
             for auth_info in endpoint.get_authentications():

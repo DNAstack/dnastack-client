@@ -64,12 +64,8 @@ class AuthManager:
             if state.session_info and state.session_info.get('scope'):
                 granted_scopes.extend(sorted(str(state.session_info.get('scope')).split(r' ')))
 
-            basic_event_info = dict(session_id=authenticator.session_id,
-                                    index=index,
-                                    total=total,
-                                    state=state,
-                                    endpoint_ids=affected_endpoint_ids,
-                                    scopes=granted_scopes)
+            basic_event_info = {'session_id': authenticator.session_id, 'index': index, 'total': total, 'state': state,
+                                'endpoint_ids': affected_endpoint_ids, 'scopes': granted_scopes}
 
             self.events.dispatch('revoke-begin', basic_event_info)
 
@@ -91,7 +87,7 @@ class AuthManager:
         endpoints = self.get_filtered_endpoints(endpoint_ids)
         for authenticator in self.get_authenticators(endpoint_ids):
             auth_state = authenticator.get_state()
-            state = ExtendedAuthState(**auth_state.dict())
+            state = ExtendedAuthState(**auth_state.model_dump())
 
             # Simplify the auth info.
             simplified_auth_info = self._remove_none_entry_from(auth_state.auth_info)
@@ -144,10 +140,7 @@ class AuthManager:
                 index += 1
                 continue
             
-            basic_event_info = dict(session_id=authenticator.session_id,
-                                    state=state,
-                                    index=index,
-                                    total=total)
+            basic_event_info = {'session_id': authenticator.session_id, 'state': state, 'index': index, 'total': total}
 
             self.events.dispatch('auth-begin', basic_event_info)
 
@@ -166,7 +159,7 @@ class AuthManager:
                     with trace.new_span({'actor': 'auth_manager', 'action': 'revoke_session'}):
                         authenticator.revoke()
 
-                state.session_info = authenticator.initialize(trace_context=trace).dict()
+                state.session_info = authenticator.initialize(trace_context=trace).model_dump()
                 session = state.session_info
 
                 if (
@@ -196,7 +189,7 @@ class AuthManager:
     def handle_block_response_required_event(self, event: Event):
         if event.details.get('kind') == 'user_verification':
             self._logger.debug(f'Intercepting the "blocking-response-required" event for user verification ({event.details})...')
-            self.events.dispatch('user-verification-required', dict(url=event.details.get('url')))
+            self.events.dispatch('user-verification-required', {'url': event.details.get('url')})
         else:
             self._logger.error(f'Intercepted the "blocking-response-required" event but FAILED to handle {event.details}.')
 

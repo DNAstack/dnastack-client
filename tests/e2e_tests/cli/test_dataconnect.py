@@ -7,7 +7,7 @@ from tests.util.exam_helper_for_data_connect import DataConnectTestCaseMixin
 
 
 class TestDataConnectCommand(DeprecatedPublisherCliTestCase, DataConnectTestCaseMixin):
-    usable_endpoints: List[ServiceEndpoint] = list()
+    usable_endpoints: List[ServiceEndpoint] = []
 
     @staticmethod
     def reuse_session() -> bool:
@@ -21,7 +21,7 @@ class TestDataConnectCommand(DeprecatedPublisherCliTestCase, DataConnectTestCase
             self.usable_endpoints = [
                 ServiceEndpoint(**endpoint)
                 for endpoint in self.simple_invoke('config', 'endpoints', 'list', '-o', 'json')
-                if endpoint['type'] == DATA_CONNECT_TYPE_V1_0
+                if endpoint['type'] == DATA_CONNECT_TYPE_V1_0.model_dump()
             ]
 
     def _get_default_parameters(self) -> List[str]:
@@ -122,19 +122,9 @@ class TestDataConnectCommand(DeprecatedPublisherCliTestCase, DataConnectTestCase
             ) AS c_json -- This is the sample JSON data.
         """
 
-        column_expected_type_map = dict(
-            c_int=int,
-            c_bigint=int,
-            c_decimal=float,
-            c_real=float,
-            c_double=float,
-            c_date=str,
-            c_timstamp=str,
-            c_time=str,
-            c_timstamptz=str,
-            c_timetz=str,
-            c_json=dict,
-        )
+        column_expected_type_map = {'c_int': int, 'c_bigint': int, 'c_decimal': float, 'c_real': float,
+                                    'c_double': float, 'c_date': str, 'c_timstamp': str, 'c_time': str,
+                                    'c_timstamptz': str, 'c_timetz': str, 'c_json': dict}
 
         result = self.simple_invoke('dc', 'query', *self._get_default_parameters(), '--decimal-as', 'float', sql)
 

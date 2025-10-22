@@ -27,7 +27,7 @@ class DotPropertiesParser:
         self.allow_value_overriding = allow_value_overriding
 
     def parse(self, content: str) -> Dict[str, Any]:
-        data: Dict[str, Any] = dict()
+        data: Dict[str, Any] = {}
 
         for line in re.split(r'\r\n|\r|\n', content):
             truncated_line = line.strip()
@@ -99,11 +99,11 @@ class DotPropertiesParser:
                                                                    '.'.join([path[i] for i in range(depth + 1)]))
 
                     if is_array:
-                        node[p_name_without_array] = list()
+                        node[p_name_without_array] = []
                         node = node[p_name_without_array]
                     else:
                         if p_name not in node:
-                            node[p_name] = dict()
+                            node[p_name] = {}
                         node = node[p_name]
 
             self.__logger.debug(f'PARSED: {path} = {value}')

@@ -126,10 +126,9 @@ def init_collections_commands(group: Group):
     
             logger.debug(f'Item Simplifier: given: {to_json(row)}')
     
-            item = dict(
-                id=row['id'],
-                name=row.get('qualified_table_name') or row.get('preferred_name') or row.get('display_name') or row['name'],
-            )
+            item = {'id': row['id'],
+                    'name': row.get('qualified_table_name') or row.get('preferred_name') or row.get('display_name') or
+                            row['name']}
     
             if row['type'] == 'blob':
                 property_names.extend([

@@ -74,7 +74,7 @@ class WorkbenchResultLoader(ResultLoader):
         self.__max_results = int(max_results) if max_results else None
         self.__loaded_results = 0
         self.__active = True
-        self.__visited_urls: List[str] = list()
+        self.__visited_urls: List[str] = []
         self.__trace = trace
         self.__next_page_url = None
 
@@ -135,7 +135,7 @@ class WorkbenchResultLoader(ResultLoader):
             response_text = response.text
 
             try:
-                response_body = response.json() if response_text else dict()
+                response_body = response.json() if response_text else {}
             except Exception:
                 self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise PageableApiError(

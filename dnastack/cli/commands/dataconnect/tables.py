@@ -70,5 +70,5 @@ def get_table_info(context: Optional[str],
                    no_auth: bool = False,
                    output: Optional[str] = None):
     """ Get info from the given table """
-    obj = _get(context=context, id=endpoint_id).table(table_name, no_auth=no_auth).info.dict()
+    obj = _get(context=context, id=endpoint_id).table(table_name, no_auth=no_auth).info.model_dump()
     click.echo((to_json if output == 'json' else to_yaml)(obj))

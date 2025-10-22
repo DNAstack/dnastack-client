@@ -30,6 +30,6 @@ def init_datasources_commands(group: Group):
 
             show_iterator(output,
                         [
-                            _filter_datasource_fields(datasource.dict())
+                            _filter_datasource_fields(datasource.model_dump())
                             for datasource in response.connections
                         ])

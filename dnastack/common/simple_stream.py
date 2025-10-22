@@ -38,7 +38,7 @@ class SimpleStream:
         return [item for item in self._run()]
 
     def to_map(self, key_mapper: Callable[[X], Y], value_mapper: Callable[[X], Z]) -> Dict[Y, Z]:
-        result: Dict[Y, Z] = dict()
+        result: Dict[Y, Z] = {}
 
         for item in self._run():
             result[key_mapper(item)] = value_mapper(item)

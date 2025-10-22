@@ -260,7 +260,7 @@ class ExtendedRunListOptions(BaseListOptions):
     since: Optional[str] = None
     search: Optional[str] = None
     sort: Optional[str] = None
-    order: Optional[str] = Field(type=str, deprecated=True, default=None)
+    order: Optional[str] = Field(deprecated=True, default=None, json_schema_extra={'type': 'string'})
     direction: Optional[str] = None
     batch_id: Optional[str] = None
     state: Optional[List[State]] = None
@@ -303,7 +303,7 @@ class ExecutionEngine(BaseModel):
     updated_at: Optional[datetime] = None
     state: Optional[str] = None
     health: Optional[str] = Field(default=None, deprecated=True)
-    engine_adapter_configuration: Optional[Dict[str, JSONType]]
+    engine_adapter_configuration: Optional[Dict[str, JSONType]] = None
 
 
 class ExecutionEngineListResponse(PaginatedResource):

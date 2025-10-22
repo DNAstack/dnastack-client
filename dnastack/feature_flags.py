@@ -3,8 +3,8 @@ from typing import Callable, List, Dict
 
 from dnastack.common.environments import flag
 
-__FLAG_CACHE_MAP: Dict[str, bool] = dict()
-__DEBUG_MODE_HOOKS: List[Callable[[bool], None]] = list()
+__FLAG_CACHE_MAP: Dict[str, bool] = {}
+__DEBUG_MODE_HOOKS: List[Callable[[bool], None]] = []
 
 
 def currently_in_debug_mode():
