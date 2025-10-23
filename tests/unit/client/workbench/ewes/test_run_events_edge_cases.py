@@ -7,8 +7,9 @@ import pytest
 from pydantic import ValidationError
 
 from dnastack.client.workbench.ewes.models import (
-    RunEvent, EventType, State, ExtendedRunEvents,
+    RunEvent, State, ExtendedRunEvents,
     RunSubmittedMetadata, StateTransitionMetadata,
+    UnknownEventMetadata,
 )
 
 
@@ -24,21 +25,23 @@ class TestRunEventEdgeCases:
         }
 
     def test_invalid_discriminator_value_in_metadata(self, base_event_data):
-        """Test that invalid discriminator value in metadata raises ValidationError."""
-        invalid_data = {
+        """Test that unknown discriminator value in metadata uses fallback."""
+        unknown_data = {
             **base_event_data,
             "event_type": "RUN_SUBMITTED",
             "metadata": {
-                "event_type": "INVALID_TYPE",  # This doesn't match any EventType enum
-                "message": "This should fail"
+                "event_type": "INVALID_TYPE",  # This doesn't match any known EventType
+                "message": "This should use UnknownEventMetadata"
             }
         }
-        
-        with pytest.raises(ValidationError) as exc_info:
-            RunEvent(**invalid_data)
-        
-        error_str = str(exc_info.value).lower()
-        assert any(keyword in error_str for keyword in ["discriminator", "invalid", "literal"])
+
+        # This should NOT raise an error - it should use the fallback
+        event = RunEvent.parse_obj(unknown_data)
+
+        # Verify it used the fallback metadata class
+        assert isinstance(event.metadata, UnknownEventMetadata)
+        assert event.metadata.event_type == "INVALID_TYPE"
+        assert event.metadata.message == "This should use UnknownEventMetadata"
 
     def test_missing_discriminator_field_in_metadata(self, base_event_data):
         """Test that missing discriminator field in metadata raises ValidationError."""
@@ -302,49 +305,54 @@ class TestRunEventEdgeCases:
         
         # Test first event
         first_event = extended_run_events.events[0]
-        assert first_event.event_type == EventType.RUN_SUBMITTED
+        assert first_event.event_type == "RUN_SUBMITTED"
         assert isinstance(first_event.metadata, RunSubmittedMetadata)
         assert first_event.metadata.submitted_by == "user@example.com"
         assert first_event.metadata.workflow_name == "hello-world"
         assert len(first_event.metadata.workflow_authors) == 2
         assert first_event.metadata.tags["project"] == "test-project"
         assert len(first_event.metadata.sample_ids) == 1
-        
+
         # Test second event
         second_event = extended_run_events.events[1]
-        assert second_event.event_type == EventType.STATE_TRANSITION
+        assert second_event.event_type == "STATE_TRANSITION"
         assert isinstance(second_event.metadata, StateTransitionMetadata)
         assert second_event.metadata.old_state == State.QUEUED
         assert second_event.metadata.new_state == State.RUNNING
         assert second_event.metadata.errors == []
 
     def test_case_sensitivity_in_enum_values(self, base_event_data):
-        """Test that enum values are case-sensitive."""
-        # Test with incorrect case
-        invalid_case_data = {
+        """Test that different case variations use fallback since they don't match known types."""
+        # Test with lowercase - should use fallback
+        lowercase_data = {
             **base_event_data,
             "event_type": "run_submitted",  # lowercase instead of uppercase
             "metadata": {
                 "event_type": "run_submitted",
-                "message": "This should fail"
+                "message": "This should use fallback"
             }
         }
-        
-        with pytest.raises(ValidationError):
-            RunEvent(**invalid_case_data)
-        
-        # Test with mixed case
-        invalid_mixed_case_data = {
+
+        # This should NOT raise an error - it should use the fallback
+        lowercase_event = RunEvent.parse_obj(lowercase_data)
+        assert isinstance(lowercase_event.metadata, UnknownEventMetadata)
+        assert lowercase_event.metadata.event_type == "run_submitted"
+        assert lowercase_event.metadata.message == "This should use fallback"
+
+        # Test with mixed case - should also use fallback
+        mixed_case_data = {
             **base_event_data,
             "event_type": "Run_Submitted",  # mixed case
             "metadata": {
                 "event_type": "Run_Submitted",
-                "message": "This should fail"
+                "message": "This should also use fallback"
             }
         }
-        
-        with pytest.raises(ValidationError):
-            RunEvent(**invalid_mixed_case_data)
+
+        mixed_event = RunEvent.parse_obj(mixed_case_data)
+        assert isinstance(mixed_event.metadata, UnknownEventMetadata)
+        assert mixed_event.metadata.event_type == "Run_Submitted"
+        assert mixed_event.metadata.message == "This should also use fallback"
 
     def test_memory_usage_with_large_events(self, base_event_data):
         """Test memory usage doesn't explode with large event data."""
