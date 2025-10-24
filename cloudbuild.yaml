@@ -64,11 +64,10 @@ steps:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         export PATH="$$HOME/.local/bin:$$PATH"
 
-        # Build using uv
-        uv build
-
-        # Pre-release
-        #./scripts/build-package.py --pre-release a  # a=alpha, b=beta, rc=release-candidate
+        # Build package with dynamic versioning (uses uv build internally)
+        # This generates unique version numbers like 3.1.203 to avoid PyPI conflicts
+        # For pre-release builds, add: --pre-release a  (a=alpha, b=beta, rc=release-candidate)
+        ./scripts/build-package.py
     volumes:
       - name: 'homedir'
         path: /root

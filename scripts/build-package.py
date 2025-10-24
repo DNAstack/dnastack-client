@@ -24,22 +24,18 @@ parser.add_argument('--version', required=False)
 args = parser.parse_args()
 
 
-def install_build_tool_dependency(*package_names):
-    subprocess.call(['python3', '-m', 'pip', 'install', '-q', *package_names])
-
-
 def main():
     in_dry_run_mode = args.dry_run
 
-    # Set up the build environment.
-    if in_dry_run_mode:
-        log.warning('The build environment is not maintained because the script is in the dry run mode.')
-    else:
-        log.info('Ensuring the minimum build requirements...')
-        install_build_tool_dependency(
-            'build>=0.7.0',
-            'setuptools>=49.2.1'
-        )
+    # Check for uv availability
+    if not in_dry_run_mode:
+        log.info('Checking for uv availability...')
+        try:
+            subprocess.check_output(['uv', '--version'], stderr=subprocess.STDOUT)
+            log.info('uv is available')
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            log.error('uv is not installed. Please install uv first: https://astral.sh/uv')
+            sys.exit(1)
 
     # Determine the release version
     if args.version:
@@ -71,6 +67,10 @@ def main():
         except ValueError:
             base_version = git_version
             revision_number = '0'
+
+        # Strip 'v' prefix if present (git tags often use v3.1 format)
+        base_version = base_version.lstrip('v')
+
         split_base_version = base_version.split(r'.')
         major_version = split_base_version[0]
         minor_version = split_base_version[1]
@@ -112,8 +112,8 @@ def main():
     if args.dry_run:
         log.warning('The package will not be built because the script is in the dry run mode.')
     else:
-        log.info('Building the package...')
-        subprocess.call(['python3', '-m', 'build'])
+        log.info('Building the package with uv...')
+        subprocess.call(['uv', 'build'])
 
     log.info('Cleaning up...')
 
