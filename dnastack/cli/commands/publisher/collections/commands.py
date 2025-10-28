@@ -174,17 +174,9 @@ def init_collections_commands(group: Group):
         name='status',
         specs=[
             COLLECTION_ID_ARG,
-            ArgumentSpec(
-                name='missing_items',
-                arg_names=['--missing-items'],
-                help='To find missing files and/or folders while adding or removing to the collection.',
-                type=bool,
-                required=False,
-            ),
         ]
     )
-    def get_collection_status(collection: str,
-                            missing_items: Optional[bool] = False):
+    def get_collection_status(collection: str):
         """ Check status of a collection """
 
         def format_datetime(dt: Optional[datetime]) -> str:
@@ -192,6 +184,16 @@ def init_collections_commands(group: Group):
             if dt:
                 return dt.strftime("%Y-%m-%d %H:%M:%S")
             return "N/A"
+
+        def get_status_color(status: CollectionValidationStatus) -> str:
+            """Get color for status based on validation state"""
+            status_colors = {
+                CollectionValidationStatus.VALIDATED: 'green',
+                CollectionValidationStatus.VALIDATION_STOPPED: 'red',
+                CollectionValidationStatus.VALIDATION_IN_PROGRESS: 'yellow',
+                CollectionValidationStatus.MISSING_ITEMS: 'yellow'
+            }
+            return status_colors.get(status, 'white')
 
         def format_validation_status(status: CollectionValidationStatus) -> str:
             """Convert enum status to user-friendly message"""
@@ -207,29 +209,27 @@ def init_collections_commands(group: Group):
             """Print hint about missing items to stderr"""
             hint = (
                 "# Run the following command to see details.\n"
-                f"omics publisher collections status --collection {collection_id} --missing-items"
+                f"omics publisher collections items list --collection {collection_id} --missing-items"
             )
-            click.echo(hint, err=True)
+            click.secho(hint, dim=True, err=True)
 
         def format_collection_status(status: CollectionStatus, collection_id: str) -> None:
             """Format and print collection status according to requirements"""
-            # Print main status
-            click.echo(f"Validation Status: {format_validation_status(status.validationsStatus)}")
+            # Print main status with color
+            status_color = get_status_color(status.validationsStatus)
+            click.echo("Validation Status: ", nl=False)
+            click.secho(format_validation_status(status.validationsStatus), fg=status_color)
 
             if status.lastChecked:
                 click.echo(f"Last Checked: {format_datetime(status.lastChecked)}")
 
-            # Print missing items if any
+            # Print missing items count if any
             if status.validationsStatus == CollectionValidationStatus.MISSING_ITEMS and status.missingItems:
-                click.echo("\nMissing Items:")
-                if status.missingItems.tables:
-                    click.echo(f"  Tables: {status.missingItems.tables}")
-                if status.missingItems.files:
-                    click.echo(f"  Files: {status.missingItems.files}")
+                click.echo("\nNumber of Missing Items: ", nl=False)
+                click.secho(str(status.missingItems), fg='yellow', bold=True)
                 click.echo()  # Add empty line before stderr message
                 print_missing_items_hint(collection_id)
 
         client = _get_collection_service_client()
         status = client.get_collection_status(collection_id_or_slug_name_or_db_schema_name=collection)
-
         format_collection_status(status, collection)

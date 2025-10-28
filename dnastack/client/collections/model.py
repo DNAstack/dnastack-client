@@ -105,6 +105,7 @@ class CollectionItemListResponse(BaseModel):
 class CollectionItemListOptions(BaseModel):
     type: Optional[str] = None
     limit: Optional[int] = None
+    onlyMissing: Optional[bool] = None
 
 
 class CreateCollectionItemsRequest(BaseModel):

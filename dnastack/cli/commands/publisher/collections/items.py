@@ -40,6 +40,13 @@ def items_command_group():
             help='The type of items to list.',
             required=False,
         ),
+        ArgumentSpec(
+            name='missing_items',
+            arg_names=['--missing-items'],
+            help='List only missing items from the collection.',
+            type=bool,
+            required=False,
+        ),
         MAX_RESULTS_ARG,
         RESOURCE_OUTPUT_ARG
     ]
@@ -48,6 +55,7 @@ def list(collection: str,
          limit: Optional[int],
          max_results: Optional[int],
          item_type: Optional[str],
+         missing_items: Optional[bool] = False,
          output: Optional[str] = None):
     """ List items of the given collection """
     assert limit >= 0, 'The limit (--limit) should be either ZERO (item query WITHOUT limit) ' \
@@ -56,6 +64,7 @@ def list(collection: str,
     list_options = CollectionItemListOptions(
         type=item_type,
         limit=limit,
+        onlyMissing=missing_items if missing_items else None,
     )
 
     collection_service_client = _get_collection_service_client()
