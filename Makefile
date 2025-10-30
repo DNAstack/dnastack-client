@@ -24,9 +24,10 @@ help:
 	@echo "  test-e2e                 Run E2E tests"
 	@echo "  test-all                 Run both unit and E2E tests"
 	@echo ""
-	@echo "Linting:"
+	@echo "Linting & Type Checking:"
 	@echo "  lint                     Run ruff linter to check code"
 	@echo "  lint-fix                 Auto-fix linting issues"
+	@echo "  typecheck                Run pyrefly type checker"
 	@echo ""
 	@echo "Package Management:"
 	@echo "  package-test             Build and test package installation"
@@ -98,12 +99,18 @@ install-buildx:
 	fi
 	@docker buildx version
 
+.PHONY: check-pyrefly
+check-pyrefly:
+	@echo "Initializing pyrefly..."
+	uv run pyrefly init
+
 .PHONY: setup
 setup: check-uv
 	uv venv
 	uv sync --group dev
 	uv run pre-commit install
 	make install-buildx
+	make check-pyrefly
 
 .PHONY: reset
 reset:
@@ -134,6 +141,10 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	uv run ruff check --fix .
+
+.PHONY: typecheck
+typecheck:
+	uv run pyrefly check --summarize-errors
 
 .PHONY: test-e2e
 test-e2e:
