@@ -130,7 +130,7 @@ class OAuth2Authenticator(Authenticator):
             self.events.dispatch('authentication-failure', event_details)
 
             raise OAuth2MisconfigurationError('Cannot determine the type of authentication '
-                                              f'({auth_info.json(sort_keys=True, exclude_none=True)})')
+                                              f'({auth_info.model_dump_json(exclude_none=True)})')
 
         adapter.check_config_readiness()
         for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
