@@ -7,7 +7,7 @@ from requests import Response, Session
 
 from dnastack import ServiceEndpoint
 from dnastack.http.authenticators.abstract import ReauthenticationRequired
-from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
+from dnastack.http.authenticators.oauth2 import OAuth2Authenticator, OAuth2MisconfigurationError
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionManager, SessionInfo, SessionInfoHandler
@@ -134,3 +134,32 @@ class UnitTest(TestCase):
             mock_http_session.post.return_value = token_endpoint_response
 
             _ = authenticator.refresh()
+
+    def test_oauth2_misconfiguration_error_message(self):
+        """
+        Test that OAuth2MisconfigurationError is raised with proper serialization
+        when no compatible OAuth2 adapter is found (exercises line 133)
+        """
+        # Set up the test authenticator.
+        endpoint = ServiceEndpoint(url='https://dc.faux.dnastack.com')
+        mock_auth_info = dict(
+            grant_type='unknown_grant_type',
+            resource_url=endpoint.url,
+            client_id='test-client',
+            token_endpoint='https://auth.faux.dnastack.com/oauth/token'
+        )
+        session_manager = Mock(spec=SessionManager)
+        adapter_factory = Mock(spec=OAuth2AdapterFactory)
+
+        # Mock adapter_factory to return None (no compatible adapter)
+        adapter_factory.get_from = Mock(return_value=None)
+
+        authenticator = OAuth2Authenticator(endpoint=endpoint,
+                                            auth_info=mock_auth_info,
+                                            session_manager=session_manager,
+                                            adapter_factory=adapter_factory)
+
+        # Trigger the action - this will hit line 133 with auth_info.json()
+        with self.assertRaisesRegex(OAuth2MisconfigurationError,
+                                    r'Cannot determine the type of authentication'):
+            authenticator.authenticate()
