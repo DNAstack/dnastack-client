@@ -6,6 +6,15 @@ from dnastack.common.model_mixin import JsonModelMixin as HashableModel
 
 
 GRANT_TYPE_TOKEN_EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange'
+GRANT_TYPE_DEVICE_CODE = 'urn:ietf:params:oauth:grant-type:device_code'
+GRANT_TYPE_CLIENT_CREDENTIALS = 'client_credentials'
+
+# List of grant types supported by the CLI
+SUPPORTED_GRANT_TYPES = [
+    GRANT_TYPE_DEVICE_CODE,
+    GRANT_TYPE_CLIENT_CREDENTIALS,
+    GRANT_TYPE_TOKEN_EXCHANGE,
+]
 
 
 class OAuth2Authentication(BaseModel, HashableModel):
