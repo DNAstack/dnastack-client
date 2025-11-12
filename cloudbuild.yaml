@@ -90,7 +90,7 @@ steps:
 
   # Test with the latest stable release of Python.
   - id: python-3.12
-    name: python:3.12-slim@sha256:744a20876a5eb3cfb2b21c62f1755e286da9af3715ad92179f1f78e853f00bee
+    name: python:3.12-slim@sha256:d86b4c74b936c438cd4cc3a9f7256b9a7c27ad68c7caf8c205e18d9845af0164
     entrypoint: bash
     args:
       - '-ec'
