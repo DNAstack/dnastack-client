@@ -102,6 +102,13 @@ def init_questions_commands(group: Group):
                 arg_names=['--output-file'],
                 help='Output file path for results'
             ),
+            ArgumentSpec(
+                name='local_federated',
+                arg_names=['--local-federated'],
+                help='Query collections directly via local federation instead of using server-side federation',
+                type=bool,
+                default=False
+            ),
             DATA_OUTPUT_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -112,6 +119,7 @@ def init_questions_commands(group: Group):
         args: tuple,
         collections: Optional[JsonLike],
         output_file: Optional[str],
+        local_federated: bool,
         output: str,
         context: Optional[str],
         endpoint_id: Optional[str]
@@ -119,6 +127,7 @@ def init_questions_commands(group: Group):
         """Ask a federated question with the provided parameters"""
         trace = Span()
         client = get_explorer_client(context=context, endpoint_id=endpoint_id, trace=trace)
+        
 
         # Parse collections if provided
         if collections:
@@ -162,12 +171,20 @@ def init_questions_commands(group: Group):
             collection_ids = [col.id for col in question.collections]
         
         # Execute the question
-        results_iter = client.ask_federated_question(
-            question_id=question_name,
-            inputs=inputs,
-            collections=collection_ids,
-            trace=trace
-        )
+        if local_federated:
+            results_iter = client.ask_question_local_federated(
+                federated_question_id=question_name,
+                inputs=inputs,
+                collections=collection_ids,
+                trace=trace
+            )
+        else:
+            results_iter = client.ask_federated_question(
+                question_id=question_name,
+                inputs=inputs,
+                collections=collection_ids,
+                trace=trace
+            )
         
         # Collect results
         results = list(results_iter)

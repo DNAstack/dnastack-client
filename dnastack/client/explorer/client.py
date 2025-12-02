@@ -1,4 +1,6 @@
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 if TYPE_CHECKING:
     from dnastack.client.explorer.models import FederatedQuestion
@@ -10,7 +12,8 @@ from dnastack.client.models import ServiceEndpoint
 from dnastack.client.explorer.models import (
     FederatedQuestion,
     FederatedQuestionListResponse,
-    FederatedQuestionQueryRequest
+    FederatedQuestionQueryRequest,
+    QuestionCollection
 )
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
 from dnastack.client.service_registry.models import ServiceType
@@ -136,6 +139,55 @@ class ExplorerClient(BaseServiceClient):
             )
         )
 
+    def ask_question_local_federated(
+        self,
+        federated_question_id: str,
+        inputs: Dict[str, str],
+        collections: Optional[List[str]] = None,
+        trace: Optional[Span] = None
+    ) -> 'ResultIterator[Dict[str, Any]]':
+        """
+        Query collections directly via local federation instead of server-side federation.
+        
+        Args:
+            federated_question_id: The ID of the federated question to ask
+            inputs: Dictionary of parameter name -> value mappings
+            collections: Optional list of collection IDs to query. If None, all collections are used.
+            trace: Optional tracing span
+            
+        Returns:
+            ResultIterator[Dict[str, Any]]: Iterator over aggregated query results in federated format
+        """
+        # Get federated question metadata to obtain per-collection question IDs
+        question = self.describe_federated_question(federated_question_id, trace=trace)
+        
+        # Filter collections if specified
+        if collections is not None:
+            # Create a map of collection ID to QuestionCollection for filtering
+            collection_map = {col.id: col for col in question.collections}
+            target_collections = [collection_map[cid] for cid in collections if cid in collection_map]
+            
+            # Check for invalid collection IDs
+            invalid_ids = [cid for cid in collections if cid not in collection_map]
+            if invalid_ids:
+                raise ClientError(
+                    response=None,
+                    trace=trace,
+                    message=f"Invalid collection IDs for question '{federated_question_id}': {', '.join(invalid_ids)}"
+                )
+        else:
+            target_collections = question.collections
+        
+        # Create the result loader for local federation
+        return ResultIterator(
+            LocalFederatedQuestionQueryResultLoader(
+                explorer_client=self,
+                collections=target_collections,
+                inputs=inputs,
+                trace=trace
+            )
+        )
+
 
 class FederatedQuestionListResultLoader(ResultLoader):
     """
@@ -249,3 +301,145 @@ class FederatedQuestionQueryResultLoader(ResultLoader):
                 else:
                     
                     raise ClientError(e.response, e.trace, "Failed to execute federated question")
+
+
+class LocalFederatedQuestionQueryResultLoader(ResultLoader):
+    """
+    Result loader for local federation queries that queries each collection directly.
+    """
+    
+    def __init__(
+        self,
+        explorer_client: 'ExplorerClient',
+        collections: List[QuestionCollection],
+        inputs: Dict[str, str],
+        trace: Optional[Span] = None
+    ):
+        self.__explorer_client = explorer_client
+        self.__collections = collections
+        self.__inputs = inputs
+        self.__trace = trace
+        self.__loaded = False
+        
+    def has_more(self) -> bool:
+        return not self.__loaded
+        
+    def load(self) -> List[Dict[str, Any]]:
+        if self.__loaded:
+            raise InactiveLoaderError("LocalFederatedQuestionQueryResultLoader")
+            
+        # Execute parallel queries to each collection
+        with ThreadPoolExecutor() as executor:
+            # Submit all queries
+            future_to_collection = {
+                executor.submit(
+                    self._query_single_collection,
+                    collection
+                ): collection
+                for collection in self.__collections
+            }
+            
+            # Collect results
+            results = []
+            for future in as_completed(future_to_collection):
+                result = future.result()
+                results.append(result)
+        
+        # Return results directly as a list to match federated format
+        self.__loaded = True
+        return results  # Return as list to match federated endpoint format
+        
+    def _query_single_collection(self, collection: QuestionCollection) -> Dict[str, Any]:
+        """
+        Query a single collection and return the result in federated format.
+        """
+        start_time = time.time()
+        
+        # Build the collection-specific endpoint URL
+        # Note: explorer URL already ends with /api/, so we don't need to add it again
+        url = urljoin(
+            self.__explorer_client.url,
+            f"collections/{collection.slug}/questions/{collection.question_id}/query"
+        )
+        
+        
+        try:
+            # Make the request using the explorer client's session
+            with self.__explorer_client._session as session:
+                # Try using 'params' instead of 'inputs' for the collection endpoint
+                response = session.post(
+                    url,
+                    json={"params": self.__inputs},
+                    trace_context=self.__trace
+                )
+                
+                # Parse the Data Connect response
+                table_data = response.json()
+                
+                # Add collection_name to each data item to match federated format
+                if 'data' in table_data and isinstance(table_data['data'], list):
+                    for item in table_data['data']:
+                        item['collection_name'] = collection.name
+                
+                # Return in federated format
+                return {
+                    "collectionId": collection.id,
+                    "collectionSlug": collection.slug,
+                    "results": table_data,  # GA4GH Data Connect format
+                    "error": None,
+                    "failureInfo": None
+                }
+                
+        except HttpError as e:
+            # Calculate response time
+            response_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Determine failure reason
+            status_code = e.response.status_code if e.response else None
+            if status_code == 401:
+                reason = "UNAUTHORIZED"
+                message = f"Authentication required for collection {collection.name}"
+            elif status_code == 403:
+                reason = "FORBIDDEN"
+                message = f"Access denied to collection {collection.name}"
+            elif status_code == 404:
+                reason = "NOT_FOUND"
+                message = f"Question not found in collection {collection.name}"
+            elif status_code == 400:
+                reason = "BAD_REQUEST"
+                message = f"Invalid parameters for collection {collection.name}"
+            elif status_code and status_code >= 500:
+                reason = "SERVER_ERROR"
+                message = f"Server error for collection {collection.name}"
+            else:
+                reason = "UNKNOWN"
+                message = str(e)
+            
+            # Return error in federated format
+            return {
+                "collectionId": collection.id,
+                "collectionSlug": collection.slug,
+                "results": None,
+                "error": message,
+                "failureInfo": {
+                    "reason": reason,
+                    "message": message,
+                    "responseTimeMs": response_time_ms
+                }
+            }
+            
+        except Exception as e:
+            # Handle non-HTTP errors
+            response_time_ms = int((time.time() - start_time) * 1000)
+            
+            return {
+                "collectionId": collection.id,
+                "collectionSlug": collection.slug,
+                "results": None,
+                "error": str(e),
+                "failureInfo": {
+                    "reason": "CLIENT_ERROR",
+                    "message": str(e),
+                    "responseTimeMs": response_time_ms
+                }
+            }
