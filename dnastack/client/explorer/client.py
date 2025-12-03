@@ -172,7 +172,7 @@ class ExplorerClient(BaseServiceClient):
             if invalid_ids:
                 raise ClientError(
                     response=None,
-                    trace=trace,
+                    trace_context=trace,
                     message=f"Invalid collection IDs for question '{federated_question_id}': {', '.join(invalid_ids)}"
                 )
         else:
