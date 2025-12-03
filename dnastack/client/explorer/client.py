@@ -352,40 +352,82 @@ class LocalFederatedQuestionQueryResultLoader(ResultLoader):
     def _query_single_collection(self, collection: QuestionCollection) -> Dict[str, Any]:
         """
         Query a single collection and return the result in federated format.
+        Handles Data Connect pagination by following next_page_url links.
         """
         start_time = time.time()
         
         # Build the collection-specific endpoint URL
         # Note: explorer URL already ends with /api/, so we don't need to add it again
-        url = urljoin(
+        initial_url = urljoin(
             self.__explorer_client.url,
             f"collections/{collection.slug}/questions/{collection.question_id}/query"
         )
         
-        
         try:
-            # Make the request using the explorer client's session
+            # Collect all data across all pages
+            all_data = []
+            data_model = None
+            current_url = None
+            visited_urls = []
+            
             with self.__explorer_client._session as session:
-                # Try using 'params' instead of 'inputs' for the collection endpoint
+                # First request - POST with params to initiate query
                 response = session.post(
-                    url,
+                    initial_url,
                     json={"params": self.__inputs},
                     trace_context=self.__trace
                 )
+                visited_urls.append(initial_url)
                 
-                # Parse the Data Connect response
-                table_data = response.json()
+                while True:
+                    # Parse the Data Connect response
+                    table_data = response.json()
+                    
+                    # Capture data model from first response
+                    if data_model is None and 'data_model' in table_data:
+                        data_model = table_data['data_model']
+                    
+                    # Add data from this page
+                    if 'data' in table_data and isinstance(table_data['data'], list):
+                        # Add collection_name to each item
+                        for item in table_data['data']:
+                            item['collection_name'] = collection.name
+                        all_data.extend(table_data['data'])
+                    
+                    # Check for next page
+                    pagination = table_data.get('pagination')
+                    if pagination and pagination.get('next_page_url'):
+                        current_url = pagination['next_page_url']
+                        # Handle relative URLs
+                        if current_url and not current_url.startswith(('http://', 'https://')):
+                            current_url = urljoin(visited_urls[-1], current_url)
+                        
+                        # Prevent infinite loops
+                        if current_url in visited_urls:
+                            break
+                        
+                        # Follow pagination with GET request
+                        response = session.get(
+                            current_url,
+                            trace_context=self.__trace
+                        )
+                        visited_urls.append(current_url)
+                    else:
+                        # No more pages
+                        break
                 
-                # Add collection_name to each data item to match federated format
-                if 'data' in table_data and isinstance(table_data['data'], list):
-                    for item in table_data['data']:
-                        item['collection_name'] = collection.name
+                # Build final aggregated response
+                aggregated_table_data = {
+                    "data": all_data,
+                    "data_model": data_model,
+                    "pagination": None  # No pagination in aggregated result
+                }
                 
                 # Return in federated format
                 return {
                     "collectionId": collection.id,
                     "collectionSlug": collection.slug,
-                    "results": table_data,  # GA4GH Data Connect format
+                    "results": aggregated_table_data,
                     "error": None,
                     "failureInfo": None
                 }
