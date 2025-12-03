@@ -1247,3 +1247,559 @@ class TestJsonLikeCollections:
             assert_that(result).is_equal_to(["collection1", "collection2", "collection3"])
         finally:
             os.unlink(temp_file)
+
+
+class TestLocalFederatedQuestionQueryResultLoader:
+    """Test cases for LocalFederatedQuestionQueryResultLoader"""
+    
+    def test_should_initialize_loader_with_required_parameters(self, monkeypatch):
+        """Test LocalFederatedQuestionQueryResultLoader initialization"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        collections = [
+            QuestionCollection(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            QuestionCollection(id="c2", name="Collection 2", slug="collection-2", question_id="q2")
+        ]
+        inputs = {"param1": "value1"}
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=collections,
+            inputs=inputs
+        )
+        
+        assert_that(loader._LocalFederatedQuestionQueryResultLoader__explorer_client).is_equal_to(mock_explorer_client)
+        assert_that(loader._LocalFederatedQuestionQueryResultLoader__collections).is_equal_to(collections)
+        assert_that(loader._LocalFederatedQuestionQueryResultLoader__inputs).is_equal_to(inputs)
+    
+    def test_should_query_single_collection_with_pagination(self, monkeypatch):
+        """Test _query_single_collection handles Data Connect pagination correctly"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        # Mock the ExplorerClient and its session
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        mock_explorer_client.url = "https://example.com/"  # Add URL property
+        mock_session = MagicMock()
+        mock_context = MagicMock()
+        mock_session.__enter__.return_value = mock_context
+        mock_session.__exit__.return_value = None
+        mock_explorer_client._session = mock_session
+        
+        # Mock pagination responses: empty page -> empty page -> data page -> final page
+        mock_responses = [
+            # First call: empty page with next_page_url
+            MagicMock(json=lambda: {
+                "data": [],
+                "pagination": {"next_page_url": "https://example.com/page2"}
+            }),
+            # Second call: empty page with next_page_url
+            MagicMock(json=lambda: {
+                "data": [],
+                "pagination": {"next_page_url": "https://example.com/page3"}
+            }),
+            # Third call: data page with next_page_url
+            MagicMock(json=lambda: {
+                "data": [{"result1": "data1"}, {"result2": "data2"}],
+                "pagination": {"next_page_url": "https://example.com/page4"}
+            }),
+            # Fourth call: final data page without next_page_url
+            MagicMock(json=lambda: {
+                "data": [{"result3": "data3"}],
+                "pagination": {}
+            })
+        ]
+        
+        mock_context.post.side_effect = mock_responses
+        mock_context.get.side_effect = mock_responses[1:]  # For pagination requests
+        
+        collection = QuestionCollection(
+            id="c1", 
+            name="Collection 1", 
+            slug="collection-1", 
+            question_id="q1"
+        )
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=[collection],
+            inputs={"param1": "value1"}
+        )
+        
+        result = loader._query_single_collection(collection)
+        
+        # Should aggregate all data from paginated responses
+        expected_data = [
+            {"result1": "data1", "collection_name": "Collection 1"},
+            {"result2": "data2", "collection_name": "Collection 1"}, 
+            {"result3": "data3", "collection_name": "Collection 1"}
+        ]
+        
+        assert_that(result["collectionId"]).is_equal_to("c1")
+        assert_that(result["collectionSlug"]).is_equal_to("collection-1")
+        assert_that(result["results"]["data"]).is_equal_to(expected_data)
+        assert_that(result["error"]).is_none()
+        assert_that(result["failureInfo"]).is_none()
+    
+    def test_should_handle_collection_with_no_pagination(self, monkeypatch):
+        """Test _query_single_collection with single page response"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        # Mock the ExplorerClient and its session
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        mock_explorer_client.url = "https://example.com/"  # Add URL property
+        mock_session = MagicMock()
+        mock_context = MagicMock()
+        mock_session.__enter__.return_value = mock_context
+        mock_session.__exit__.return_value = None
+        mock_explorer_client._session = mock_session
+        
+        # Single response with data, no pagination
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "data": [{"result1": "data1"}, {"result2": "data2"}],
+            "pagination": {}
+        }
+        mock_context.post.return_value = mock_response
+        
+        collection = QuestionCollection(
+            id="c1",
+            name="Collection 1", 
+            slug="collection-1",
+            question_id="q1"
+        )
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=[collection],
+            inputs={"param1": "value1"}
+        )
+        
+        result = loader._query_single_collection(collection)
+        
+        assert_that(result["collectionId"]).is_equal_to("c1")
+        assert_that(result["results"]["data"]).is_equal_to([
+            {"result1": "data1", "collection_name": "Collection 1"},
+            {"result2": "data2", "collection_name": "Collection 1"}
+        ])
+        
+        # Should only make one POST request
+        assert_that(mock_context.post.call_count).is_equal_to(1)
+        assert_that(mock_context.get.call_count).is_equal_to(0)
+    
+    def test_should_use_correct_request_format_for_collection_endpoint(self, monkeypatch):
+        """Test that collection requests use 'params' not 'inputs'"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        # Mock the ExplorerClient and its session
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        mock_explorer_client.url = "https://example.com/"  # Add URL property
+        mock_session = MagicMock()
+        mock_context = MagicMock()
+        mock_session.__enter__.return_value = mock_context
+        mock_session.__exit__.return_value = None
+        mock_explorer_client._session = mock_session
+        
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"data": [], "pagination": {}}
+        mock_context.post.return_value = mock_response
+        
+        collection = QuestionCollection(
+            id="c1",
+            name="Collection 1",
+            slug="collection-1", 
+            question_id="q1"
+        )
+        
+        inputs = {"chromosome": "chr1", "position": "12345"}
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=[collection],
+            inputs=inputs
+        )
+        
+        loader._query_single_collection(collection)
+        
+        # Verify the POST request was made with correct format
+        mock_context.post.assert_called_once()
+        call_args = mock_context.post.call_args
+        
+        # Should use 'params' in request body, not 'inputs'
+        assert_that(call_args[1]).contains_key("json")
+        assert_that(call_args[1]["json"]).contains_key("params")
+        assert_that(call_args[1]["json"]["params"]).is_equal_to(inputs)
+        assert_that(call_args[1]["json"]).does_not_contain_key("inputs")
+    
+    def test_should_handle_http_errors_during_collection_query(self, monkeypatch):
+        """Test error handling for HTTP errors during collection queries"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        from dnastack.http.session import HttpError
+        
+        # Mock the ExplorerClient and its session
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        mock_explorer_client.url = "https://example.com/"  # Add URL property
+        mock_session = MagicMock()
+        mock_context = MagicMock()
+        mock_session.__enter__.return_value = mock_context
+        mock_session.__exit__.return_value = None
+        mock_explorer_client._session = mock_session
+        
+        # Mock HTTP error response
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        http_error = HttpError(mock_response)
+        
+        mock_context.post.side_effect = http_error
+        
+        collection = QuestionCollection(
+            id="c1",
+            name="Collection 1",
+            slug="collection-1",
+            question_id="q1"
+        )
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=[collection],
+            inputs={"param1": "value1"}
+        )
+        
+        result = loader._query_single_collection(collection)
+        
+        # Should return error result format
+        assert_that(result["collectionId"]).is_equal_to("c1")
+        assert_that(result["collectionSlug"]).is_equal_to("collection-1")
+        assert_that(result["error"]).is_not_none()
+        assert_that(result["failureInfo"]).is_not_none()
+        assert_that(result["results"]).is_none()
+    
+    def test_should_handle_authentication_errors_during_collection_query(self, monkeypatch):
+        """Test authentication error handling for individual collections"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        from dnastack.http.session import HttpError
+        
+        # Mock the ExplorerClient and its session
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        mock_explorer_client.url = "https://example.com/"  # Add URL property
+        mock_session = MagicMock()
+        mock_context = MagicMock()
+        mock_session.__enter__.return_value = mock_context
+        mock_session.__exit__.return_value = None
+        mock_explorer_client._session = mock_session
+        
+        # Mock 401 error response
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = "Unauthorized"
+        http_error = HttpError(mock_response)
+        
+        mock_context.post.side_effect = http_error
+        
+        collection = QuestionCollection(
+            id="c1",
+            name="Collection 1",
+            slug="collection-1",
+            question_id="q1"
+        )
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=[collection],
+            inputs={"param1": "value1"}
+        )
+        
+        result = loader._query_single_collection(collection)
+        
+        # Should return error result with authentication failure info
+        assert_that(result["collectionId"]).is_equal_to("c1")
+        assert_that(result["error"]).is_not_none()
+        assert_that(result["error"]).contains("Authentication required")
+    
+    def test_should_load_results_from_multiple_collections_in_parallel(self, monkeypatch):
+        """Test load method executes multiple collections concurrently"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        collections = [
+            QuestionCollection(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            QuestionCollection(id="c2", name="Collection 2", slug="collection-2", question_id="q2"),
+            QuestionCollection(id="c3", name="Collection 3", slug="collection-3", question_id="q3")
+        ]
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=collections,
+            inputs={"param1": "value1"}
+        )
+        
+        # Mock the _query_single_collection method
+        mock_results = [
+            {"collectionId": "c1", "collectionSlug": "collection-1", "results": {"data": [{"r1": "d1"}]}, "error": None, "failureInfo": None},
+            {"collectionId": "c2", "collectionSlug": "collection-2", "results": {"data": [{"r2": "d2"}]}, "error": None, "failureInfo": None},
+            {"collectionId": "c3", "collectionSlug": "collection-3", "results": {"data": [{"r3": "d3"}]}, "error": None, "failureInfo": None}
+        ]
+        
+        with patch.object(loader, '_query_single_collection', side_effect=mock_results):
+            with patch('dnastack.client.explorer.client.ThreadPoolExecutor') as mock_executor_class:
+                with patch('dnastack.client.explorer.client.as_completed') as mock_as_completed:
+                    mock_executor = MagicMock()
+                    mock_executor_class.return_value.__enter__.return_value = mock_executor
+                    
+                    # Mock futures
+                    mock_futures = []
+                    for i, result in enumerate(mock_results):
+                        future = MagicMock()
+                        future.result.return_value = result
+                        mock_futures.append(future)
+                    
+                    mock_executor.submit.side_effect = mock_futures
+                    mock_as_completed.return_value = mock_futures
+                    
+                    results = loader.load()
+                
+                # Verify ThreadPoolExecutor was used
+                mock_executor_class.assert_called_once()
+                
+                # Verify all collections were submitted for execution
+                assert_that(mock_executor.submit.call_count).is_equal_to(3)
+                
+                # Verify results are aggregated correctly
+                assert_that(results).is_length(3)
+                assert_that(results[0]["collectionId"]).is_equal_to("c1")
+                assert_that(results[1]["collectionId"]).is_equal_to("c2")
+                assert_that(results[2]["collectionId"]).is_equal_to("c3")
+    
+    def test_should_handle_mixed_success_and_failure_results(self, monkeypatch):
+        """Test handling of mixed success and failure scenarios"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        collections = [
+            QuestionCollection(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            QuestionCollection(id="c2", name="Collection 2", slug="collection-2", question_id="q2")
+        ]
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=collections,
+            inputs={"param1": "value1"}
+        )
+        
+        # Mock results: one success, one failure
+        mock_results = [
+            {"collectionId": "c1", "collectionSlug": "collection-1", "results": {"data": [{"r1": "d1"}]}, "error": None, "failureInfo": None},
+            {"collectionId": "c2", "collectionSlug": "collection-2", "results": None, "error": "500: Internal Server Error", "failureInfo": {"status": 500}}
+        ]
+        
+        with patch.object(loader, '_query_single_collection', side_effect=mock_results):
+            results = loader.load()
+            
+            # Should return both success and failure results
+            assert_that(results).is_length(2)
+            
+            # First collection: success
+            assert_that(results[0]["error"]).is_none()
+            assert_that(results[0]["results"]["data"]).is_equal_to([{"r1": "d1"}])
+            
+            # Second collection: failure  
+            assert_that(results[1]["error"]).is_not_none()
+            assert_that(results[1]["results"]).is_none()
+    
+    def test_should_raise_inactive_loader_error_on_second_load_attempt(self, monkeypatch):
+        """Test InactiveLoaderError is raised when load() is called twice"""
+        from dnastack.client.explorer.client import LocalFederatedQuestionQueryResultLoader, ExplorerClient
+        from dnastack.client.explorer.models import QuestionCollection
+        from dnastack.client.result_iterator import InactiveLoaderError
+        
+        mock_explorer_client = MagicMock(spec=ExplorerClient)
+        collections = [
+            QuestionCollection(id="c1", name="Collection 1", slug="collection-1", question_id="q1")
+        ]
+        
+        loader = LocalFederatedQuestionQueryResultLoader(
+            explorer_client=mock_explorer_client,
+            collections=collections,
+            inputs={"param1": "value1"}
+        )
+        
+        mock_result = {"collectionId": "c1", "results": {"data": []}, "error": None, "failureInfo": None}
+        
+        with patch.object(loader, '_query_single_collection', return_value=mock_result):
+            # First load should succeed
+            results1 = loader.load()
+            assert_that(results1).is_length(1)
+            
+            # Second load should raise InactiveLoaderError
+            with pytest.raises(InactiveLoaderError):
+                loader.load()
+
+
+class TestExplorerClientLocalFederation:
+    """Test cases for ExplorerClient local federation functionality"""
+    
+    def test_should_have_ask_question_local_federated_method(self, monkeypatch):
+        """Test that ask_question_local_federated method exists"""
+        from dnastack.client.explorer.client import ExplorerClient
+        
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        
+        mock_endpoint = MagicMock()
+        mock_endpoint.url = "https://example.com"
+        
+        client = ExplorerClient(mock_endpoint)
+        
+        assert_that(hasattr(client, 'ask_question_local_federated')).is_true()
+        assert_that(callable(client.ask_question_local_federated)).is_true()
+    
+    @patch('dnastack.client.explorer.client.ResultIterator')
+    def test_should_execute_ask_question_local_federated_with_collections(self, mock_result_iterator, monkeypatch):
+        """Test ask_question_local_federated method execution"""
+        from dnastack.client.explorer.client import ExplorerClient
+        
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        
+        mock_endpoint = MagicMock()
+        mock_endpoint.url = "https://example.com"
+        
+        mock_iterator = MagicMock()
+        mock_result_iterator.return_value = mock_iterator
+        
+        client = ExplorerClient(mock_endpoint)
+        
+        # Mock describe_federated_question to return collections
+        mock_question = MagicMock()
+        mock_question.collections = [
+            MagicMock(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            MagicMock(id="c2", name="Collection 2", slug="collection-2", question_id="q2")
+        ]
+        
+        with patch.object(client, 'describe_federated_question', return_value=mock_question):
+            result = client.ask_question_local_federated('test_question', inputs={'param1': 'value1'})
+            
+            assert_that(result).is_equal_to(mock_iterator)
+            mock_result_iterator.assert_called_once()
+            
+            # Verify LocalFederatedQuestionQueryResultLoader was created
+            call_args = mock_result_iterator.call_args[0]  # Get positional args
+            loader = call_args[0]  # First argument should be the loader
+            
+            assert_that(loader.__class__.__name__).is_equal_to('LocalFederatedQuestionQueryResultLoader')
+    
+    def test_should_filter_collections_when_provided_to_local_federated(self, monkeypatch):
+        """Test that specific collections are used when provided"""
+        from dnastack.client.explorer.client import ExplorerClient
+        
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        
+        mock_endpoint = MagicMock()
+        mock_endpoint.url = "https://example.com"
+        
+        client = ExplorerClient(mock_endpoint)
+        
+        # Mock describe_federated_question to return collections
+        mock_question = MagicMock()
+        mock_question.collections = [
+            MagicMock(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            MagicMock(id="c2", name="Collection 2", slug="collection-2", question_id="q2"),
+            MagicMock(id="c3", name="Collection 3", slug="collection-3", question_id="q3")
+        ]
+        
+        with patch.object(client, 'describe_federated_question', return_value=mock_question):
+            with patch('dnastack.client.explorer.client.ResultIterator') as mock_result_iterator:
+                # Request only specific collections
+                client.ask_question_local_federated(
+                    'test_question', 
+                    inputs={'param1': 'value1'},
+                    collections=['c1', 'c3']  # Only collections c1 and c3
+                )
+                
+                # Verify ResultIterator was called with filtered collections
+                call_args = mock_result_iterator.call_args[0]
+                loader = call_args[0]
+                
+                # Check that only requested collections are included
+                loader_collections = loader._LocalFederatedQuestionQueryResultLoader__collections
+                collection_ids = [col.id for col in loader_collections]
+                assert_that(collection_ids).contains_only("c1", "c3")
+                assert_that(collection_ids).does_not_contain("c2")
+    
+    def test_should_use_all_collections_when_none_specified_for_local_federated(self, monkeypatch):
+        """Test that all collections are used when none are specified"""
+        from dnastack.client.explorer.client import ExplorerClient
+        
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        
+        mock_endpoint = MagicMock()
+        mock_endpoint.url = "https://example.com"
+        
+        client = ExplorerClient(mock_endpoint)
+        
+        # Mock describe_federated_question to return collections
+        mock_question = MagicMock()
+        mock_question.collections = [
+            MagicMock(id="c1", name="Collection 1", slug="collection-1", question_id="q1"),
+            MagicMock(id="c2", name="Collection 2", slug="collection-2", question_id="q2"),
+            MagicMock(id="c3", name="Collection 3", slug="collection-3", question_id="q3")
+        ]
+        
+        with patch.object(client, 'describe_federated_question', return_value=mock_question):
+            with patch('dnastack.client.explorer.client.ResultIterator') as mock_result_iterator:
+                # Don't specify collections - should use all
+                client.ask_question_local_federated(
+                    'test_question', 
+                    inputs={'param1': 'value1'}
+                )
+                
+                # Verify ResultIterator was called with all collections
+                call_args = mock_result_iterator.call_args[0]
+                loader = call_args[0]
+                
+                loader_collections = loader._LocalFederatedQuestionQueryResultLoader__collections
+                collection_ids = [col.id for col in loader_collections]
+                assert_that(collection_ids).contains_only("c1", "c2", "c3")
+    
+    def test_should_raise_error_for_invalid_collection_ids_in_local_federated(self, monkeypatch):
+        """Test error handling for invalid collection IDs"""
+        from dnastack.client.explorer.client import ExplorerClient
+        from dnastack.http.session import ClientError
+        
+        mock_session = MagicMock()
+        monkeypatch.setattr(ExplorerClient, 'create_http_session', MagicMock(return_value=mock_session))
+        
+        mock_endpoint = MagicMock()
+        mock_endpoint.url = "https://example.com"
+        
+        client = ExplorerClient(mock_endpoint)
+        
+        # Mock describe_federated_question to return collections
+        mock_question = MagicMock()
+        mock_question.collections = [
+            MagicMock(id="c1", name="Collection 1"),
+            MagicMock(id="c2", name="Collection 2")
+        ]
+        
+        with patch.object(client, 'describe_federated_question', return_value=mock_question):
+            # Request invalid collection ID
+            with pytest.raises(ClientError) as exc_info:
+                client.ask_question_local_federated(
+                    'test_question', 
+                    inputs={'param1': 'value1'},
+                    collections=['c1', 'invalid_collection', 'c2']
+                )
+            
+            # Check the exception message without triggering __str__
+            assert_that(exc_info.value.message).contains("Invalid collection IDs")
