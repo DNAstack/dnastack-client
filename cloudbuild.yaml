@@ -2,7 +2,7 @@ timeout: 7200s
 
 steps:
   - id: setup
-    name: 'gcr.io/cloud-builders/gcloud@sha256:b50f18d45d6711dd2f6e81daf66e30c2ea5df8d40e40116e91c2aa25c8e92162'
+    name: 'gcr.io/cloud-builders/gcloud@sha256:79e32f66418b6b829e59a309d17688e93eacfa03f70f379b3b92f2394e5898b8'
     entrypoint: 'bash'
     args:
       - '-e'
