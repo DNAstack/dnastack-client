@@ -27,7 +27,7 @@ dependencies = [
     "pyjwt>=2.1.0,<3",
     "pyyaml>=5.4.1",
     "requests>=2.23.0,<3",
-    "urllib3>=1.25.11,<2",
+    "urllib3>=2.6,<3",
     "kotoba",
     "imagination>=3.3.1",
     "requests-toolbelt>=0.9.1,<1",
