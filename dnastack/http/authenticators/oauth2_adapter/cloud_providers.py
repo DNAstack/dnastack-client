@@ -4,12 +4,15 @@ from enum import Enum
 from pydantic import BaseModel, Field
 import logging
 
+import boto3
+
 from dnastack.common.tracing import Span
 from dnastack.http.client_factory import HttpClientFactory
 
 
 class CloudProvider(str, Enum):
     GCP = "gcp"
+    AWS = "aws"
 
 
 class CloudMetadataProvider(ABC):
@@ -89,6 +92,44 @@ class GCPMetadataProvider(CloudMetadataProvider):
             return None
 
 
+class AWSMetadataProvider(CloudMetadataProvider):
+    """Amazon Web Services metadata provider using STS GetWebIdentityToken."""
+
+    def __init__(self, timeout: int = 5):
+        super().__init__(timeout)
+        self._session: Optional[boto3.Session] = None
+
+    @property
+    def name(self) -> str:
+        return CloudProvider.AWS.value
+
+    def is_available(self) -> bool:
+        """Check if AWS credentials are available."""
+        try:
+            self._session = boto3.Session()
+            credentials = self._session.get_credentials()
+            return credentials is not None
+        except Exception:
+            return False
+
+    def get_identity_token(self, audience: str, trace_context: Span) -> Optional[str]:
+        """Fetch AWS identity token from STS GetWebIdentityToken."""
+        try:
+            if self._session is None:
+                self._session = boto3.Session()
+
+            sts_client = self._session.client('sts')
+            response = sts_client.get_web_identity_token(Audience=[audience])
+            token = response.get('WebIdentityToken')
+            if token:
+                self._logger.debug(f'Successfully fetched AWS identity token for audience: {audience}')
+            return token
+
+        except Exception as e:
+            self._logger.warning(f'Failed to fetch AWS identity token: {e}')
+            return None
+
+
 class CloudMetadataConfig(BaseModel):
     """Configuration model for cloud metadata provider."""
     timeout: int = Field(5, ge=1, le=30, description="Timeout for metadata service request (1-30 seconds).")
@@ -98,6 +139,7 @@ class CloudProviderFactory:
     """Factory for creating cloud metadata providers."""
     _providers = {
         CloudProvider.GCP: GCPMetadataProvider,
+        CloudProvider.AWS: AWSMetadataProvider,
     }
 
     @classmethod

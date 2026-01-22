@@ -9,7 +9,7 @@ from time import time
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
 from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
-    GCPMetadataProvider, CloudProviderFactory, CloudMetadataConfig, CloudProvider
+    GCPMetadataProvider, AWSMetadataProvider, CloudProviderFactory, CloudMetadataConfig, CloudProvider
 )
 from dnastack.common.tracing import Span
 from dnastack.context.models import Context
@@ -284,10 +284,10 @@ class TestCloudProviders(TestCase):
     def test_cloud_provider_factory_create_unsupported(self):
         """Test creating unsupported provider raises error"""
         config = CloudMetadataConfig()
-        
+
         with self.assertRaises(ValueError) as context:
-            CloudProviderFactory.create('aws', config)  # Unsupported provider
-        
+            CloudProviderFactory.create('azure', config)  # Unsupported provider
+
         self.assertIn('Unsupported cloud provider', str(context.exception))
 
     def test_cloud_provider_factory_detect_provider_success(self):
@@ -303,11 +303,12 @@ class TestCloudProviders(TestCase):
     def test_cloud_provider_factory_detect_provider_none(self):
         """Test auto-detection when no providers are available"""
         config = CloudMetadataConfig()
-        
+
         with patch.object(GCPMetadataProvider, 'is_available', return_value=False):
-            provider = CloudProviderFactory.detect_provider(config)
-            
-            self.assertIsNone(provider)
+            with patch.object(AWSMetadataProvider, 'is_available', return_value=False):
+                provider = CloudProviderFactory.detect_provider(config)
+
+                self.assertIsNone(provider)
 
     def test_cloud_provider_factory_detect_provider_loops_through_all(self):
         """Test that detect_provider checks all available providers"""
