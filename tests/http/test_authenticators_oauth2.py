@@ -6,7 +6,7 @@ import jwt
 from requests import Response, Session
 
 from dnastack import ServiceEndpoint
-from dnastack.http.authenticators.abstract import ReauthenticationRequired
+from dnastack.http.authenticators.abstract import InvalidStateError, ReauthenticationRequired
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator, OAuth2MisconfigurationError
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.client_factory import HttpClientFactory
@@ -72,7 +72,7 @@ class UnitTest(TestCase):
         session_manager.restore = Mock(return_value=existing_session_info)
 
         # Trigger the action.
-        with self.assertRaisesRegex(ReauthenticationRequired, r'Refresh token expired'):
+        with self.assertRaisesRegex(ReauthenticationRequired, r'Refresh token rejected'):
                 token_endpoint_response = Mock(Response)
                 token_endpoint_response.ok = False
                 token_endpoint_response.status_code = 400
@@ -133,6 +133,185 @@ class UnitTest(TestCase):
 
             mock_http_session.post.return_value = token_endpoint_response
 
+            _ = authenticator.refresh()
+
+    def test_handle_revoked_refresh_token(self):
+        """
+        Trigger re-authentication when Wallet reports a revoked refresh token (CU-86b8aca0r).
+        Previously this raised InvalidStateError because the error message didn't contain 'JWT expired'.
+        """
+        endpoint = ServiceEndpoint(url='https://dc.faux.dnastack.com')
+        mock_auth_info = dict(grant_type='classified',
+                              resource_url=endpoint.url,
+                              token_endpoint='https://auth.faux.dnastack.com/oauth/token')
+        session_manager = Mock(spec=SessionManager)
+        adapter_factory = Mock(spec=OAuth2AdapterFactory)
+        mock_http_session = Mock(spec=Session)
+        http_client_factory = Mock(spec=HttpClientFactory)
+        http_client_factory.make = Mock(return_value=mock_http_session)
+
+        authenticator = OAuth2Authenticator(endpoint=endpoint,
+                                            auth_info=mock_auth_info,
+                                            session_manager=session_manager,
+                                            adapter_factory=adapter_factory,
+                                            http_client_factory=http_client_factory)
+
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
+        refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
+        existing_session_info = SessionInfo(
+            refresh_token=refresh_token,
+            token_type='mock',
+            issued_at=issued_at,
+            valid_until=valid_until,
+            handler=SessionInfoHandler(auth_info=mock_auth_info),
+        )
+        session_manager.restore = Mock(return_value=existing_session_info)
+
+        token_endpoint_response = Mock(Response)
+        token_endpoint_response.ok = False
+        token_endpoint_response.status_code = 400
+        token_endpoint_response.headers = {'X-B3-Traceid': 'faux-trace-id'}
+        token_endpoint_response.json.return_value = dict(
+            error_description='Refresh token with jti [0d8b7911-d791-4b52-ae67-deb5fde5cbfb] is revoked'
+        )
+        mock_http_session.post.return_value = token_endpoint_response
+
+        with self.assertRaises(ReauthenticationRequired):
+            _ = authenticator.refresh()
+
+    def test_handle_missing_refresh_token_secret(self):
+        """
+        Trigger re-authentication when Wallet cannot find the refresh token signing key (CU-86b8aca0r).
+        This happens when Wallet rotates its refresh token signing keys.
+        """
+        endpoint = ServiceEndpoint(url='https://dc.faux.dnastack.com')
+        mock_auth_info = dict(grant_type='classified',
+                              resource_url=endpoint.url,
+                              token_endpoint='https://auth.faux.dnastack.com/oauth/token')
+        session_manager = Mock(spec=SessionManager)
+        adapter_factory = Mock(spec=OAuth2AdapterFactory)
+        mock_http_session = Mock(spec=Session)
+        http_client_factory = Mock(spec=HttpClientFactory)
+        http_client_factory.make = Mock(return_value=mock_http_session)
+
+        authenticator = OAuth2Authenticator(endpoint=endpoint,
+                                            auth_info=mock_auth_info,
+                                            session_manager=session_manager,
+                                            adapter_factory=adapter_factory,
+                                            http_client_factory=http_client_factory)
+
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
+        refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
+        existing_session_info = SessionInfo(
+            refresh_token=refresh_token,
+            token_type='mock',
+            issued_at=issued_at,
+            valid_until=valid_until,
+            handler=SessionInfoHandler(auth_info=mock_auth_info),
+        )
+        session_manager.restore = Mock(return_value=existing_session_info)
+
+        token_endpoint_response = Mock(Response)
+        token_endpoint_response.ok = False
+        token_endpoint_response.status_code = 400
+        token_endpoint_response.headers = {'X-B3-Traceid': 'faux-trace-id'}
+        token_endpoint_response.json.return_value = dict(
+            error_description='Invalid refresh token: Unable to find REFRESH_TOKEN secret of id: 9928066d-c424-439b-8069-7866eadbcd45.'
+        )
+        mock_http_session.post.return_value = token_endpoint_response
+
+        with self.assertRaises(ReauthenticationRequired):
+            _ = authenticator.refresh()
+
+    def test_server_error_during_refresh_does_not_trigger_reauth(self):
+        """
+        A 500 from the token endpoint is a transient server error — re-login won't help.
+        Should raise InvalidStateError, not ReauthenticationRequired (CU-86b8aca0r).
+        """
+        endpoint = ServiceEndpoint(url='https://dc.faux.dnastack.com')
+        mock_auth_info = dict(grant_type='classified',
+                              resource_url=endpoint.url,
+                              token_endpoint='https://auth.faux.dnastack.com/oauth/token')
+        session_manager = Mock(spec=SessionManager)
+        adapter_factory = Mock(spec=OAuth2AdapterFactory)
+        mock_http_session = Mock(spec=Session)
+        http_client_factory = Mock(spec=HttpClientFactory)
+        http_client_factory.make = Mock(return_value=mock_http_session)
+
+        authenticator = OAuth2Authenticator(endpoint=endpoint,
+                                            auth_info=mock_auth_info,
+                                            session_manager=session_manager,
+                                            adapter_factory=adapter_factory,
+                                            http_client_factory=http_client_factory)
+
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
+        refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
+        existing_session_info = SessionInfo(
+            refresh_token=refresh_token,
+            token_type='mock',
+            issued_at=issued_at,
+            valid_until=valid_until,
+            handler=SessionInfoHandler(auth_info=mock_auth_info),
+        )
+        session_manager.restore = Mock(return_value=existing_session_info)
+
+        token_endpoint_response = Mock(Response)
+        token_endpoint_response.ok = False
+        token_endpoint_response.status_code = 500
+        token_endpoint_response.headers = {'X-B3-Traceid': 'faux-trace-id'}
+        token_endpoint_response.json.return_value = dict(
+            error_description='Internal Server Error'
+        )
+        mock_http_session.post.return_value = token_endpoint_response
+
+        with self.assertRaises(InvalidStateError):
+            _ = authenticator.refresh()
+
+    def test_unauthorized_during_refresh_triggers_reauth(self):
+        """
+        A 401 from the token endpoint should trigger re-authentication (CU-86b8aca0r).
+        """
+        endpoint = ServiceEndpoint(url='https://dc.faux.dnastack.com')
+        mock_auth_info = dict(grant_type='classified',
+                              resource_url=endpoint.url,
+                              token_endpoint='https://auth.faux.dnastack.com/oauth/token')
+        session_manager = Mock(spec=SessionManager)
+        adapter_factory = Mock(spec=OAuth2AdapterFactory)
+        mock_http_session = Mock(spec=Session)
+        http_client_factory = Mock(spec=HttpClientFactory)
+        http_client_factory.make = Mock(return_value=mock_http_session)
+
+        authenticator = OAuth2Authenticator(endpoint=endpoint,
+                                            auth_info=mock_auth_info,
+                                            session_manager=session_manager,
+                                            adapter_factory=adapter_factory,
+                                            http_client_factory=http_client_factory)
+
+        issued_at = int(time() - 120)
+        valid_until = int(time() - 60)
+        refresh_token = jwt.encode(dict(iap=issued_at, exp=valid_until), 'fantasy')
+        existing_session_info = SessionInfo(
+            refresh_token=refresh_token,
+            token_type='mock',
+            issued_at=issued_at,
+            valid_until=valid_until,
+            handler=SessionInfoHandler(auth_info=mock_auth_info),
+        )
+        session_manager.restore = Mock(return_value=existing_session_info)
+
+        token_endpoint_response = Mock(Response)
+        token_endpoint_response.ok = False
+        token_endpoint_response.status_code = 401
+        token_endpoint_response.headers = {'X-B3-Traceid': 'faux-trace-id'}
+        token_endpoint_response.json.return_value = dict(
+            error_description='Unauthorized'
+        )
+        mock_http_session.post.return_value = token_endpoint_response
+
+        with self.assertRaises(ReauthenticationRequired):
             _ = authenticator.refresh()
 
     def test_oauth2_misconfiguration_error_message(self):
