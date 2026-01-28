@@ -48,7 +48,8 @@ class MockWebHandler(BaseHTTPRequestHandler):
 
     def _collect_request_data(self):
         """ Collect the information on the incoming request """
-        request_url = "localhost:8000" + self.path
+        host = self.headers.get('Host', 'localhost')
+        request_url = host + self.path
         self._data_collection.handled_requests.append(
             HandledRequest(
                 path=request_url,
@@ -201,11 +202,13 @@ class TestHttpSession(TestCase):
         self.assertEqual(e.exception.response.status_code, 403)
 
     def setUp(self):
-        # Start the HTTP server
+        # Start the HTTP server on a random available port
         MockWebHandler.reset_collected_data()
-        self.server = HTTPServer(('localhost', 8000), MockWebHandler)
+        self.server = HTTPServer(('localhost', 0), MockWebHandler)
+        self.server_port = self.server.server_address[1]
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
+        sleep(0.1)  # Give server time to start
 
     def tearDown(self):
         # Stop the HTTP server
@@ -220,23 +223,24 @@ class TestHttpSession(TestCase):
         adapter_factory = OAuth2AdapterFactory()
         session = Session()
 
+        base_url = f'http://localhost:{self.server_port}'
         auth_info = dict(
             type='oauth2',
             client_id='client_id',
             client_secret='client_secret',
             grant_type='client_credentials',
-            resource_url='http://localhost:8000',
-            token_endpoint='http://localhost:8000',
+            resource_url=base_url,
+            token_endpoint=base_url,
         )
 
         service_endpoint = ServiceEndpoint(
             id='test_endpoint',
             adapter_type='test_adapter',
-            url='http://localhost:8000',
+            url=base_url,
             authentication=auth_info,
         )
 
-        url = 'http://localhost:8000/'
+        url = f'{base_url}/'
 
         test_authenticator = OAuth2Authenticator(service_endpoint, auth_info, session_manager, adapter_factory)
 

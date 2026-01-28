@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
-    CloudProvider, CloudProviderFactory, GCPMetadataProvider, CloudMetadataConfig
+    CloudProvider, CloudProviderFactory, GCPMetadataProvider, AWSMetadataProvider, CloudMetadataConfig
 )
 
 
@@ -135,8 +135,14 @@ class TestCloudProviders(unittest.TestCase):
             detected = CloudProviderFactory.detect_provider(self.config)
             self.assertIsInstance(detected, GCPMetadataProvider)
 
-    def test_detect_provider_returns_none_if_metadata_unavailable(self):
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_detect_provider_returns_none_if_metadata_unavailable(self, mock_boto3):
         """Test detect_provider returns None when metadata service is unavailable."""
+        # Mock AWS as unavailable
+        mock_aws_session = MagicMock()
+        mock_boto3.Session.return_value = mock_aws_session
+        mock_aws_session.get_credentials.return_value = None
+
         mock_response = Mock()
         mock_response.ok = False
 
@@ -150,8 +156,14 @@ class TestCloudProviders(unittest.TestCase):
             detected = CloudProviderFactory.detect_provider(self.config)
             self.assertIsNone(detected)
 
-    def test_detect_provider_returns_none_if_metadata_exception(self):
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_detect_provider_returns_none_if_metadata_exception(self, mock_boto3):
         """Test detect_provider returns None when an exception occurs during metadata fetch."""
+        # Mock AWS as unavailable
+        mock_aws_session = MagicMock()
+        mock_boto3.Session.return_value = mock_aws_session
+        mock_aws_session.get_credentials.return_value = None
+
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
             mock_session = MagicMock()
             mock_session.__enter__.return_value = mock_session
@@ -168,6 +180,103 @@ class TestCloudProviders(unittest.TestCase):
             detected = CloudProviderFactory.detect_provider(self.config)
             self.assertIsNone(detected)
 
+    # AWS Provider Tests
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_metadata_provider_is_available_success(self, mock_boto3):
+        """Test AWS provider availability when credentials are available."""
+        mock_session = MagicMock()
+        mock_boto3.Session.return_value = mock_session
+        mock_session.get_credentials.return_value = MagicMock()
+        mock_session.region_name = 'us-east-1'
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        self.assertTrue(provider.is_available())
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_metadata_provider_is_available_no_credentials(self, mock_boto3):
+        """Test AWS provider unavailable when no credentials found."""
+        mock_session = MagicMock()
+        mock_boto3.Session.return_value = mock_session
+        mock_session.get_credentials.return_value = None
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        self.assertFalse(provider.is_available())
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_metadata_provider_is_available_exception(self, mock_boto3):
+        """Test AWS provider handles exceptions gracefully."""
+        mock_boto3.Session.side_effect = Exception("No AWS config")
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        self.assertFalse(provider.is_available())
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_get_identity_token_success(self, mock_boto3):
+        """Test successful AWS identity token retrieval."""
+        mock_session = MagicMock()
+        mock_boto3.Session.return_value = mock_session
+
+        expected_token = 'eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.test.signature'
+        mock_sts_client = MagicMock()
+        mock_session.client.return_value = mock_sts_client
+        mock_sts_client.get_web_identity_token.return_value = {'WebIdentityToken': expected_token}
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        provider._session = mock_session
+
+        token = provider.get_identity_token(self.test_audience, self.trace_context)
+        self.assertEqual(token, expected_token)
+
+        mock_session.client.assert_called_once_with('sts')
+        mock_sts_client.get_web_identity_token.assert_called_once_with(Audience=[self.test_audience])
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_get_identity_token_failure(self, mock_boto3):
+        """Test AWS token retrieval failure handling."""
+        mock_session = MagicMock()
+        mock_boto3.Session.return_value = mock_session
+
+        mock_sts_client = MagicMock()
+        mock_session.client.return_value = mock_sts_client
+        mock_sts_client.get_web_identity_token.side_effect = Exception("AccessDenied")
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        provider._session = mock_session
+
+        token = provider.get_identity_token(self.test_audience, self.trace_context)
+        self.assertIsNone(token)
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_get_identity_token_empty_response(self, mock_boto3):
+        """Test AWS token retrieval when response has no token."""
+        mock_session = MagicMock()
+        mock_boto3.Session.return_value = mock_session
+
+        mock_sts_client = MagicMock()
+        mock_session.client.return_value = mock_sts_client
+        mock_sts_client.get_web_identity_token.return_value = {}
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        provider._session = mock_session
+
+        token = provider.get_identity_token(self.test_audience, self.trace_context)
+        self.assertIsNone(token)
+
+    @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
+    def test_aws_get_identity_token_exception(self, mock_boto3):
+        """Test AWS token retrieval exception handling."""
+        mock_boto3.Session.side_effect = Exception("AWS error")
+
+        provider = AWSMetadataProvider(timeout=self.config.timeout)
+        token = provider.get_identity_token(self.test_audience, self.trace_context)
+        self.assertIsNone(token)
+
+    def test_cloud_provider_factory_create_aws(self):
+        """Test factory creates AWS provider instance."""
+        aws_provider = CloudProviderFactory.create(CloudProvider.AWS, self.config)
+        self.assertIsInstance(aws_provider, AWSMetadataProvider)
+        self.assertEqual(aws_provider.name, "aws")
 
 
 if __name__ == '__main__':
