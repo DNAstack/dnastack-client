@@ -1,6 +1,6 @@
 """Unit tests for workbench runs hooks commands"""
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from click.testing import CliRunner
 from click import Group
 

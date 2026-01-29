@@ -5,7 +5,6 @@ import click
 from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
-from dnastack.cli.core.group import formatted_group
 from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import show_iterator, OutputFormat
 

@@ -1,7 +1,4 @@
 """Unit tests for Hook model deserialization"""
-import pytest
-from datetime import datetime, timezone
-
 from dnastack.client.workbench.ewes.models import Hook, HookListResponse
 
 
