@@ -55,6 +55,7 @@ class WorkflowSource(str, Enum):
     dockstore = "DOCKSTORE"
     custom = "CUSTOM"
     private = "PRIVATE"
+    dnastack = "DNASTACK"
 
 
 class WorkflowFile(BaseModel):
