@@ -46,6 +46,12 @@ class Hook(BaseModel):
     finished_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+
+
+class HookListResponse(BaseModel):
+    hooks: Optional[List[Hook]] = None
+    pagination: Optional[Dict] = None
+
 class ExtendedRunStatus(BaseModel):
     run_id: str
     external_id: Optional[str] = None
