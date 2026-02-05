@@ -12,7 +12,7 @@ from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceI
     TaskListResponse, LogType, ExecutionEngineListOptions, ExecutionEngineListResponse, ExecutionEngine, \
     EngineParamPreset, EngineParamPresetListOptions, EngineParamPresetListResponse, \
     EngineHealthCheck, EngineHealthCheckListOptions, EngineHealthCheckListResponse, \
-    Hook, HookListResponse
+    Hook, HookListResponse, SimpleSample, UpdateRunSamplesRequest
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
 
@@ -299,6 +299,18 @@ class EWesClient(BaseWorkbenchClient):
                 trace_context=trace,
             )
             return Hook(**response.json())
+
+    def update_run_samples(self, run_id: str, samples: List[SimpleSample], trace: Optional[Span] = None) -> ExtendedRunStatus:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            request = UpdateRunSamplesRequest(samples=samples)
+            response = session.submit(
+                method='put',
+                url=urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/runs/{run_id}/samples'),
+                json=request.model_dump(by_alias=True),
+                trace_context=trace
+            )
+            return ExtendedRunStatus(**response.json())
 
     def list_engines(self,
                      list_options: ExecutionEngineListOptions,

@@ -35,6 +35,10 @@ class SimpleSample(BaseModel):
     storage_account_id: Optional[str] = None
 
 
+class UpdateRunSamplesRequest(BaseModel):
+    samples: List[SimpleSample]
+
+
 class Hook(BaseModel):
     id: Optional[str] = None
     type: Optional[str] = None
