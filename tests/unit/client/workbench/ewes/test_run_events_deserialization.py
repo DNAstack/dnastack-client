@@ -10,6 +10,7 @@ from dnastack.client.workbench.ewes.models import (
     RunEvent, State, UnknownEventMetadata,
     RunSubmittedMetadata, PreprocessingMetadata, ErrorOccurredMetadata,
     StateTransitionMetadata, EngineStatusUpdateMetadata, RunSubmittedToEngineMetadata,
+    SamplesUpdatedMetadata,
     ExtendedRunEvents, SampleId
 )
 
@@ -131,6 +132,34 @@ class TestRunEventDeserialization:
             }
         }
 
+    @pytest.fixture
+    def sample_samples_updated_data(self, base_run_event_data) -> Dict[str, Any]:
+        """Sample SAMPLES_UPDATED event data matching EWES SamplesUpdatedMonitoredRunEventMetadata."""
+        return {
+            **base_run_event_data,
+            "event_type": "SAMPLES_UPDATED",
+            "metadata": {
+                "event_type": "SAMPLES_UPDATED",
+                "message": "Updated samples",
+                "old_sample_ids": [
+                    {"id": "sample-1", "storage_account_id": "storage-123"}
+                ],
+                "new_sample_ids": [
+                    {"id": "sample-1", "storage_account_id": "storage-123"},
+                    {"id": "sample-2", "storage_account_id": "storage-456"}
+                ],
+                "state": "RUNNING",
+                "start_time": "2023-11-20T10:00:00Z",
+                "end_time": "2023-11-20T10:30:00Z",
+                "submitted_by": "user@example.com",
+                "workflow_id": "workflow-123",
+                "workflow_version_id": "version-456",
+                "workflow_name": "example-workflow",
+                "workflow_version": "v1.0.0",
+                "tags": {"project": "test-project"}
+            }
+        }
+
     def test_run_submitted_event_deserialization(self, sample_run_submitted_data):
         """Test deserialization of RUN_SUBMITTED event."""
         event = RunEvent(**sample_run_submitted_data)
@@ -193,6 +222,67 @@ class TestRunEventDeserialization:
         assert event.event_type == "RUN_SUBMITTED_TO_ENGINE"
         assert isinstance(event.metadata, RunSubmittedToEngineMetadata)
         assert event.metadata.event_type == "RUN_SUBMITTED_TO_ENGINE"
+
+    def test_samples_updated_event_deserialization(self, sample_samples_updated_data):
+        """Test deserialization of SAMPLES_UPDATED event."""
+        event = RunEvent(**sample_samples_updated_data)
+
+        assert event.event_type == "SAMPLES_UPDATED"
+        assert isinstance(event.metadata, SamplesUpdatedMetadata)
+        assert event.metadata.event_type == "SAMPLES_UPDATED"
+        assert event.metadata.message == "Updated samples"
+        assert event.metadata.state == State.RUNNING
+        assert event.metadata.submitted_by == "user@example.com"
+        assert event.metadata.start_time == "2023-11-20T10:00:00Z"
+        assert event.metadata.end_time == "2023-11-20T10:30:00Z"
+        assert event.metadata.workflow_id == "workflow-123"
+        assert event.metadata.workflow_version_id == "version-456"
+        assert event.metadata.workflow_name == "example-workflow"
+        assert event.metadata.workflow_version == "v1.0.0"
+        assert event.metadata.tags == {"project": "test-project"}
+        # old_sample_ids
+        assert len(event.metadata.old_sample_ids) == 1
+        assert event.metadata.old_sample_ids[0].id == "sample-1"
+        assert event.metadata.old_sample_ids[0].storage_account_id == "storage-123"
+        # new_sample_ids
+        assert len(event.metadata.new_sample_ids) == 2
+        assert event.metadata.new_sample_ids[1].id == "sample-2"
+        assert event.metadata.new_sample_ids[1].storage_account_id == "storage-456"
+
+    def test_samples_updated_minimal_fields(self, base_run_event_data):
+        """Test SAMPLES_UPDATED with only required fields."""
+        data = {
+            **base_run_event_data,
+            "event_type": "SAMPLES_UPDATED",
+            "metadata": {
+                "event_type": "SAMPLES_UPDATED",
+            }
+        }
+
+        event = RunEvent(**data)
+        assert isinstance(event.metadata, SamplesUpdatedMetadata)
+        assert event.metadata.old_sample_ids is None
+        assert event.metadata.new_sample_ids is None
+        assert event.metadata.state is None
+        assert event.metadata.tags is None
+
+    def test_samples_updated_empty_sample_lists(self, base_run_event_data):
+        """Test SAMPLES_UPDATED with empty sample lists (clear operation)."""
+        data = {
+            **base_run_event_data,
+            "event_type": "SAMPLES_UPDATED",
+            "metadata": {
+                "event_type": "SAMPLES_UPDATED",
+                "message": "Updated samples",
+                "old_sample_ids": [{"id": "sample-1", "storage_account_id": None}],
+                "new_sample_ids": [],
+            }
+        }
+
+        event = RunEvent(**data)
+        assert isinstance(event.metadata, SamplesUpdatedMetadata)
+        assert len(event.metadata.old_sample_ids) == 1
+        assert event.metadata.new_sample_ids == []
 
     def test_extended_run_events_deserialization(self, sample_run_submitted_data, sample_error_occurred_data):
         """Test deserialization of ExtendedRunEvents containing multiple events."""
@@ -337,6 +427,7 @@ class TestRunEventDeserialization:
         ("STATE_TRANSITION", StateTransitionMetadata),
         ("ENGINE_STATUS_UPDATE", EngineStatusUpdateMetadata),
         ("RUN_SUBMITTED_TO_ENGINE", RunSubmittedToEngineMetadata),
+        ("SAMPLES_UPDATED", SamplesUpdatedMetadata),
     ])
     def test_discriminator_mapping(self, base_run_event_data, event_type, metadata_class):
         """Test that discriminator correctly maps event types to metadata classes."""
