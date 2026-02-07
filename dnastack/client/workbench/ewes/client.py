@@ -11,7 +11,8 @@ from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceI
     BatchRunResponse, BatchRunRequest, ExtendedRunRequest, Log, TaskListOptions, \
     TaskListResponse, LogType, ExecutionEngineListOptions, ExecutionEngineListResponse, ExecutionEngine, \
     EngineParamPreset, EngineParamPresetListOptions, EngineParamPresetListResponse, \
-    EngineHealthCheck, EngineHealthCheckListOptions, EngineHealthCheckListResponse
+    EngineHealthCheck, EngineHealthCheckListOptions, EngineHealthCheckListResponse, \
+    Hook, HookListResponse, SimpleSample, UpdateRunSamplesRequest
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
 
@@ -279,6 +280,37 @@ class EWesClient(BaseWorkbenchClient):
                                                               f'?exclude_tasks={not include_tasks}'),
                                    trace_context=trace)
             return ExtendedRunEvents(**response.json())
+
+
+    def list_hooks(self, run_id: str, trace: Optional[Span] = None) -> HookListResponse:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.get(
+                urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/runs/{run_id}/hooks'),
+                trace_context=trace,
+            )
+            return HookListResponse(**response.json())
+
+    def get_hook(self, run_id: str, hook_id: str, trace: Optional[Span] = None) -> Hook:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.get(
+                urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/runs/{run_id}/hooks/{hook_id}'),
+                trace_context=trace,
+            )
+            return Hook(**response.json())
+
+    def update_run_samples(self, run_id: str, samples: List[SimpleSample], trace: Optional[Span] = None) -> ExtendedRunStatus:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            request = UpdateRunSamplesRequest(samples=samples)
+            response = session.submit(
+                method='put',
+                url=urljoin(self.endpoint.url, f'{self.namespace}/ga4gh/wes/v1/runs/{run_id}/samples'),
+                json=request.model_dump(by_alias=True),
+                trace_context=trace
+            )
+            return ExtendedRunStatus(**response.json())
 
     def list_engines(self,
                      list_options: ExecutionEngineListOptions,

@@ -255,16 +255,12 @@ class OAuth2Authenticator(Authenticator):
                 except JSONDecodeError:
                     error_msg = refresh_token_res.text
 
-                # Handle Wallet-specific implementation
-                reauthentication_required = (
-                        refresh_token_res.status_code == 401
-                        or
-                        (refresh_token_res.status_code == 400 and 'JWT expired' in error_msg)
-                )
-
-                if not reauthentication_required:
-                    event_details['reason'] = 'Invalid state while refreshing tokens'
-                    self.events.dispatch('refresh-failure', event_details)
+                # Handle token refresh failure based on HTTP status.
+                # 400/401 = the refresh token is invalid (expired, revoked, key rotated, etc.)
+                #           -> prompt the user to re-authenticate
+                # 5xx     = transient server error, re-login won't help
+                #           -> raise InvalidStateError
+                reauthentication_required = refresh_token_res.status_code in (400, 401)
 
                 exception_details = {
                     'debug_mode': currently_in_debug_mode(),
@@ -285,8 +281,12 @@ class OAuth2Authenticator(Authenticator):
                     }
 
                 if reauthentication_required:
-                    raise ReauthenticationRequired('Refresh token expired')
+                    logger.warning(f'Refresh token rejected by server (HTTP {refresh_token_res.status_code}): {error_msg}')
+                    raise ReauthenticationRequired(f'Refresh token rejected: {error_msg}')
                 else:
+                    event_details['reason'] = 'Invalid state while refreshing tokens'
+                    self.events.dispatch('refresh-failure', event_details)
+
                     raise InvalidStateError('Unable to refresh the access token',
                                             details=exception_details)
         finally:

@@ -35,6 +35,10 @@ class SimpleSample(BaseModel):
     storage_account_id: Optional[str] = None
 
 
+class UpdateRunSamplesRequest(BaseModel):
+    samples: List[SimpleSample]
+
+
 class Hook(BaseModel):
     id: Optional[str] = None
     type: Optional[str] = None
@@ -45,6 +49,12 @@ class Hook(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+
+class HookListResponse(BaseModel):
+    hooks: Optional[List[Hook]] = None
+    pagination: Optional[Dict] = None
 
 class ExtendedRunStatus(BaseModel):
     run_id: str
@@ -167,6 +177,22 @@ class RunSubmittedToEngineMetadata(BaseModel):
     external_id: Optional[str] = None
 
 
+class SamplesUpdatedMetadata(BaseModel):
+    event_type: Literal["SAMPLES_UPDATED"]
+    message: Optional[str] = None
+    old_sample_ids: Optional[List[SampleId]] = None
+    new_sample_ids: Optional[List[SampleId]] = None
+    state: Optional[State] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    submitted_by: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[str] = None
+    workflow_name: Optional[str] = None
+    workflow_version: Optional[str] = None
+    tags: Optional[dict[str, str]] = None
+
+
 # Custom validator to handle unknown event types gracefully
 def parse_event_metadata(data: Dict[str, Any]) -> Union[
     RunSubmittedMetadata,
@@ -175,6 +201,7 @@ def parse_event_metadata(data: Dict[str, Any]) -> Union[
     StateTransitionMetadata,
     EngineStatusUpdateMetadata,
     RunSubmittedToEngineMetadata,
+    SamplesUpdatedMetadata,
     UnknownEventMetadata
 ]:
     """Parse event metadata, falling back to UnknownEventMetadata for unknown types."""
@@ -193,6 +220,7 @@ def parse_event_metadata(data: Dict[str, Any]) -> Union[
         "STATE_TRANSITION": StateTransitionMetadata,
         "ENGINE_STATUS_UPDATE": EngineStatusUpdateMetadata,
         "RUN_SUBMITTED_TO_ENGINE": RunSubmittedToEngineMetadata,
+        "SAMPLES_UPDATED": SamplesUpdatedMetadata,
     }
 
     metadata_class = type_mapping.get(event_type)
@@ -214,6 +242,7 @@ class RunEvent(BaseModel):
         StateTransitionMetadata,
         EngineStatusUpdateMetadata,
         RunSubmittedToEngineMetadata,
+        SamplesUpdatedMetadata,
         UnknownEventMetadata
     ]
 
