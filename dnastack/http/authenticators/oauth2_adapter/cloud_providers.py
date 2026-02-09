@@ -119,7 +119,7 @@ class AWSMetadataProvider(CloudMetadataProvider):
                 self._session = boto3.Session()
 
             sts_client = self._session.client('sts')
-            response = sts_client.get_web_identity_token(Audience=[audience])
+            response = sts_client.get_web_identity_token(Audience=[audience], SigningAlgorithm='RS256')
             token = response.get('WebIdentityToken')
             if token:
                 self._logger.debug(f'Successfully fetched AWS identity token for audience: {audience}')
