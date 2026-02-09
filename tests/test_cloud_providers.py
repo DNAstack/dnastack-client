@@ -229,7 +229,9 @@ class TestCloudProviders(unittest.TestCase):
         self.assertEqual(token, expected_token)
 
         mock_session.client.assert_called_once_with('sts')
-        mock_sts_client.get_web_identity_token.assert_called_once_with(Audience=[self.test_audience])
+        mock_sts_client.get_web_identity_token.assert_called_once_with(
+            Audience=[self.test_audience], SigningAlgorithm='RS256'
+        )
 
     @patch('dnastack.http.authenticators.oauth2_adapter.cloud_providers.boto3')
     def test_aws_get_identity_token_failure(self, mock_boto3):
