@@ -3,6 +3,7 @@ from typing import Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 import logging
+import os
 
 import boto3
 
@@ -118,7 +119,8 @@ class AWSMetadataProvider(CloudMetadataProvider):
             if self._session is None:
                 self._session = boto3.Session()
 
-            sts_client = self._session.client('sts')
+            region = os.environ.get('AWS_REGION') or self._session.region_name or 'us-east-1'
+            sts_client = self._session.client('sts', region_name=region)
             response = sts_client.get_web_identity_token(Audience=[audience], SigningAlgorithm='RS256')
             token = response.get('WebIdentityToken')
             if token:
