@@ -228,7 +228,7 @@ class TestCloudProviders(unittest.TestCase):
         token = provider.get_identity_token(self.test_audience, self.trace_context)
         self.assertEqual(token, expected_token)
 
-        mock_session.client.assert_called_once_with('sts')
+        mock_session.client.assert_called_once_with('sts', region_name=mock_session.region_name)
         mock_sts_client.get_web_identity_token.assert_called_once_with(
             Audience=[self.test_audience], SigningAlgorithm='RS256'
         )
