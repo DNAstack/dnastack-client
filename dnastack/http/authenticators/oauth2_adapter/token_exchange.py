@@ -1,4 +1,5 @@
 from typing import Dict, Any, List, Optional
+from urllib.parse import urlparse
 
 from imagination import container
 
@@ -47,7 +48,8 @@ class TokenExchangeAdapter(OAuth2Adapter):
         if context_subject_token:
             return context_subject_token
 
-        audience = self._auth_info.audience or self._auth_info.client_id or self._auth_info.resource_url
+        audience = (self._auth_info.audience or self._get_token_endpoint_origin()
+                    or self._auth_info.client_id or self._auth_info.resource_url)
         token = self._fetch_cloud_identity_token(audience, trace_context)
         if token:
             return token
@@ -57,6 +59,18 @@ class TokenExchangeAdapter(OAuth2Adapter):
             'Please provide a subject token or run from a supported cloud environment.'
         )
     
+    def _get_token_endpoint_origin(self) -> Optional[str]:
+        """Derive the origin (scheme://host[:port]) from token_endpoint URL."""
+        if not self._auth_info.token_endpoint:
+            return None
+        parsed = urlparse(self._auth_info.token_endpoint)
+        if parsed.scheme and parsed.hostname:
+            origin = f'{parsed.scheme}://{parsed.hostname}'
+            if parsed.port:
+                origin += f':{parsed.port}'
+            return origin
+        return None
+
     def _fetch_cloud_identity_token(self, audience: str, trace_context: Span) -> Optional[str]:
         """Fetch identity token from cloud metadata service."""
         logger = trace_context.create_span_logger(self._logger)
