@@ -58,6 +58,23 @@ IntelliJ/PyCharm run configuration:
    - Run the "Omics CLI" configuration in IntelliJ/PyCharm.
    - This configuration runs the CLI using `python -m dnastack` to avoid module shadowing issues
 
+### AWS Token Exchange
+
+When using `--platform-credentials` on AWS the CLI uses the STS `GetWebIdentityToken` API to obtain an identity token. 
+This API requires a **regional** STS endpoint (the global endpoint does not support it).  
+
+The region is resolved in this order:
+1. `AWS_REGION` environment variable
+2. The boto3 session region (from instance metadata or `AWS_DEFAULT_REGION`)
+3. Falls back to `us-east-1`
+
+If running on EC2/ECS, `AWS_REGION` is typically set automatically. For other environments (e.g., Cromwell on AWS), 
+set it explicitly:
+
+```bash
+export AWS_REGION=us-east-1
+```
+
 ### FAQ
 
 **Q: Why do I get a `ModuleNotFoundError: No module named 'http.client'` error when I run the `omics_cli.__main__` function 
