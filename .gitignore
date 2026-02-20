@@ -186,3 +186,4 @@ Testing_Strategy.md
 # uv
 .uv/
 # Note: we're intentionally tracking uv.lock for reproducible builds
+.worktrees/
