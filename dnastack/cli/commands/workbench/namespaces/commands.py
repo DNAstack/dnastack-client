@@ -119,3 +119,28 @@ def init_namespace_commands(group: Group):
             click.echo(namespace.id)
         else:
             click.echo(to_json(normalize(namespace)))
+
+    @formatted_command(
+        group=group,
+        name='set-active',
+        specs=[
+            ArgumentSpec(
+                name='namespace_id',
+                arg_type=ArgumentType.POSITIONAL,
+                help='The namespace id to set as active',
+                required=True,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def set_active_namespace(context: Optional[str],
+                             endpoint_id: Optional[str],
+                             namespace_id: str):
+        """
+        Set the active namespace
+        """
+
+        client = get_user_client(context, endpoint_id)
+        namespace = client.set_active_namespace(namespace_id)
+        click.echo(to_json(normalize(namespace)))

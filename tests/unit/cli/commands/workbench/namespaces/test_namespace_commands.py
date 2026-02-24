@@ -49,3 +49,37 @@ class TestGetActiveCommand:
 
         assert result.exit_code == 0
         assert result.output.strip() == "ns-123"
+
+
+class TestSetActiveCommand:
+    """Tests for the set-active namespace CLI command."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        self.group = Group()
+        init_namespace_commands(self.group)
+
+        self.mock_namespace = Namespace(
+            id="ns-789",
+            name="Switched Workspace",
+        )
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_sets_active_namespace_and_outputs_json(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.set_active_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['set-active', 'ns-789'])
+
+        assert result.exit_code == 0
+        mock_client.set_active_namespace.assert_called_once_with("ns-789")
+        output = json.loads(result.output)
+        assert output["id"] == "ns-789"
+        assert output["name"] == "Switched Workspace"
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_requires_namespace_id_argument(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['set-active'])
+
+        assert result.exit_code != 0
