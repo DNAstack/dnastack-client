@@ -29,6 +29,7 @@ def init_namespace_commands(group: Group):
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-get-default
         """
 
+        click.echo("WARNING: 'get-default' is deprecated. Use 'get-active --id' instead.", err=True)
         namespace = get_user_client(context, endpoint_id).get_user_config().default_namespace
         click.echo(namespace)
 

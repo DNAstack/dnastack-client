@@ -83,3 +83,39 @@ class TestSetActiveCommand:
         result = self.runner.invoke(self.group, ['set-active'])
 
         assert result.exit_code != 0
+
+
+class TestGetDefaultDeprecation:
+    """Tests for the get-default deprecation warning."""
+
+    def setup_method(self):
+        self.runner = CliRunner(mix_stderr=False)
+        self.group = Group()
+        init_namespace_commands(self.group)
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_emits_deprecation_warning_to_stderr(self, mock_get_client):
+        mock_client = Mock()
+        mock_config = Mock()
+        mock_config.default_namespace = "my-namespace"
+        mock_client.get_user_config.return_value = mock_config
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['get-default'])
+
+        assert result.exit_code == 0
+        assert "deprecated" in result.stderr.lower()
+        assert "get-active" in result.stderr
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_stdout_still_contains_only_namespace(self, mock_get_client):
+        mock_client = Mock()
+        mock_config = Mock()
+        mock_config.default_namespace = "my-namespace"
+        mock_client.get_user_config.return_value = mock_config
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['get-default'])
+
+        assert result.exit_code == 0
+        assert result.output.strip() == "my-namespace"
