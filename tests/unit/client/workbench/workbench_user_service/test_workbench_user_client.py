@@ -55,3 +55,36 @@ class TestGetActiveNamespace:
 
         assert result.id == "ns-456"
         assert result.description is None
+
+
+class TestSetActiveNamespace:
+    """Tests for WorkbenchUserClient.set_active_namespace"""
+
+    def _make_client(self):
+        endpoint = ServiceEndpoint(
+            id='test',
+            url='https://user-service.example.com/',
+            type=WorkbenchUserClient.get_default_service_type(),
+        )
+        return WorkbenchUserClient(endpoint)
+
+    @patch.object(WorkbenchUserClient, 'create_http_session')
+    def test_calls_correct_endpoint_with_payload(self, mock_create_session):
+        mock_session = MagicMock()
+        mock_session.put.return_value.json.return_value = {
+            "id": "ns-789",
+            "name": "Switched Workspace",
+        }
+        mock_create_session.return_value.__enter__ = Mock(return_value=mock_session)
+        mock_create_session.return_value.__exit__ = Mock(return_value=False)
+
+        client = self._make_client()
+        result = client.set_active_namespace("ns-789")
+
+        mock_session.put.assert_called_once_with(
+            'https://user-service.example.com/users/me/active-namespace',
+            json={"namespace_id": "ns-789"},
+        )
+        assert isinstance(result, Namespace)
+        assert result.id == "ns-789"
+        assert result.name == "Switched Workspace"
