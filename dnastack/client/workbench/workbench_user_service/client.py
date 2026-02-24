@@ -104,6 +104,14 @@ class WorkbenchUserClient(BaseServiceClient):
             )
         return Namespace(**response.json())
 
+    def get_active_namespace(self) -> Namespace:
+        """Get the active namespace for the current user."""
+        with self.create_http_session() as session:
+            response = session.get(
+                urljoin(self.endpoint.url, 'users/me/active-namespace')
+            )
+        return Namespace(**response.json())
+
     def list_namespace_members(self,
                                namespace_id: str,
                                list_options: Optional[BaseListOptions] = None,
