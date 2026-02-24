@@ -89,3 +89,33 @@ def init_namespace_commands(group: Group):
         client = get_user_client(context, endpoint_id)
         namespaces = [client.get_namespace(ns_id) for ns_id in namespace_id]
         click.echo(to_json(normalize(namespaces)))
+
+    @formatted_command(
+        group=group,
+        name='get-active',
+        specs=[
+            ArgumentSpec(
+                name='id_only',
+                arg_names=['--id'],
+                help='Only output the namespace ID',
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def get_active_namespace(context: Optional[str],
+                             endpoint_id: Optional[str],
+                             id_only: bool):
+        """
+        Get the active namespace
+        """
+
+        client = get_user_client(context, endpoint_id)
+        namespace = client.get_active_namespace()
+        if id_only:
+            click.echo(namespace.id)
+        else:
+            click.echo(to_json(normalize(namespace)))
