@@ -29,6 +29,7 @@ def init_namespace_commands(group: Group):
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-get-default
         """
 
+        click.echo("WARNING: 'get-default' is deprecated. Use 'get-active --id' instead.", err=True)
         namespace = get_user_client(context, endpoint_id).get_user_config().default_namespace
         click.echo(namespace)
 
@@ -89,3 +90,62 @@ def init_namespace_commands(group: Group):
         client = get_user_client(context, endpoint_id)
         namespaces = [client.get_namespace(ns_id) for ns_id in namespace_id]
         click.echo(to_json(normalize(namespaces)))
+
+    @formatted_command(
+        group=group,
+        name='get-active',
+        specs=[
+            ArgumentSpec(
+                name='id_only',
+                arg_names=['--id'],
+                help='Only output the namespace ID',
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def get_active_namespace(context: Optional[str],
+                             endpoint_id: Optional[str],
+                             id_only: bool):
+        """
+        Get the active namespace
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-get-active
+        """
+
+        client = get_user_client(context, endpoint_id)
+        namespace = client.get_active_namespace()
+        if id_only:
+            click.echo(namespace.id)
+        else:
+            click.echo(to_json(normalize(namespace)))
+
+    @formatted_command(
+        group=group,
+        name='set-active',
+        specs=[
+            ArgumentSpec(
+                name='namespace_id',
+                arg_type=ArgumentType.POSITIONAL,
+                help='The namespace id to set as active',
+                required=True,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def set_active_namespace(context: Optional[str],
+                             endpoint_id: Optional[str],
+                             namespace_id: str):
+        """
+        Set the active namespace
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-set-active
+        """
+
+        client = get_user_client(context, endpoint_id)
+        namespace = client.set_active_namespace(namespace_id)
+        click.echo(to_json(normalize(namespace)))
