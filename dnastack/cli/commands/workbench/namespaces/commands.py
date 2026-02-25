@@ -112,6 +112,8 @@ def init_namespace_commands(group: Group):
                              id_only: bool):
         """
         Get the active namespace
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-get-active
         """
 
         client = get_user_client(context, endpoint_id)
@@ -140,6 +142,8 @@ def init_namespace_commands(group: Group):
                              namespace_id: str):
         """
         Set the active namespace
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-set-active
         """
 
         client = get_user_client(context, endpoint_id)
