@@ -3,6 +3,7 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceMember,
     NamespaceListResponse,
     NamespaceMemberListResponse,
+    AddMemberRequest,
 )
 
 
@@ -176,3 +177,24 @@ class TestNamespaceMemberListResponseDeserialization:
         }
         response = NamespaceMemberListResponse(**data)
         assert response.pagination.next_page_url == "https://example.com/namespaces/ns-1/members?page=2"
+
+
+class TestAddMemberRequestSerialization:
+    """Test suite for AddMemberRequest model."""
+
+    def test_serializes_with_email(self):
+        req = AddMemberRequest(email="foo@dnastack.com", role="ADMIN")
+        data = req.dict(exclude_none=True)
+        assert data == {"email": "foo@dnastack.com", "role": "ADMIN"}
+        assert "id" not in data
+
+    def test_serializes_with_id(self):
+        req = AddMemberRequest(id="bcd869ca-8a06-4426-a94d-43f9d91e937d", role="ADMIN")
+        data = req.dict(exclude_none=True)
+        assert data == {"id": "bcd869ca-8a06-4426-a94d-43f9d91e937d", "role": "ADMIN"}
+        assert "email" not in data
+
+    def test_serializes_with_both(self):
+        req = AddMemberRequest(email="foo@dnastack.com", id="abc123", role="ADMIN")
+        data = req.dict(exclude_none=True)
+        assert data == {"email": "foo@dnastack.com", "id": "abc123", "role": "ADMIN"}
