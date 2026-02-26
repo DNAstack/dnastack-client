@@ -38,6 +38,12 @@ class NamespaceMember(BaseModel):
     updated_at: Optional[str] = None
 
 
+class AddMemberRequest(BaseModel):
+    email: Optional[str] = None
+    id: Optional[str] = None
+    role: str
+
+
 class NamespaceMemberListResponse(PaginatedResource):
     members: List[NamespaceMember]
 

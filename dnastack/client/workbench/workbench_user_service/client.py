@@ -13,6 +13,7 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceListResponse,
     NamespaceMember,
     NamespaceMemberListResponse,
+    AddMemberRequest,
 )
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
@@ -132,3 +133,33 @@ class WorkbenchUserClient(BaseServiceClient):
             list_options=list_options,
             trace=None,
             max_results=max_results))
+
+    def add_namespace_member(self,
+                             namespace_id: str,
+                             email: Optional[str] = None,
+                             user_id: Optional[str] = None,
+                             role: str = "ADMIN") -> NamespaceMember:
+        """Add a member to a namespace. Identify user by email or user_id."""
+        body = AddMemberRequest(email=email, id=user_id, role=role)
+        with self.create_http_session() as session:
+            response = session.post(
+                urljoin(self.endpoint.url, f'namespaces/{namespace_id}/members'),
+                json=body.dict(exclude_none=True)
+            )
+        return NamespaceMember(**response.json())
+
+    def remove_namespace_member(self,
+                                namespace_id: str,
+                                email: Optional[str] = None,
+                                user_id: Optional[str] = None) -> None:
+        """Remove a member from a namespace. Identify by email or user_id."""
+        with self.create_http_session() as session:
+            if user_id:
+                session.delete(
+                    urljoin(self.endpoint.url, f'namespaces/{namespace_id}/members/{user_id}')
+                )
+            else:
+                session.delete(
+                    urljoin(self.endpoint.url, f'namespaces/{namespace_id}/members'),
+                    params={'email': email}
+                )
