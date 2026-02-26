@@ -298,6 +298,12 @@ class HttpSession(AbstractContextManager):
                            trace_context=trace_context,
                            **kwargs)
 
+    def put(self, url, trace_context: Optional[Span] = None, **kwargs) -> Response:
+        return self.submit(method='put',
+                           url=url,
+                           trace_context=trace_context,
+                           **kwargs)
+
     def delete(self, url, trace_context: Optional[Span] = None, **kwargs) -> Response:
         return self.submit(method='delete',
                            url=url,
