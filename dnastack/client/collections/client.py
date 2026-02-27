@@ -91,7 +91,7 @@ class CollectionItemListResultLoader(ResultLoader):
 
                 if not self.__next_page_url:
                     response = session.get(current_url,
-                                           params=self.__list_options,
+                                           params=self.__list_options.model_dump(exclude_none=True),
                                            trace_context=self.__trace)
                 else:
                     current_url = self.__next_page_url

@@ -17,6 +17,6 @@ PAGINATION_PAGE_ARG = ArgumentSpec(
 PAGINATION_PAGE_SIZE_ARG = ArgumentSpec(
     name='page_size',
     arg_names=['--page-size'],
-    help='Set the page size returned by the server.',
+    help='Set the page size returned by the server. Note: results are iterated through all pages unless --max-results is also specified.',
     type=int,
 )
