@@ -50,8 +50,18 @@ def init_samples_commands(group):
         run = client.get_run(run_id)
         existing = run.request.samples if run.request and run.request.samples else []
 
+        new_samples = []
+        provided_sample_ids = set(samples)
+
+        # Update existing samples with new storage_account_id if provided
+        for s in existing:
+            if s.id in provided_sample_ids and storage_account_id is not None:
+                new_samples.append(SimpleSample(id=s.id, storage_account_id=storage_account_id))
+            else:
+                new_samples.append(s)
+
+        # Add truly new samples
         existing_ids = {s.id for s in existing}
-        new_samples = list(existing)
         for sample_id in samples:
             if sample_id not in existing_ids:
                 new_samples.append(SimpleSample(id=sample_id, storage_account_id=storage_account_id))

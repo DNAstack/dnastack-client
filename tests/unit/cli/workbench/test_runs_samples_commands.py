@@ -106,6 +106,65 @@ class TestRunsSamplesAddCommand(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
 
 
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_existing_sample_updates_storage_account(self, mock_get_client):
+        """Test that re-adding existing samples with --storage-account updates their storage_account_id"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        existing_run = Mock(spec=ExtendedRun)
+        existing_run.request = Mock(spec=ExtendedRunRequest)
+        existing_run.request.samples = [
+            SimpleSample(id='sample-1', storage_account_id=None),
+            SimpleSample(id='sample-2', storage_account_id=None),
+        ]
+        self.mock_ewes_client.get_run.return_value = existing_run
+
+        mock_result = Mock(spec=ExtendedRunStatus)
+        mock_result.model_dump.return_value = {'samples': []}
+        self.mock_ewes_client.update_run_samples.return_value = mock_result
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'sample-1', '--sample', 'sample-2', '--storage-account', 'sa-new']
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        call_args = self.mock_ewes_client.update_run_samples.call_args
+        samples = call_args[0][1]
+        self.assertEqual(len(samples), 2)
+        for s in samples:
+            self.assertEqual(s.storage_account_id, 'sa-new',
+                             f"Sample {s.id} should have updated storage_account_id")
+
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_existing_sample_preserves_storage_account_when_not_provided(self, mock_get_client):
+        """Test that re-adding existing samples WITHOUT --storage-account preserves their existing storage_account_id"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        existing_run = Mock(spec=ExtendedRun)
+        existing_run.request = Mock(spec=ExtendedRunRequest)
+        existing_run.request.samples = [
+            SimpleSample(id='sample-1', storage_account_id='sa-original'),
+        ]
+        self.mock_ewes_client.get_run.return_value = existing_run
+
+        mock_result = Mock(spec=ExtendedRunStatus)
+        mock_result.model_dump.return_value = {'samples': []}
+        self.mock_ewes_client.update_run_samples.return_value = mock_result
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'sample-1']
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        call_args = self.mock_ewes_client.update_run_samples.call_args
+        samples = call_args[0][1]
+        self.assertEqual(len(samples), 1)
+        self.assertEqual(samples[0].storage_account_id, 'sa-original',
+                         "Existing storage_account_id should be preserved when --storage-account not provided")
+
+
 class TestRunsSamplesRemoveCommand(unittest.TestCase):
     """Unit tests for runs samples remove command"""
 
