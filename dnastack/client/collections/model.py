@@ -4,7 +4,7 @@ from enum import Enum
 from time import time
 from typing import Optional, List, Any, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from dnastack.client.base_exceptions import ApiError
 
@@ -15,19 +15,42 @@ class Tag(BaseModel):
 
 
 class QuestionParameter(BaseModel):
+    """
+    Represents a parameter for a publisher question.
+
+    Based on the publisher Question API parameter schema.
+    Supports both snake_case (Python convention) and camelCase (API format) field names.
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = None
     name: str
-    input_type: str
-    required: bool
+    label: Optional[str] = None
+    input_type: str = Field(alias="inputType")
     description: Optional[str] = None
-    default_value: Optional[str] = None
-    test_value: Optional[str] = None
+    required: bool
+    default_value: Optional[str] = Field(default=None, alias="defaultValue")
+    test_value: Optional[str] = Field(default=None, alias="testValue")
+    input_subtype: Optional[str] = Field(default=None, alias="inputSubtype")
+    allowed_values: Optional[str] = Field(default=None, alias="allowedValues")
+    table: Optional[str] = None
+    column: Optional[str] = None
+    values: Optional[str] = None
+    multiple: Optional[bool] = None
 
 
 class Question(BaseModel):
+    """
+    Represents a publisher question within a collection.
+
+    Supports both snake_case (Python convention) and camelCase (API format) field names.
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     name: str
     description: Optional[str] = None
-    collection_id: str
+    collection_id: str = Field(alias="collectionId")
     parameters: List[QuestionParameter] = Field(default_factory=list)
 
 
