@@ -5,6 +5,7 @@ from click.testing import CliRunner
 
 from dnastack.cli.commands.workbench.namespaces.commands import init_namespace_commands
 from dnastack.client.workbench.workbench_user_service.models import Namespace
+from dnastack.http.session import ClientError
 
 
 class TestGetActiveCommand:
@@ -169,3 +170,91 @@ class TestCreateCommand:
         result = self.runner.invoke(self.group, ['create'])
 
         assert result.exit_code != 0
+
+
+class TestUpdateCommand:
+    """Tests for the update namespace CLI command."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        self.group = Group()
+        init_namespace_commands(self.group)
+
+        self.mock_namespace = Namespace(
+            id="ns-existing-456",
+            name="Updated Namespace",
+            description="Updated description",
+            created_at="2026-03-13T00:00:00Z",
+            created_by="user@example.com",
+            updated_at="2026-03-13T12:00:00Z",
+            updated_by="user@example.com",
+        )
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_name_only(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.update_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['update', 'ns-existing-456', '--name', 'Updated Namespace'])
+
+        assert result.exit_code == 0
+        mock_client.update_namespace.assert_called_once_with(
+            namespace_id="ns-existing-456", name="Updated Namespace", description=None
+        )
+        output = json.loads(result.output)
+        assert output["id"] == "ns-existing-456"
+        assert output["name"] == "Updated Namespace"
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_description_only(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.update_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['update', 'ns-existing-456', '--description', 'Updated description'])
+
+        assert result.exit_code == 0
+        mock_client.update_namespace.assert_called_once_with(
+            namespace_id="ns-existing-456", name=None, description="Updated description"
+        )
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_both_name_and_description(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.update_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['update', 'ns-existing-456', '--name', 'Updated Namespace', '--description', 'Updated description'])
+
+        assert result.exit_code == 0
+        mock_client.update_namespace.assert_called_once_with(
+            namespace_id="ns-existing-456", name="Updated Namespace", description="Updated description"
+        )
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_requires_at_least_one_flag(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['update', 'ns-existing-456'])
+
+        assert result.exit_code != 0
+        assert "at least one" in result.output.lower()
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_requires_namespace_id(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['update', '--name', 'Test'])
+
+        assert result.exit_code != 0
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_update_handles_409_conflict(self, mock_get_client):
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 409
+        mock_response.text = "Conflict"
+        mock_client.update_namespace.side_effect = ClientError(mock_response)
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['update', 'ns-existing-456', '--name', 'Conflict Test'])
+
+        assert result.exit_code != 0
+        assert "modified by another user" in result.output.lower()

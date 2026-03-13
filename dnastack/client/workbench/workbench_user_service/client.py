@@ -17,7 +17,7 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceCreateRequest,
 )
 from dnastack.common.tracing import Span
-from dnastack.http.session import HttpSession
+from dnastack.http.session import HttpSession, JsonPatch
 
 
 class NamespaceListResultLoader(WorkbenchResultLoader):
@@ -132,6 +132,30 @@ class WorkbenchUserClient(BaseServiceClient):
                 json=body.dict(exclude_none=True),
             )
         return Namespace(**response.json())
+
+    def update_namespace(self,
+                         namespace_id: str,
+                         name: Optional[str] = None,
+                         description: Optional[str] = None) -> Namespace:
+        """Update a namespace using JSON Patch. Auto-fetches ETag for optimistic locking."""
+        patches = []
+        if name is not None:
+            patches.append(JsonPatch(op='replace', path='/name', value=name).dict())
+        if description is not None:
+            patches.append(JsonPatch(op='replace', path='/description', value=description).dict())
+
+        with self.create_http_session() as session:
+            get_response = session.get(
+                urljoin(self.endpoint.url, f'namespaces/{namespace_id}')
+            )
+            etag = (get_response.headers.get('etag') or '').strip('"')
+
+            patch_response = session.json_patch(
+                urljoin(self.endpoint.url, f'namespaces/{namespace_id}'),
+                headers={'If-Match': etag},
+                json=patches,
+            )
+        return Namespace(**patch_response.json())
 
     def list_namespace_members(self,
                                namespace_id: str,
