@@ -1,5 +1,5 @@
 from pprint import pformat
-from typing import List, Union, Optional, Iterator
+from typing import Dict, Any, List, Union, Optional, Iterator
 from urllib.parse import urljoin
 
 from pydantic import ValidationError
@@ -155,6 +155,59 @@ class CollectionItemListResultLoader(ResultLoader):
             else:
                 self.__loaded_results += len(items)
                 return items
+
+
+class QuestionQueryResultLoader(ResultLoader):
+    """
+    Result loader for publisher question query results.
+    Handles Data Connect TableData format with pagination support.
+    """
+
+    def __init__(
+        self,
+        service_url: str,
+        http_session: HttpSession,
+        request_payload: Dict[str, Any],
+        trace: Optional[Span] = None
+    ):
+        self.__http_session = http_session
+        self.__service_url = service_url
+        self.__request_payload = request_payload
+        self.__trace = trace
+        self.__next_page_url = None
+        self.__first_request = True
+
+    def has_more(self) -> bool:
+        return self.__first_request or self.__next_page_url is not None
+
+    def load(self) -> List[Dict[str, Any]]:
+        if not self.has_more():
+            raise InactiveLoaderError(self.__service_url)
+
+        with self.__http_session as session:
+            if self.__first_request:
+                # Initial POST request with parameters
+                response = session.post(
+                    self.__service_url,
+                    json=self.__request_payload,
+                    trace_context=self.__trace
+                )
+                self.__first_request = False
+            else:
+                # Follow pagination with GET
+                response = session.get(
+                    self.__next_page_url,
+                    trace_context=self.__trace
+                )
+
+            response_data = response.json()
+
+            # Extract next page URL from pagination
+            pagination = response_data.get('pagination')
+            self.__next_page_url = pagination.get('next_page_url') if pagination else None
+
+            # Return data array from TableData format
+            return response_data.get('data', [])
 
 
 class CollectionServiceClient(BaseServiceClient):
