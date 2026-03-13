@@ -144,11 +144,15 @@ class WorkbenchUserClient(BaseServiceClient):
         if description is not None:
             patches.append(JsonPatch(op='replace', path='/description', value=description).dict())
 
+        if not patches:
+            raise ValueError("At least one of name or description must be provided.")
+
         with self.create_http_session() as session:
             get_response = session.get(
                 urljoin(self.endpoint.url, f'namespaces/{namespace_id}')
             )
             etag = (get_response.headers.get('etag') or '').strip('"')
+            assert etag, f'GET namespaces/{namespace_id} does not provide ETag. Unable to update the namespace.'
 
             patch_response = session.json_patch(
                 urljoin(self.endpoint.url, f'namespaces/{namespace_id}'),
