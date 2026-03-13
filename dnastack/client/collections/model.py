@@ -14,6 +14,23 @@ class Tag(BaseModel):
     label: str
 
 
+class QuestionParameter(BaseModel):
+    name: str
+    input_type: str
+    required: bool
+    description: Optional[str] = None
+    default_value: Optional[str] = None
+    test_value: Optional[str] = None
+
+
+class Question(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    collection_id: str
+    parameters: List[QuestionParameter] = Field(default_factory=list)
+
+
 COLLECTION_READ_ONLY_PROPERTIES = (
     'id',
     'itemsQuery',
