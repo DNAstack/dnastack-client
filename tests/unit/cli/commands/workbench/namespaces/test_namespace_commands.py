@@ -119,3 +119,53 @@ class TestGetDefaultDeprecation:
 
         assert result.exit_code == 0
         assert result.output.strip() == "my-namespace"
+
+
+class TestCreateCommand:
+    """Tests for the create namespace CLI command."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        self.group = Group()
+        init_namespace_commands(self.group)
+
+        self.mock_namespace = Namespace(
+            id="ns-new-123",
+            name="New Namespace",
+            description="A brand new namespace",
+            created_at="2026-03-13T00:00:00Z",
+            created_by="user@example.com",
+            updated_at="2026-03-13T00:00:00Z",
+            updated_by="user@example.com",
+        )
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_create_with_name_only(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.create_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace'])
+
+        assert result.exit_code == 0
+        mock_client.create_namespace.assert_called_once_with(name="New Namespace", description=None)
+        output = json.loads(result.output)
+        assert output["id"] == "ns-new-123"
+        assert output["name"] == "New Namespace"
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_create_with_name_and_description(self, mock_get_client):
+        mock_client = Mock()
+        mock_client.create_namespace.return_value = self.mock_namespace
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace', '--description', 'A brand new namespace'])
+
+        assert result.exit_code == 0
+        mock_client.create_namespace.assert_called_once_with(name="New Namespace", description="A brand new namespace")
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_create_requires_name(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['create'])
+
+        assert result.exit_code != 0

@@ -149,3 +149,37 @@ def init_namespace_commands(group: Group):
         client = get_user_client(context, endpoint_id)
         namespace = client.set_active_namespace(namespace_id)
         click.echo(to_json(normalize(namespace)))
+
+    @formatted_command(
+        group=group,
+        name='create',
+        specs=[
+            ArgumentSpec(
+                name='name',
+                arg_names=['--name'],
+                help='The name of the namespace to create.',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='description',
+                arg_names=['--description'],
+                help='A description for the namespace. Defaults to the namespace name if omitted.',
+                required=False,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def create_namespace(context: Optional[str],
+                         endpoint_id: Optional[str],
+                         name: str,
+                         description: Optional[str]):
+        """
+        Create a new namespace
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/namespaces-create
+        """
+
+        client = get_user_client(context, endpoint_id)
+        namespace = client.create_namespace(name=name, description=description)
+        click.echo(to_json(normalize(namespace)))
