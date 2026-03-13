@@ -13,6 +13,7 @@ This is the DNAstack client library and CLI, a Python package that provides both
 ## Development Commands
 
 ### Development Setup
+- **IMPORTANT**: Run `eval "$(pyenv init -)" && pyenv activate dnastack-client` before any Python, make, uv, or git commit commands. This activates the correct pyenv virtualenv that has `uv` and other tools available.
 - `make setup` - Set up development environment with uv (creates .venv and installs dependencies)
 
 ### Running the CLI
