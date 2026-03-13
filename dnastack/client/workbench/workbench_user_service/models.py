@@ -44,6 +44,11 @@ class AddMemberRequest(BaseModel):
     role: str
 
 
+class NamespaceCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
 class NamespaceMemberListResponse(PaginatedResource):
     members: List[NamespaceMember]
 

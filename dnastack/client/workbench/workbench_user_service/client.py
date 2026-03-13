@@ -14,9 +14,10 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceMember,
     NamespaceMemberListResponse,
     AddMemberRequest,
+    NamespaceCreateRequest,
 )
 from dnastack.common.tracing import Span
-from dnastack.http.session import HttpSession
+from dnastack.http.session import HttpSession, JsonPatch
 
 
 class NamespaceListResultLoader(WorkbenchResultLoader):
@@ -121,6 +122,44 @@ class WorkbenchUserClient(BaseServiceClient):
                 json={"namespace_id": namespace_id},
             )
         return Namespace(**response.json())
+
+    def create_namespace(self, name: str, description: Optional[str] = None) -> Namespace:
+        """Create a new namespace."""
+        body = NamespaceCreateRequest(name=name, description=description)
+        with self.create_http_session() as session:
+            response = session.post(
+                urljoin(self.endpoint.url, 'namespaces'),
+                json=body.dict(exclude_none=True),
+            )
+        return Namespace(**response.json())
+
+    def update_namespace(self,
+                         namespace_id: str,
+                         name: Optional[str] = None,
+                         description: Optional[str] = None) -> Namespace:
+        """Update a namespace using JSON Patch. Auto-fetches ETag for optimistic locking."""
+        patches = []
+        if name is not None:
+            patches.append(JsonPatch(op='replace', path='/name', value=name).dict())
+        if description is not None:
+            patches.append(JsonPatch(op='replace', path='/description', value=description).dict())
+
+        if not patches:
+            raise ValueError("At least one of name or description must be provided.")
+
+        with self.create_http_session() as session:
+            get_response = session.get(
+                urljoin(self.endpoint.url, f'namespaces/{namespace_id}')
+            )
+            etag = (get_response.headers.get('etag') or '').strip('"')
+            assert etag, f'GET namespaces/{namespace_id} does not provide ETag. Unable to update the namespace.'
+
+            patch_response = session.json_patch(
+                urljoin(self.endpoint.url, f'namespaces/{namespace_id}'),
+                headers={'If-Match': etag},
+                json=patches,
+            )
+        return Namespace(**patch_response.json())
 
     def list_namespace_members(self,
                                namespace_id: str,

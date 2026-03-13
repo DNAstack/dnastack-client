@@ -1,5 +1,6 @@
 from dnastack.client.workbench.workbench_user_service.models import (
     Namespace,
+    NamespaceCreateRequest,
     NamespaceMember,
     NamespaceListResponse,
     NamespaceMemberListResponse,
@@ -198,3 +199,24 @@ class TestAddMemberRequestSerialization:
         req = AddMemberRequest(email="foo@dnastack.com", id="abc123", role="ADMIN")
         data = req.dict(exclude_none=True)
         assert data == {"email": "foo@dnastack.com", "id": "abc123", "role": "ADMIN"}
+
+
+class TestNamespaceCreateRequestSerialization:
+    """Test suite for NamespaceCreateRequest model."""
+
+    def test_serializes_with_name_and_description(self):
+        req = NamespaceCreateRequest(name="My Namespace", description="A test namespace")
+        data = req.dict(exclude_none=True)
+        assert data == {"name": "My Namespace", "description": "A test namespace"}
+
+    def test_serializes_with_name_only(self):
+        req = NamespaceCreateRequest(name="My Namespace")
+        data = req.dict(exclude_none=True)
+        assert data == {"name": "My Namespace"}
+        assert "description" not in data
+
+    def test_serializes_with_explicit_none_description(self):
+        req = NamespaceCreateRequest(name="My Namespace", description=None)
+        data = req.dict(exclude_none=True)
+        assert data == {"name": "My Namespace"}
+        assert "description" not in data
