@@ -8,7 +8,7 @@ from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError
 from dnastack.client.collections.model import Collection, CreateCollectionItemsRequest, DeleteCollectionItemRequest, \
     CollectionItem, CollectionItemListOptions, PageableApiError, CollectionItemListResponse, \
-    CollectionStatus
+    CollectionStatus, Question
 from dnastack.client.data_connect import DATA_CONNECT_TYPE_V1_0
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
@@ -343,6 +343,36 @@ class CollectionServiceClient(BaseServiceClient):
             delete_url = self._get_single_collection_url(collection_id)
             session.delete(delete_url, trace_context=trace)
             return None
+
+    def list_questions(
+        self,
+        collection_id_or_slug_name: str,
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> List[Question]:
+        """
+        List all questions for a collection.
+
+        Args:
+            collection_id_or_slug_name: Collection ID or slug name
+            no_auth: Skip authentication (for public collections)
+            trace: Optional tracing span
+
+        Returns:
+            List[Question]: List of questions available for the collection
+
+        Raises:
+            UnknownCollectionError: If collection not found
+            ClientError: For other API errors
+        """
+        trace = trace or Span(origin=self)
+        with self.create_http_session(no_auth=no_auth) as session:
+            url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions')
+            response = session.get(url, trace_context=trace)
+
+            # API returns MultipleItemsResponse with items array
+            response_data = response.json()
+            return [Question(**item) for item in response_data.get('items', [])]
 
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
