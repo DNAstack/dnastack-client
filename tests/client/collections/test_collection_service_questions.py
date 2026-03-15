@@ -190,3 +190,21 @@ def test_get_question_not_found():
 
         with pytest.raises(UnknownCollectionError):
             client.get_question("nonexistent", "q1")
+
+
+def test_get_question_other_error():
+    """Test get_question raises ClientError for other errors"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.status_code = 500
+    error = ClientError(mock_response, None, "Server error")
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.get.side_effect = error
+        mock_session_creator.return_value = mock_session
+
+        with pytest.raises(ClientError):
+            client.get_question("coll1", "q1")
