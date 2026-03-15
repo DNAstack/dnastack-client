@@ -139,3 +139,54 @@ def test_list_questions_other_error():
 
         with pytest.raises(ClientError):
             client.list_questions("coll1")
+
+
+def test_get_question_success():
+    """Test get_question returns Question object"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": "variant_lookup",
+        "name": "Variant Lookup",
+        "description": "Look up variants",
+        "collection_id": "my-variants",
+        "parameters": [
+            {"name": "chromosome", "input_type": "STRING", "required": True},
+            {"name": "position", "input_type": "INTEGER", "required": True}
+        ]
+    }
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.get.return_value = mock_response
+        mock_session_creator.return_value = mock_session
+
+        question = client.get_question("my-variants", "variant_lookup")
+
+    assert isinstance(question, Question)
+    assert question.id == "variant_lookup"
+    assert question.name == "Variant Lookup"
+    assert question.description == "Look up variants"
+    assert len(question.parameters) == 2
+    assert question.parameters[0].name == "chromosome"
+    assert question.parameters[0].required is True
+
+
+def test_get_question_not_found():
+    """Test get_question raises UnknownCollectionError for 404"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.status_code = 404
+    error = ClientError(mock_response, None, "Not found")
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.get.side_effect = error
+        mock_session_creator.return_value = mock_session
+
+        with pytest.raises(UnknownCollectionError):
+            client.get_question("nonexistent", "q1")

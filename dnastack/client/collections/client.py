@@ -379,6 +379,40 @@ class CollectionServiceClient(BaseServiceClient):
                     raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
                 raise e
 
+    def get_question(
+        self,
+        collection_id_or_slug_name: str,
+        question_id: str,
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> Question:
+        """
+        Get details of a specific question.
+
+        Args:
+            collection_id_or_slug_name: Collection ID or slug name
+            question_id: Question ID
+            no_auth: Skip authentication (for public collections)
+            trace: Optional tracing span
+
+        Returns:
+            Question: Question details including parameters
+
+        Raises:
+            UnknownCollectionError: If collection not found
+            ClientError: If question not found (404) or other API errors
+        """
+        trace = trace or Span(origin=self)
+        with self.create_http_session(no_auth=no_auth) as session:
+            try:
+                url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions/{question_id}')
+                response = session.get(url, trace_context=trace)
+                return Question(**response.json())
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
+                raise e
+
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
                               no_auth: bool = False) -> ServiceEndpoint:
