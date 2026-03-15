@@ -1,5 +1,7 @@
 from unittest.mock import Mock, MagicMock
+import pytest
 from dnastack.client.collections.client import QuestionQueryResultLoader
+from dnastack.client.result_iterator import InactiveLoaderError
 from dnastack.common.tracing import Span
 
 
@@ -79,3 +81,26 @@ def test_loader_pagination():
     page2 = loader.load()
     assert len(page2) == 1
     assert loader.has_more() is False
+
+
+def test_loader_raises_inactive_error_when_exhausted():
+    """Test that InactiveLoaderError is raised when no more results"""
+    mock_session = MagicMock()
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "data": [{"id": "1"}],
+        "pagination": None
+    }
+    mock_session.__enter__.return_value.post.return_value = mock_response
+
+    loader = QuestionQueryResultLoader(
+        service_url="http://test.com/query",
+        http_session=mock_session,
+        request_payload={"params": {}},
+        trace=None
+    )
+
+    loader.load()  # First load succeeds
+
+    with pytest.raises(InactiveLoaderError):
+        loader.load()  # Second load should raise

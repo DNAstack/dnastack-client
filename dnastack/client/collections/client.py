@@ -185,20 +185,33 @@ class QuestionQueryResultLoader(ResultLoader):
             raise InactiveLoaderError(self.__service_url)
 
         with self.__http_session as session:
-            if self.__first_request:
-                # Initial POST request with parameters
-                response = session.post(
-                    self.__service_url,
-                    json=self.__request_payload,
-                    trace_context=self.__trace
-                )
-                self.__first_request = False
-            else:
-                # Follow pagination with GET
-                response = session.get(
-                    self.__next_page_url,
-                    trace_context=self.__trace
-                )
+            try:
+                if self.__first_request:
+                    # Initial POST request with parameters
+                    response = session.post(
+                        self.__service_url,
+                        json=self.__request_payload,
+                        trace_context=self.__trace
+                    )
+                    self.__first_request = False
+                else:
+                    # Follow pagination with GET
+                    response = session.get(
+                        self.__next_page_url,
+                        trace_context=self.__trace
+                    )
+            except HttpError as e:
+                status_code = e.response.status_code
+                if status_code == 401:
+                    raise UnauthenticatedApiAccessError(
+                        "Authentication required to execute question query"
+                    )
+                elif status_code == 403:
+                    raise UnauthorizedApiAccessError(
+                        "Not authorized to execute question query"
+                    )
+                else:
+                    raise ClientError(e.response, e.trace, "Failed to execute question query")
 
             response_data = response.json()
 
