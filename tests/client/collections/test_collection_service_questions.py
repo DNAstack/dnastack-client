@@ -1,7 +1,9 @@
 from unittest.mock import Mock, MagicMock, patch
-from dnastack.client.collections.client import CollectionServiceClient
+import pytest
+from dnastack.client.collections.client import CollectionServiceClient, UnknownCollectionError
 from dnastack.client.collections.model import Question
 from dnastack.client.models import ServiceEndpoint
+from dnastack.http.session import ClientError
 
 
 def test_list_questions_success():
@@ -101,3 +103,39 @@ def test_list_questions_with_camel_case_api_response():
     assert questions[0].collection_id == "coll1"
     assert questions[0].parameters[0].input_type == "STRING"
     assert questions[0].parameters[0].default_value == "SAM001"
+
+
+def test_list_questions_collection_not_found():
+    """Test list_questions raises UnknownCollectionError for 404"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.status_code = 404
+    error = ClientError(mock_response, None, "Not found")
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.get.side_effect = error
+        mock_session_creator.return_value = mock_session
+
+        with pytest.raises(UnknownCollectionError):
+            client.list_questions("nonexistent")
+
+
+def test_list_questions_other_error():
+    """Test list_questions raises ClientError for other errors"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.status_code = 500
+    error = ClientError(mock_response, None, "Server error")
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.get.side_effect = error
+        mock_session_creator.return_value = mock_session
+
+        with pytest.raises(ClientError):
+            client.list_questions("coll1")

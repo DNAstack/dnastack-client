@@ -367,12 +367,17 @@ class CollectionServiceClient(BaseServiceClient):
         """
         trace = trace or Span(origin=self)
         with self.create_http_session(no_auth=no_auth) as session:
-            url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions')
-            response = session.get(url, trace_context=trace)
+            try:
+                url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions')
+                response = session.get(url, trace_context=trace)
 
-            # API returns MultipleItemsResponse with items array
-            response_data = response.json()
-            return [Question(**item) for item in response_data.get('items', [])]
+                # API returns MultipleItemsResponse with items array
+                response_data = response.json()
+                return [Question(**item) for item in response_data.get('items', [])]
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
+                raise e
 
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
