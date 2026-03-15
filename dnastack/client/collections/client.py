@@ -413,6 +413,41 @@ class CollectionServiceClient(BaseServiceClient):
                     raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
                 raise e
 
+    def ask_question(
+        self,
+        collection_id_or_slug_name: str,
+        question_id: str,
+        params: Dict[str, str],
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> ResultIterator:
+        """
+        Execute a question with parameters.
+
+        Args:
+            collection_id_or_slug_name: Collection ID or slug name
+            question_id: Question ID to execute
+            params: Question parameters as key-value pairs
+            no_auth: Skip authentication (for public collections)
+            trace: Optional tracing span
+
+        Returns:
+            ResultIterator: Iterator over query results in Data Connect format
+
+        Raises:
+            UnknownCollectionError: If collection not found
+            ClientError: If question not found or invalid parameters
+        """
+        trace = trace or Span(origin=self)
+        return ResultIterator(
+            QuestionQueryResultLoader(
+                service_url=urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions/{question_id}/query'),
+                http_session=self.create_http_session(no_auth=no_auth),
+                request_payload={'params': params},
+                trace=trace
+            )
+        )
+
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
                               no_auth: bool = False) -> ServiceEndpoint:

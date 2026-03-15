@@ -208,3 +208,53 @@ def test_get_question_other_error():
 
         with pytest.raises(ClientError):
             client.get_question("coll1", "q1")
+
+
+def test_ask_question_returns_iterator():
+    """Test ask_question returns ResultIterator"""
+    from dnastack.client.result_iterator import ResultIterator
+
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session_creator.return_value = mock_session
+
+        result = client.ask_question(
+            "my-collection",
+            "my-question",
+            {"param1": "value1"}
+        )
+
+    assert isinstance(result, ResultIterator)
+
+
+def test_ask_question_executes_query():
+    """Test ask_question makes correct API call"""
+    endpoint = ServiceEndpoint(url="http://test.com/collections/")
+    client = CollectionServiceClient(endpoint)
+
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "data": [{"id": "1", "value": "result"}],
+        "pagination": None
+    }
+
+    with patch.object(client, 'create_http_session') as mock_session_creator:
+        mock_session = MagicMock()
+        mock_session.__enter__.return_value.post.return_value = mock_response
+        mock_session_creator.return_value = mock_session
+
+        result_iter = client.ask_question(
+            "test-coll",
+            "test-q",
+            {"x": "1", "y": "2"}
+        )
+
+        # Consume iterator
+        results = list(result_iter)
+
+    assert len(results) == 1
+    assert results[0]["id"] == "1"
+    assert results[0]["value"] == "result"
