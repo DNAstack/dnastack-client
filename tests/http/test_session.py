@@ -12,7 +12,7 @@ from dnastack.http.authenticators.abstract import Authenticator
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.session import HttpSession, ClientError, HttpError
-from dnastack.http.session_info import InMemorySessionStorage, SessionManager, SessionInfo
+from dnastack.http.session_info import InMemorySessionStorage, SessionManager, SessionInfo, JwtClaims
 from requests import Session, Response, Request
 from pydantic import BaseModel, Field
 
@@ -271,6 +271,49 @@ class TestHttpSession(TestCase):
             self.assertNotEqual(item.headers["X-B3-SpanId"], first_header_spanid)
             self.assertIsNotNone(item.path)
             self.assertIn("User-Agent", item.headers.keys())
+
+
+class TestJwtClaims(TestCase):
+    """Test JwtClaims model handles both string and integer iat/exp fields (RFC 7519)"""
+
+    def _make_base_claims(self, **overrides):
+        """Return a minimal valid claims dict, with overrides applied."""
+        claims = dict(
+            tokenKind="access",
+            jti="test-jti-123",
+            aud="https://example.com",
+            sub="user@example.com",
+            iss="https://issuer.example.com",
+            iat=1773607380,
+            exp=1773610980,
+        )
+        claims.update(overrides)
+        return claims
+
+    def test_accepts_integer_iat_and_exp(self):
+        """JWT spec (RFC 7519) defines iat/exp as NumericDate (integer). Model must accept them."""
+        claims = self._make_base_claims(iat=1773607380, exp=1773610980)
+        jwt_claims = JwtClaims(**claims)
+        self.assertEqual(jwt_claims.iat, 1773607380)
+        self.assertEqual(jwt_claims.exp, 1773610980)
+
+    def test_accepts_string_iat_and_exp(self):
+        """Some issuers send iat/exp as strings. Model must still accept them."""
+        claims = self._make_base_claims(iat="1773607380", exp="1773610980")
+        jwt_claims = JwtClaims(**claims)
+        self.assertEqual(jwt_claims.iat, "1773607380")
+        self.assertEqual(jwt_claims.exp, "1773610980")
+
+    def test_make_parses_jwt_with_integer_timestamps(self):
+        """JwtClaims.make() must handle real JWT tokens with integer iat/exp."""
+        import base64
+        payload = json.dumps(self._make_base_claims(iat=1773607380, exp=1773610980))
+        encoded_payload = base64.b64encode(payload.encode('utf-8')).decode('utf-8').rstrip('=')
+        fake_token = f"header.{encoded_payload}.signature"
+        jwt_claims = JwtClaims.make(fake_token)
+        self.assertEqual(jwt_claims.sub, "user@example.com")
+        self.assertEqual(jwt_claims.iat, 1773607380)
+        self.assertEqual(jwt_claims.exp, 1773610980)
 
 
 class TestHttpErrorAndClientError(TestCase):
