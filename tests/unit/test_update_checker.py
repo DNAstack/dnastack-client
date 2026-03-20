@@ -3,8 +3,6 @@ import os
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
-import pytest
-
 from dnastack.update_checker import (
     UpdateCheckResult,
     _is_suppressed,
