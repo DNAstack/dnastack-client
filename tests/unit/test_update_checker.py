@@ -45,6 +45,14 @@ class TestSuppression:
         with patch.dict(os.environ, {"DNASTACK_NO_UPDATE_CHECK": "1"}):
             assert _is_suppressed() is True
 
+    def test_not_suppressed_when_env_var_set_to_zero(self):
+        env_patch = {k: v for k, v in os.environ.items() if k not in ("DNASTACK_NO_UPDATE_CHECK", "CI")}
+        env_patch["DNASTACK_NO_UPDATE_CHECK"] = "0"
+        with patch.dict(os.environ, env_patch, clear=True), \
+             patch("sys.stderr") as mock_stderr:
+            mock_stderr.isatty.return_value = True
+            assert _is_suppressed() is False
+
     def test_suppressed_when_ci_env_set(self):
         with patch.dict(os.environ, {"CI": "true"}, clear=False):
             assert _is_suppressed() is True

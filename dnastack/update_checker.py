@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 import click
 import requests
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from dnastack.common.logger import get_logger
 from dnastack.constants import (
@@ -39,7 +39,7 @@ def _get_cache_path() -> str:
 
 
 def _is_suppressed() -> bool:
-    if os.environ.get("DNASTACK_NO_UPDATE_CHECK"):
+    if os.environ.get("DNASTACK_NO_UPDATE_CHECK") == "1":
         return True
     if os.environ.get("CI"):
         return True
@@ -82,11 +82,17 @@ def _get_latest_stable_version() -> Optional[str]:
         response.raise_for_status()
         data = response.json()
         releases = data.get("releases", {})
-        stable_versions = [
-            Version(version_string)
-            for version_string, files in releases.items()
-            if files and not Version(version_string).is_prerelease
-        ]
+        stable_versions = []
+        for version_string, files in releases.items():
+            if not files:
+                continue
+            try:
+                parsed_version = Version(version_string)
+            except InvalidVersion:
+                _logger.debug("Skipping invalid version string from PyPI: %s", version_string)
+                continue
+            if not parsed_version.is_prerelease:
+                stable_versions.append(parsed_version)
         if not stable_versions:
             return None
         return str(max(stable_versions))
@@ -103,13 +109,16 @@ def check_for_update(force: bool = False) -> UpdateCheckResult:
         if cached_version and last_checked:
             cache_age = datetime.now(timezone.utc) - last_checked
             if cache_age < CACHE_TTL:
-                current_version = Version(__version__)
-                latest_version = Version(cached_version)
-                return UpdateCheckResult(
-                    latest_version=cached_version,
-                    update_available=latest_version > current_version,
-                    check_failed=False,
-                )
+                try:
+                    current_version = Version(__version__)
+                    latest_version = Version(cached_version)
+                    return UpdateCheckResult(
+                        latest_version=cached_version,
+                        update_available=latest_version > current_version,
+                        check_failed=False,
+                    )
+                except InvalidVersion:
+                    _logger.debug("Cached version string invalid, fetching from PyPI", exc_info=True)
 
     latest_version_string = _get_latest_stable_version()
 
