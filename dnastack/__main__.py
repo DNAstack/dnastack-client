@@ -17,7 +17,8 @@ from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType
 from dnastack.cli.core.group import formatted_group
 from dnastack.common.logger import get_logger
-from dnastack.constants import __version__
+from dnastack.constants import __version__, PYPI_PACKAGE_NAME
+from dnastack.update_checker import check_for_update, notify_if_update_available, suppress_passive_notification
 
 APP_NAME = sys.argv[0]
 
@@ -47,6 +48,16 @@ def dnastack():
 def version():
     """ Show the version of CLI/library """
     click.echo(__app_signature)
+
+    suppress_passive_notification()
+    result = check_for_update(force=True)
+    if result.update_available:
+        click.echo(f"\nA new version of dnastack is available: {__version__} → {result.latest_version}")
+        click.echo(f"To upgrade, run: pip install --upgrade {PYPI_PACKAGE_NAME}")
+    elif result.check_failed:
+        click.echo("\nUnable to check for updates. Check your network connection.")
+    else:
+        click.echo("\nYou are using the latest version of dnastack.")
 
 
 @formatted_command(
@@ -127,6 +138,11 @@ dnastack.add_command(workbench_command_group)
 
 # noinspection PyTypeChecker
 dnastack.add_command(explorer_command_group)
+
+
+@dnastack.result_callback()
+def _post_command_update_check(result, **kwargs):
+    notify_if_update_available()
 
 
 if __name__ == "__main__":
