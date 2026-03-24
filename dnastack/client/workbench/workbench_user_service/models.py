@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, ClassVar, List, Optional
 
 from pydantic import BaseModel
 
@@ -45,6 +45,8 @@ class AddMemberRequest(BaseModel):
 
 
 class InitialUser(BaseModel):
+    ROLE_ADMIN: ClassVar[str] = "ADMIN"
+
     email: str
     role: str
 

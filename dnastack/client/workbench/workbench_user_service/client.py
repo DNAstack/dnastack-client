@@ -129,7 +129,7 @@ class WorkbenchUserClient(BaseServiceClient):
         body = NamespaceCreateRequest(
             name=name,
             description=description,
-            initial_users=[InitialUser(email=admin_email, role="ADMIN")],
+            initial_users=[InitialUser(email=admin_email, role=InitialUser.ROLE_ADMIN)],
         )
         with self.create_http_session() as session:
             response = session.post(
