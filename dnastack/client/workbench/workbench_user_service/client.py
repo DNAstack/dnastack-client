@@ -15,6 +15,7 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceMemberListResponse,
     AddMemberRequest,
     NamespaceCreateRequest,
+    InitialUser,
 )
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession, JsonPatch
@@ -123,9 +124,13 @@ class WorkbenchUserClient(BaseServiceClient):
             )
         return Namespace(**response.json())
 
-    def create_namespace(self, name: str, description: Optional[str] = None) -> Namespace:
-        """Create a new namespace."""
-        body = NamespaceCreateRequest(name=name, description=description)
+    def create_namespace(self, name: str, admin_email: str, description: Optional[str] = None) -> Namespace:
+        """Create a new namespace with the specified user as initial admin."""
+        body = NamespaceCreateRequest(
+            name=name,
+            description=description,
+            initial_users=[InitialUser(email=admin_email, role="ADMIN")],
+        )
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, 'namespaces'),

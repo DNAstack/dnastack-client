@@ -162,6 +162,12 @@ def init_namespace_commands(group: Group):
                 required=True,
             ),
             ArgumentSpec(
+                name='admin_email',
+                arg_names=['--admin-email'],
+                help='Email of the user to add as the initial namespace admin.',
+                required=True,
+            ),
+            ArgumentSpec(
                 name='description',
                 arg_names=['--description'],
                 help='A description for the namespace. Defaults to the namespace name if omitted.',
@@ -174,6 +180,7 @@ def init_namespace_commands(group: Group):
     def create_namespace(context: Optional[str],
                          endpoint_id: Optional[str],
                          name: str,
+                         admin_email: str,
                          description: Optional[str]):
         """
         Create a new namespace
@@ -182,7 +189,7 @@ def init_namespace_commands(group: Group):
         """
 
         client = get_user_client(context, endpoint_id)
-        namespace = client.create_namespace(name=name, description=description)
+        namespace = client.create_namespace(name=name, admin_email=admin_email, description=description)
         click.echo(to_json(normalize(namespace)))
 
     @formatted_command(
