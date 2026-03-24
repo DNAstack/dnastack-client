@@ -44,9 +44,15 @@ class AddMemberRequest(BaseModel):
     role: str
 
 
+class InitialUser(BaseModel):
+    email: str
+    role: str
+
+
 class NamespaceCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
+    initial_users: Optional[List[InitialUser]] = None
 
 
 class NamespaceMemberListResponse(PaginatedResource):

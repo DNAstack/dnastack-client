@@ -5,6 +5,7 @@ from dnastack.client.workbench.workbench_user_service.models import (
     NamespaceListResponse,
     NamespaceMemberListResponse,
     AddMemberRequest,
+    InitialUser,
 )
 
 
@@ -220,3 +221,46 @@ class TestNamespaceCreateRequestSerialization:
         data = req.dict(exclude_none=True)
         assert data == {"name": "My Namespace"}
         assert "description" not in data
+
+
+class TestInitialUserSerialization:
+    """Test suite for InitialUser model."""
+
+    def test_serializes_with_email_and_role(self):
+        user = InitialUser(email="admin@example.com", role="ADMIN")
+        data = user.dict()
+        assert data == {"email": "admin@example.com", "role": "ADMIN"}
+
+
+class TestNamespaceCreateRequestWithInitialUsers:
+    """Test suite for NamespaceCreateRequest with initial_users field."""
+
+    def test_serializes_with_initial_users(self):
+        req = NamespaceCreateRequest(
+            name="My Namespace",
+            initial_users=[InitialUser(email="admin@example.com", role="ADMIN")],
+        )
+        data = req.dict(exclude_none=True)
+        assert data == {
+            "name": "My Namespace",
+            "initial_users": [{"email": "admin@example.com", "role": "ADMIN"}],
+        }
+
+    def test_serializes_without_initial_users(self):
+        req = NamespaceCreateRequest(name="My Namespace")
+        data = req.dict(exclude_none=True)
+        assert data == {"name": "My Namespace"}
+        assert "initial_users" not in data
+
+    def test_serializes_with_all_fields(self):
+        req = NamespaceCreateRequest(
+            name="My Namespace",
+            description="A test namespace",
+            initial_users=[InitialUser(email="admin@example.com", role="ADMIN")],
+        )
+        data = req.dict(exclude_none=True)
+        assert data == {
+            "name": "My Namespace",
+            "description": "A test namespace",
+            "initial_users": [{"email": "admin@example.com", "role": "ADMIN"}],
+        }
