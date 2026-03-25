@@ -2,22 +2,6 @@ from unittest.mock import Mock, MagicMock
 import pytest
 from dnastack.client.collections.client import QuestionQueryResultLoader
 from dnastack.client.result_iterator import InactiveLoaderError
-from dnastack.common.tracing import Span
-
-
-def test_loader_initialization():
-    """Test QuestionQueryResultLoader initialization"""
-    mock_session = Mock()
-    trace = Span()
-
-    loader = QuestionQueryResultLoader(
-        service_url="http://test.com/query",
-        http_session=mock_session,
-        request_payload={"params": {"x": "1"}},
-        trace=trace
-    )
-
-    assert loader.has_more() is True
 
 
 def test_loader_has_more_after_load():

@@ -1,8 +1,9 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 
 from imagination import container
 
 from dnastack.client.collections.client import CollectionServiceClient
+from dnastack.client.collections.model import Question
 from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
 
 
@@ -28,7 +29,7 @@ def get_collection_service_client(
     )
 
 
-def validate_question_parameters(inputs: Dict[str, str], question) -> Dict[str, str]:
+def validate_question_parameters(inputs: Dict[str, str], question: Question) -> None:
     """
     Validate question parameters against question schema.
 
@@ -47,27 +48,3 @@ def validate_question_parameters(inputs: Dict[str, str], question) -> Dict[str, 
 
     if missing_params:
         raise ValueError(f"Missing required parameters: {', '.join(missing_params)}")
-
-    return inputs
-
-
-def handle_question_results_output(
-    results: List[Dict[str, Any]],
-    output_file: Optional[str],
-    output_format: str
-):
-    """
-    Handle output of question results to file or stdout.
-    Reuses logic from explorer questions utils.
-
-    Args:
-        results: List of result dictionaries
-        output_file: Optional file path to write to
-        output_format: Output format (json, csv, yaml, table)
-    """
-    # Import from explorer utils to reuse existing implementation
-    from dnastack.cli.commands.explorer.questions.utils import (
-        handle_question_results_output as explorer_output_handler
-    )
-
-    explorer_output_handler(results, output_file, output_format)

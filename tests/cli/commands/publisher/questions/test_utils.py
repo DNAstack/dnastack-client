@@ -3,7 +3,6 @@ import pytest
 from dnastack.cli.commands.publisher.questions.utils import (
     get_collection_service_client,
     validate_question_parameters,
-    handle_question_results_output
 )
 from dnastack.client.collections.client import CollectionServiceClient
 from dnastack.client.collections.model import Question, QuestionParameter
@@ -64,9 +63,7 @@ class TestValidateQuestionParameters:
 
         inputs = {"x": "value1", "y": "value2"}
 
-        result = validate_question_parameters(inputs, question)
-
-        assert result == inputs
+        validate_question_parameters(inputs, question)
 
     def test_validate_question_parameters_missing_required(self):
         """Test validation fails when required param missing"""
@@ -102,9 +99,7 @@ class TestValidateQuestionParameters:
 
         inputs = {"req": "value1"}
 
-        result = validate_question_parameters(inputs, question)
-
-        assert result == inputs
+        validate_question_parameters(inputs, question)
 
     def test_validate_question_parameters_multiple_missing(self):
         """Test validation with multiple missing required parameters"""
@@ -129,32 +124,3 @@ class TestValidateQuestionParameters:
         assert "req1" in error_msg or "req2" in error_msg or "req3" in error_msg
 
 
-class TestHandleQuestionResultsOutput:
-    """Tests for handle_question_results_output utility"""
-
-    def test_handle_question_results_output_delegates_to_explorer(self):
-        """Test handle_question_results_output delegates to explorer util"""
-        results = [{"id": "1"}, {"id": "2"}]
-
-        with patch('dnastack.cli.commands.explorer.questions.utils.handle_question_results_output') as mock_handler:
-            handle_question_results_output(results, None, "json")
-
-            mock_handler.assert_called_once_with(results, None, "json")
-
-    def test_handle_question_results_output_with_file(self):
-        """Test handle_question_results_output with output file"""
-        results = [{"id": "1"}]
-
-        with patch('dnastack.cli.commands.explorer.questions.utils.handle_question_results_output') as mock_handler:
-            handle_question_results_output(results, "output.json", "json")
-
-            mock_handler.assert_called_once_with(results, "output.json", "json")
-
-    def test_handle_question_results_output_different_formats(self):
-        """Test handle_question_results_output with different output formats"""
-        results = [{"id": "1"}]
-
-        with patch('dnastack.cli.commands.explorer.questions.utils.handle_question_results_output') as mock_handler:
-            for fmt in ["json", "csv", "yaml", "table"]:
-                handle_question_results_output(results, None, fmt)
-                mock_handler.assert_called_with(results, None, fmt)

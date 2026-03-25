@@ -124,6 +124,8 @@ def test_ask_question_command():
 
     assert result.exit_code == 0
     mock_output.assert_called_once()
+    actual_results = mock_output.call_args[0][0]
+    assert actual_results == mock_results
 
 
 def test_ask_question_missing_required_param():

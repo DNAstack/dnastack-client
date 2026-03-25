@@ -187,7 +187,6 @@ class QuestionQueryResultLoader(ResultLoader):
         with self.__http_session as session:
             try:
                 if self.__first_request:
-                    # Initial POST request with parameters
                     response = session.post(
                         self.__service_url,
                         json=self.__request_payload,
@@ -195,7 +194,6 @@ class QuestionQueryResultLoader(ResultLoader):
                     )
                     self.__first_request = False
                 else:
-                    # Follow pagination with GET
                     response = session.get(
                         self.__next_page_url,
                         trace_context=self.__trace
@@ -215,7 +213,6 @@ class QuestionQueryResultLoader(ResultLoader):
 
             response_data = response.json()
 
-            # Extract next page URL from pagination
             pagination = response_data.get('pagination')
             self.__next_page_url = pagination.get('next_page_url') if pagination else None
 
@@ -350,21 +347,7 @@ class CollectionServiceClient(BaseServiceClient):
         no_auth: bool = False,
         trace: Optional[Span] = None
     ) -> List[Question]:
-        """
-        List all questions for a collection.
-
-        Args:
-            collection_id_or_slug_name: Collection ID or slug name
-            no_auth: Skip authentication (for public collections)
-            trace: Optional tracing span
-
-        Returns:
-            List[Question]: List of questions available for the collection
-
-        Raises:
-            UnknownCollectionError: If collection not found
-            ClientError: For other API errors
-        """
+        """ List all questions for a collection """
         trace = trace or Span(origin=self)
         with self.create_http_session(no_auth=no_auth) as session:
             try:
@@ -377,7 +360,7 @@ class CollectionServiceClient(BaseServiceClient):
             except ClientError as e:
                 if e.response.status_code == 404:
                     raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
-                raise e
+                raise
 
     def get_question(
         self,
@@ -386,22 +369,7 @@ class CollectionServiceClient(BaseServiceClient):
         no_auth: bool = False,
         trace: Optional[Span] = None
     ) -> Question:
-        """
-        Get details of a specific question.
-
-        Args:
-            collection_id_or_slug_name: Collection ID or slug name
-            question_id: Question ID
-            no_auth: Skip authentication (for public collections)
-            trace: Optional tracing span
-
-        Returns:
-            Question: Question details including parameters
-
-        Raises:
-            UnknownCollectionError: If collection not found
-            ClientError: If question not found (404) or other API errors
-        """
+        """ Get details of a specific question """
         trace = trace or Span(origin=self)
         with self.create_http_session(no_auth=no_auth) as session:
             try:
@@ -411,7 +379,7 @@ class CollectionServiceClient(BaseServiceClient):
             except ClientError as e:
                 if e.response.status_code == 404:
                     raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
-                raise e
+                raise
 
     def ask_question(
         self,
@@ -421,23 +389,7 @@ class CollectionServiceClient(BaseServiceClient):
         no_auth: bool = False,
         trace: Optional[Span] = None
     ) -> ResultIterator:
-        """
-        Execute a question with parameters.
-
-        Args:
-            collection_id_or_slug_name: Collection ID or slug name
-            question_id: Question ID to execute
-            params: Question parameters as key-value pairs
-            no_auth: Skip authentication (for public collections)
-            trace: Optional tracing span
-
-        Returns:
-            ResultIterator: Iterator over query results in Data Connect format
-
-        Raises:
-            UnknownCollectionError: If collection not found
-            ClientError: If question not found or invalid parameters
-        """
+        """ Execute a question with parameters and return a result iterator """
         trace = trace or Span(origin=self)
         return ResultIterator(
             QuestionQueryResultLoader(

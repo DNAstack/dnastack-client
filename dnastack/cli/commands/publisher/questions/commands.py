@@ -6,8 +6,8 @@ from click import Group
 from dnastack.cli.commands.publisher.questions.utils import (
     get_collection_service_client,
     validate_question_parameters,
-    handle_question_results_output
 )
+from dnastack.cli.commands.explorer.questions.utils import handle_question_results_output
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import (
     ArgumentSpec,
@@ -140,28 +140,20 @@ def init_questions_commands(group: Group):
         trace = Span()
         client = get_collection_service_client(context=context, endpoint_id=endpoint_id)
 
-        # Parse parameters
         inputs = {}
         if args:
             for arg in args:
                 parsed_args = arg.parsed_value() if hasattr(arg, 'parsed_value') else parse_and_merge_arguments(arg)
                 inputs.update(parsed_args)
 
-        # Get question details for validation
         question = client.get_question(collection, question_name, trace=trace)
 
-        # Validate parameters
         try:
-            inputs = validate_question_parameters(inputs, question)
+            validate_question_parameters(inputs, question)
         except ValueError as e:
             click.echo(f"Error: {e}", err=True)
             raise click.Abort()
 
-        # Execute the question
         results_iter = client.ask_question(collection, question_name, inputs, trace=trace)
-
-        # Collect results
         results = list(results_iter)
-
-        # Output results
         handle_question_results_output(results, output_file, output)
