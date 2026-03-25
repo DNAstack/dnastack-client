@@ -28,8 +28,8 @@ class JwtClaims(BaseModel):
     jti: str
     aud: Union[str, List[str]]
     azp: Optional[str] = None
-    iat: str
-    exp: str
+    iat: Union[str, int]
+    exp: Union[str, int]
     sub: str
     iss: str
     resources: Optional[Union[str, List[str]]] = None
