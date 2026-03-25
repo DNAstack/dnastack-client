@@ -141,33 +141,39 @@ class TestCreateCommand:
         )
 
     @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
-    def test_create_with_name_only(self, mock_get_client):
+    def test_create_with_name_and_admin_email(self, mock_get_client):
         mock_client = Mock()
         mock_client.create_namespace.return_value = self.mock_namespace
         mock_get_client.return_value = mock_client
 
-        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace'])
+        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace', '--admin-email', 'admin@example.com'])
 
         assert result.exit_code == 0
-        mock_client.create_namespace.assert_called_once_with(name="New Namespace", description=None)
+        mock_client.create_namespace.assert_called_once_with(name="New Namespace", admin_email="admin@example.com", description=None)
         output = json.loads(result.output)
         assert output["id"] == "ns-new-123"
         assert output["name"] == "New Namespace"
 
     @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
-    def test_create_with_name_and_description(self, mock_get_client):
+    def test_create_with_all_flags(self, mock_get_client):
         mock_client = Mock()
         mock_client.create_namespace.return_value = self.mock_namespace
         mock_get_client.return_value = mock_client
 
-        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace', '--description', 'A brand new namespace'])
+        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace', '--admin-email', 'admin@example.com', '--description', 'A brand new namespace'])
 
         assert result.exit_code == 0
-        mock_client.create_namespace.assert_called_once_with(name="New Namespace", description="A brand new namespace")
+        mock_client.create_namespace.assert_called_once_with(name="New Namespace", admin_email="admin@example.com", description="A brand new namespace")
 
     @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
     def test_create_requires_name(self, mock_get_client):
-        result = self.runner.invoke(self.group, ['create'])
+        result = self.runner.invoke(self.group, ['create', '--admin-email', 'admin@example.com'])
+
+        assert result.exit_code != 0
+
+    @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
+    def test_create_requires_admin_email(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['create', '--name', 'New Namespace'])
 
         assert result.exit_code != 0
 

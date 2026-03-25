@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, ClassVar, List, Optional
 
 from pydantic import BaseModel
 
@@ -44,9 +44,17 @@ class AddMemberRequest(BaseModel):
     role: str
 
 
+class InitialUser(BaseModel):
+    ROLE_ADMIN: ClassVar[str] = "ADMIN"
+
+    email: str
+    role: str
+
+
 class NamespaceCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
+    initial_users: Optional[List[InitialUser]] = None
 
 
 class NamespaceMemberListResponse(PaginatedResource):
