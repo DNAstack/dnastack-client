@@ -1,5 +1,5 @@
 from pprint import pformat
-from typing import List, Union, Optional, Iterator
+from typing import Dict, Any, List, Union, Optional, Iterator
 from urllib.parse import urljoin
 
 from pydantic import ValidationError
@@ -8,7 +8,7 @@ from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.base_exceptions import UnauthenticatedApiAccessError, UnauthorizedApiAccessError
 from dnastack.client.collections.model import Collection, CreateCollectionItemsRequest, DeleteCollectionItemRequest, \
     CollectionItem, CollectionItemListOptions, PageableApiError, CollectionItemListResponse, \
-    CollectionStatus
+    CollectionStatus, Question
 from dnastack.client.data_connect import DATA_CONNECT_TYPE_V1_0
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.result_iterator import ResultLoader, InactiveLoaderError, ResultIterator
@@ -157,6 +157,69 @@ class CollectionItemListResultLoader(ResultLoader):
                 return items
 
 
+class QuestionQueryResultLoader(ResultLoader):
+    """
+    Result loader for publisher question query results.
+    Handles Data Connect TableData format with pagination support.
+    """
+
+    def __init__(
+        self,
+        service_url: str,
+        http_session: HttpSession,
+        request_payload: Dict[str, Any],
+        trace: Optional[Span] = None
+    ):
+        self.__http_session = http_session
+        self.__service_url = service_url
+        self.__request_payload = request_payload
+        self.__trace = trace
+        self.__next_page_url = None
+        self.__first_request = True
+
+    def has_more(self) -> bool:
+        return self.__first_request or self.__next_page_url is not None
+
+    def load(self) -> List[Dict[str, Any]]:
+        if not self.has_more():
+            raise InactiveLoaderError(self.__service_url)
+
+        with self.__http_session as session:
+            try:
+                if self.__first_request:
+                    response = session.post(
+                        self.__service_url,
+                        json=self.__request_payload,
+                        trace_context=self.__trace
+                    )
+                    self.__first_request = False
+                else:
+                    response = session.get(
+                        self.__next_page_url,
+                        trace_context=self.__trace
+                    )
+            except HttpError as e:
+                status_code = e.response.status_code
+                if status_code == 401:
+                    raise UnauthenticatedApiAccessError(
+                        "Authentication required to execute question query"
+                    )
+                elif status_code == 403:
+                    raise UnauthorizedApiAccessError(
+                        "Not authorized to execute question query"
+                    )
+                else:
+                    raise ClientError(e.response, e.trace, "Failed to execute question query")
+
+            response_data = response.json()
+
+            pagination = response_data.get('pagination')
+            self.__next_page_url = pagination.get('next_page_url') if pagination else None
+
+            # Return data array from TableData format
+            return response_data.get('data', [])
+
+
 class CollectionServiceClient(BaseServiceClient):
     """Client for Collection API"""
 
@@ -277,6 +340,65 @@ class CollectionServiceClient(BaseServiceClient):
             delete_url = self._get_single_collection_url(collection_id)
             session.delete(delete_url, trace_context=trace)
             return None
+
+    def list_questions(
+        self,
+        collection_id_or_slug_name: str,
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> List[Question]:
+        """ List all questions for a collection """
+        trace = trace or Span(origin=self)
+        with self.create_http_session(no_auth=no_auth) as session:
+            try:
+                url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions')
+                response = session.get(url, trace_context=trace)
+
+                # API returns MultipleItemsResponse with items array
+                response_data = response.json()
+                return [Question(**item) for item in response_data.get('items', [])]
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
+                raise
+
+    def get_question(
+        self,
+        collection_id_or_slug_name: str,
+        question_id: str,
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> Question:
+        """ Get details of a specific question """
+        trace = trace or Span(origin=self)
+        with self.create_http_session(no_auth=no_auth) as session:
+            try:
+                url = urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions/{question_id}')
+                response = session.get(url, trace_context=trace)
+                return Question(**response.json())
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    raise UnknownCollectionError(collection_id_or_slug_name, trace) from e
+                raise
+
+    def ask_question(
+        self,
+        collection_id_or_slug_name: str,
+        question_id: str,
+        params: Dict[str, str],
+        no_auth: bool = False,
+        trace: Optional[Span] = None
+    ) -> ResultIterator:
+        """ Execute a question with parameters and return a result iterator """
+        trace = trace or Span(origin=self)
+        return ResultIterator(
+            QuestionQueryResultLoader(
+                service_url=urljoin(self.url, f'collections/{collection_id_or_slug_name}/questions/{question_id}/query'),
+                http_session=self.create_http_session(no_auth=no_auth),
+                request_payload={'params': params},
+                trace=trace
+            )
+        )
 
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
