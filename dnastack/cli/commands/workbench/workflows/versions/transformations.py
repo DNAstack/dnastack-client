@@ -3,7 +3,7 @@ from typing import Optional, List
 import click
 from click import style
 
-from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, GLOBAL_ARG
 from dnastack.cli.commands.workbench.workflows.utils import get_workflow_client
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
@@ -132,6 +132,7 @@ def describe_workflow_transformation(context: Optional[str],
             type=bool,
         ),
         NAMESPACE_ARG,
+        GLOBAL_ARG,
         CONTEXT_ARG,
         SINGLE_ENDPOINT_ID_ARG,
     ]
@@ -142,7 +143,8 @@ def delete_workflow_transformation(context: Optional[str],
                                    workflow_id: str,
                                    version_id: str,
                                    transformation_id: str,
-                                   force: Optional[bool] = False):
+                                   force: Optional[bool] = False,
+                                   global_action: bool = False):
     """
     Delete an existing workflow transformation
     """
@@ -157,7 +159,7 @@ def delete_workflow_transformation(context: Optional[str],
         click.echo("You are not allowed to delete public transformations.")
         exit(1)
 
-    client.delete_workflow_transformation(workflow_id, version_id, transformation_id)
+    client.delete_workflow_transformation(workflow_id, version_id, transformation_id, admin_only_action=global_action)
     click.echo("Deleted...")
 
 
@@ -207,6 +209,7 @@ def delete_workflow_transformation(context: Optional[str],
             help='A label to apply to the transformation',
             multiple=True
         ),
+        GLOBAL_ARG,
         CONTEXT_ARG,
         SINGLE_ENDPOINT_ID_ARG,
     ]
@@ -219,7 +222,8 @@ def add_workflow_transformation(context: Optional[str],
                                 script: FileOrValue,
                                 transformation_id: Optional[str],
                                 next_transformation_id: Optional[str],
-                                labels: List[str]):
+                                labels: List[str],
+                                global_action: bool = False):
     """Create a new workflow transformation"""
     client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
@@ -230,6 +234,6 @@ def add_workflow_transformation(context: Optional[str],
         labels=labels
     )
 
-    response = client.create_workflow_transformation(workflow_id=workflow_id, workflow_version_id=version_id, workflow_transformation_create_request=workflow_transformation)
+    response = client.create_workflow_transformation(workflow_id=workflow_id, workflow_version_id=version_id, workflow_transformation_create_request=workflow_transformation, admin_only_action=global_action)
     click.echo(to_json(normalize(response)))
 
