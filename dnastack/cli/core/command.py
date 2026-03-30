@@ -163,6 +163,7 @@ def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = Fal
                 'default': spec.default,
                 'type': spec.type,
                 'multiple': spec.multiple,
+                'hidden': spec.hidden,
             }
 
             # Add special handling for boolean flags
