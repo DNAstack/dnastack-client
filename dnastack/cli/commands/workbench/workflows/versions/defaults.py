@@ -3,7 +3,7 @@ from typing import Optional, List
 import click
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, create_sort_arg
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, GLOBAL_ARG, create_sort_arg
 from dnastack.cli.commands.workbench.workflows.utils import get_workflow_client
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
@@ -69,6 +69,7 @@ def workflows_versions_defaults_command_group():
             help='The human readable name of the defaults',
         ),
         NAMESPACE_ARG,
+        GLOBAL_ARG,
         CONTEXT_ARG,
         SINGLE_ENDPOINT_ID_ARG,
     ]
@@ -83,7 +84,8 @@ def create_workflow_defaults(context: Optional[str],
                              engine: Optional[str],
                              values: JsonLike,
                              name: str,
-                             default_id: Optional[str]):
+                             default_id: Optional[str],
+                             global_action: bool = False):
     """
     Create a default for a workflow
     """
@@ -92,7 +94,8 @@ def create_workflow_defaults(context: Optional[str],
     selector = WorkflowDefaultsSelector(engine=engine, provider=provider, region=region)
     workflow_defaults = WorkflowDefaultsCreateRequest(id=default_id, name=name, selector=selector, values=parsed)
     click.echo(to_json(normalize(client.create_workflow_defaults(workflow_id=workflow_id, version_id=version_id,
-                                                                       workflow_defaults=workflow_defaults))))
+                                                                       workflow_defaults=workflow_defaults,
+                                                                       admin_only_action=global_action))))
 
 
 @formatted_command(
@@ -241,6 +244,7 @@ def describe_workflow_defaults(context: Optional[str],
             help='The human readable name of the defaults',
         ),
         NAMESPACE_ARG,
+        GLOBAL_ARG,
         CONTEXT_ARG,
         SINGLE_ENDPOINT_ID_ARG,
     ]
@@ -255,7 +259,8 @@ def update_workflow_defaults(context: Optional[str],
                              region: Optional[str],
                              engine: Optional[str],
                              values: JsonLike,
-                             default_id: str):
+                             default_id: str,
+                             global_action: bool = False):
     """
     Update a default for a workflow
     """
@@ -267,7 +272,8 @@ def update_workflow_defaults(context: Optional[str],
     click.echo(to_json(normalize(client.update_workflow_defaults(workflow_id=workflow_id, version_id=version_id,
                                                                  default_id=default_id,
                                                                  if_match=existing.etag,
-                                                                 workflow_defaults=workflow_defaults))))
+                                                                 workflow_defaults=workflow_defaults,
+                                                                 admin_only_action=global_action))))
 
 
 @formatted_command(
@@ -293,6 +299,7 @@ def update_workflow_defaults(context: Optional[str],
             required=True,
         ),
         NAMESPACE_ARG,
+        GLOBAL_ARG,
         ArgumentSpec(
             name="force",
             arg_names=["--force", "-f"],
@@ -309,7 +316,8 @@ def delete_workflow_defaults(context: Optional[str],
                              workflow_id: str,
                              version_id: str,
                              default_id: str,
-                             force: Optional[bool]):
+                             force: Optional[bool],
+                             global_action: bool = False):
     """
     Delete a default for a workflow
     """
@@ -318,5 +326,5 @@ def delete_workflow_defaults(context: Optional[str],
         click.confirm(f"Are you sure you want to delete the workflow defaults with id {default_id}?", abort=True)
     existing = client.get_workflow_defaults(workflow_id=workflow_id, version_id=version_id, default_id=default_id)
     client.delete_workflow_defaults(workflow_id=workflow_id, version_id=version_id, default_id=default_id,
-                                          if_match=existing.etag)
+                                          if_match=existing.etag, admin_only_action=global_action)
     click.echo("Deleted...")
