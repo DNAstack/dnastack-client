@@ -6,7 +6,7 @@ import click
 from click import Group
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG
-from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, GLOBAL_ARG
 from dnastack.cli.commands.workbench.workflows.utils import get_workflow_client, _get_replace_patch, \
     _get_description_patch, _get_author_patch, find_file, handle_zip_output, decode_base64_content, \
     create_missing_directories, write_to_file, decode_readable_file, handle_files_output
@@ -132,6 +132,7 @@ def init_workflows_versions_commands(group: Group):
                 type=bool,
             ),
             NAMESPACE_ARG,
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -141,7 +142,8 @@ def init_workflows_versions_commands(group: Group):
                                 namespace: Optional[str],
                                 workflow_id: str,
                                 version_id: str,
-                                force: Optional[bool] = False):
+                                force: Optional[bool] = False,
+                                global_action: bool = False):
         """
         Delete an existing workflow version
 
@@ -154,7 +156,7 @@ def init_workflows_versions_commands(group: Group):
                 f'Do you want to delete "{version.versionName}" from workflow "{workflow.name}"?'):
             return
 
-        workflows_client.delete_workflow_version(workflow_id, version_id, version.etag)
+        workflows_client.delete_workflow_version(workflow_id, version_id, version.etag, admin_only_action=global_action)
         click.echo("Deleted...")
 
 
@@ -198,6 +200,7 @@ def init_workflows_versions_commands(group: Group):
                      ' You can specify a file by prepending "@" to a path: @<path>',
                 type=FileOrValue,
             ),
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -209,7 +212,8 @@ def init_workflows_versions_commands(group: Group):
                     name: str,
                     description: FileOrValue,
                     entrypoint: str,
-                    workflow_file: List[FileOrValue]):
+                    workflow_file: List[FileOrValue],
+                    global_action: bool = False):
         """
         Add a new version to an existing workflow
 
@@ -244,7 +248,7 @@ def init_workflows_versions_commands(group: Group):
             files=workflow_files_list
         )
 
-        result = workflows_client.create_version(workflow_id=workflow, workflow_version_create_request=create_request)
+        result = workflows_client.create_version(workflow_id=workflow, workflow_version_create_request=create_request, admin_only_action=global_action)
         click.echo(to_json(normalize(result)))
 
 
@@ -283,6 +287,7 @@ def init_workflows_versions_commands(group: Group):
                 arg_names=['--authors'],
                 help='List of authors to update. This value can be a comma separated list',
             ),
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -294,7 +299,8 @@ def init_workflows_versions_commands(group: Group):
                                 version_id: str,
                                 version_name: Optional[str],
                                 description: FileOrValue,
-                                authors: Optional[str]):
+                                authors: Optional[str],
+                                global_action: bool = False):
         """
         Update an existing workflow version
 
@@ -312,7 +318,7 @@ def init_workflows_versions_commands(group: Group):
 
         if patch_list:
             workflow_version = workflows_client.update_workflow_version(workflow_id, version_id, workflow_version.etag,
-                                                                        patch_list)
+                                                                        patch_list, admin_only_action=global_action)
             click.echo(to_json(normalize(workflow_version)))
         else:
             raise ValueError("Must specify at least one attribute to update")
