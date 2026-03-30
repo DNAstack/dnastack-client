@@ -212,7 +212,11 @@ class WorkflowClient(BaseWorkbenchClient):
                 workflow_files.append(('workflow_file', (file.name, f.read())))
         return workflow_files
 
-    def create_workflow(self, workflow_create_request: WorkflowCreate) -> Workflow:
+    def create_workflow(self, workflow_create_request: WorkflowCreate,
+                        admin_only_action: bool = False) -> Workflow:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             data = {
                 'name': (None, workflow_create_request.name),
@@ -225,12 +229,17 @@ class WorkflowClient(BaseWorkbenchClient):
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows'),
                 data=data,
-                files=self._prepare_workflow_files(workflow_create_request.files)
+                files=self._prepare_workflow_files(workflow_create_request.files),
+                headers=headers
             )
         return Workflow(**response.json())
 
     def create_version(self, workflow_id: str,
-                       workflow_version_create_request: WorkflowVersionCreate) -> WorkflowVersion:
+                       workflow_version_create_request: WorkflowVersionCreate,
+                       admin_only_action: bool = False) -> WorkflowVersion:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             data = {
                 'version_name': (None, workflow_version_create_request.version_name),
@@ -239,41 +248,57 @@ class WorkflowClient(BaseWorkbenchClient):
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions'),
                 data=data,
-                files=self._prepare_workflow_files(workflow_version_create_request.files)
+                files=self._prepare_workflow_files(workflow_version_create_request.files),
+                headers=headers
             )
         return WorkflowVersion(**response.json())
 
-    def delete_workflow(self, workflow_id: str, etag: str):
+    def delete_workflow(self, workflow_id: str, etag: str, admin_only_action: bool = False):
+        headers = {'If-Match': etag}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}'),
-                headers={'If-Match': etag}
+                headers=headers
             )
 
-    def delete_workflow_version(self, workflow_id: str, version_id: str, etag: str):
+    def delete_workflow_version(self, workflow_id: str, version_id: str, etag: str,
+                               admin_only_action: bool = False):
+        headers = {'If-Match': etag}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}'),
-                headers={'If-Match': etag}
+                headers=headers
             )
 
-    def update_workflow(self, workflow_id: str, etag: str, updates: List[JsonPatch]) -> Workflow:
+    def update_workflow(self, workflow_id: str, etag: str, updates: List[JsonPatch],
+                        admin_only_action: bool = False) -> Workflow:
+        headers = {'If-Match': etag}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             updates = [update.model_dump() for update in updates]
             response = session.json_patch(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}'),
-                headers={'If-Match': etag},
+                headers=headers,
                 json=updates
             )
             return Workflow(**response.json())
 
     def update_workflow_version(self, workflow_id: str, version_id: str, etag: str,
-                                updates: List[JsonPatch]) -> WorkflowVersion:
+                                updates: List[JsonPatch],
+                                admin_only_action: bool = False) -> WorkflowVersion:
+        headers = {'If-Match': etag}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             updates = [update.model_dump() for update in updates]
             response = session.json_patch(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}'),
-                headers={'If-Match': etag},
+                headers=headers,
                 json=updates
             )
             return WorkflowVersion(**response.json())
@@ -320,31 +345,44 @@ class WorkflowClient(BaseWorkbenchClient):
             return WorkflowDefaults(**response.json())
 
     def create_workflow_defaults(self, workflow_id: str, version_id: str,
-                                 workflow_defaults: WorkflowDefaultsCreateRequest) -> WorkflowDefaults:
+                                 workflow_defaults: WorkflowDefaultsCreateRequest,
+                                 admin_only_action: bool = False) -> WorkflowDefaults:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url,
                         f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults'),
-                json=workflow_defaults.model_dump()
+                json=workflow_defaults.model_dump(),
+                headers=headers
             )
             return WorkflowDefaults(**response.json())
 
-    def delete_workflow_defaults(self, workflow_id: str, version_id: str, default_id: str, if_match: str):
+    def delete_workflow_defaults(self, workflow_id: str, version_id: str, default_id: str, if_match: str,
+                                 admin_only_action: bool = False):
+        headers = {"If-Match": if_match}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url,
                         f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults/{default_id}'),
-                headers={"If-Match": if_match}
+                headers=headers
             )
 
     def update_workflow_defaults(self, workflow_id: str, version_id: str, default_id: str, if_match: str,
-                                 workflow_defaults: WorkflowDefaultsUpdateRequest):
+                                 workflow_defaults: WorkflowDefaultsUpdateRequest,
+                                 admin_only_action: bool = False):
+        headers = {"If-Match": if_match}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             response = session.submit("PUT",
                 urljoin(self.endpoint.url,
                         f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults/{default_id}'),
                 json=workflow_defaults.model_dump(),
-                headers={"If-Match": if_match}
+                headers=headers
             )
             return WorkflowDefaults(**response.json())
 
@@ -367,18 +405,28 @@ class WorkflowClient(BaseWorkbenchClient):
                                    trace_context=trace)
             return WorkflowTransformation(**response.json())
 
-    def delete_workflow_transformation(self, workflow_id: str, workflow_version_id: str, transformation_id: str):
+    def delete_workflow_transformation(self, workflow_id: str, workflow_version_id: str, transformation_id: str,
+                                       admin_only_action: bool = False):
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/transformations/{transformation_id}'),
+                headers=headers
             )
 
     def create_workflow_transformation(self, workflow_id: str, workflow_version_id: str,
-                                       workflow_transformation_create_request: WorkflowTransformationCreate) -> WorkflowTransformation:
+                                       workflow_transformation_create_request: WorkflowTransformationCreate,
+                                       admin_only_action: bool = False) -> WorkflowTransformation:
+        headers = {}
+        if admin_only_action:
+            headers['X-Admin-Only-Action'] = 'true'
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/transformations'),
-                json=workflow_transformation_create_request.model_dump()
+                json=workflow_transformation_create_request.model_dump(),
+                headers=headers
             )
         return WorkflowTransformation(**response.json())
 
