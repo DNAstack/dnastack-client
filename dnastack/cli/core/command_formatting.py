@@ -35,6 +35,8 @@ class FormattedHelpCommand(Command):
             if isinstance(param, Argument):
                 positional_args.append(param)
             elif isinstance(param, Option):
+                if getattr(param, 'hidden', False):
+                    continue
                 if param.required:
                     required_options.append(param)
                 else:

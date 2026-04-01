@@ -4,7 +4,7 @@ from typing import Optional, List
 import click
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, GLOBAL_ARG
 from dnastack.cli.commands.workbench.workflows.utils import (
     get_workflow_client,
     resolve_workflow_dependency,
@@ -81,13 +81,6 @@ DEPENDENCY_ARG = ArgumentSpec(
     help='Workflow dependency in format "workflow-id/version-id" or "workflow-id" (can be specified multiple times)',
     multiple=True,
     required=True
-)
-
-GLOBAL_ARG = ArgumentSpec(
-    name='global_action',
-    arg_names=['--global'],
-    help='Create a global dependency (admin only)',
-    type=bool
 )
 
 FORCE_ARG = ArgumentSpec(

@@ -27,6 +27,7 @@ class ArgumentSpec(BaseModel):
         multiple: Whether the argument can accept multiple values
         choices: List of valid choices for the argument
         ignored: Whether to ignore this argument in command processing
+        hidden: Whether to hide this option from --help output (option still works when invoked)
     """
     name: str
     arg_names: Optional[List[str]] = Field(default_factory=list)
@@ -34,6 +35,7 @@ class ArgumentSpec(BaseModel):
     help: Optional[str] = None
     choices: Optional[List] = Field(default_factory=list)
     ignored: bool = False
+    hidden: bool = False
     multiple: bool = False
     nargs: Optional[Union[int, str]] = None
     type: Optional[Type] = None  # WARNING: This will override the parameter reflection.

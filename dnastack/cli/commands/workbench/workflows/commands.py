@@ -5,7 +5,7 @@ import click
 from click import style, Group
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, create_sort_arg
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, GLOBAL_ARG, create_sort_arg
 from dnastack.cli.commands.workbench.workflows.utils import get_workflow_client, _get_replace_patch, \
     _get_description_patch, _get_author_patch, _get_labels_patch
 from dnastack.cli.core.command import formatted_command
@@ -197,6 +197,7 @@ def init_workflows_commands(group: Group):
                 multiple=True,
             ),
             NAMESPACE_ARG,
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -210,7 +211,8 @@ def init_workflows_commands(group: Group):
                         organization: Optional[str],
                         entrypoint: str,
                         workflow_file: List[FileOrValue],
-                        labels: List[str]):
+                        labels: List[str],
+                        global_action: bool = False):
         """
         Create a new workflow
 
@@ -259,7 +261,7 @@ def init_workflows_commands(group: Group):
             labels=label_list
         )
 
-        result = workflows_client.create_workflow(workflow_create_request=create_request)
+        result = workflows_client.create_workflow(workflow_create_request=create_request, admin_only_action=global_action)
         click.echo(to_json(normalize(result)))
 
 
@@ -280,6 +282,7 @@ def init_workflows_commands(group: Group):
                 type=bool,
             ),
             NAMESPACE_ARG,
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -288,7 +291,8 @@ def init_workflows_commands(group: Group):
                         endpoint_id: Optional[str],
                         namespace: Optional[str],
                         workflow_id: str,
-                        force: Optional[bool] = False):
+                        force: Optional[bool] = False,
+                        global_action: bool = False):
         """
         Delete an existing workflow
 
@@ -300,7 +304,7 @@ def init_workflows_commands(group: Group):
                 f'Do you want to delete "{workflow.name}"?'):
             return
 
-        workflows_client.delete_workflow(workflow.internalId, workflow.etag)
+        workflows_client.delete_workflow(workflow.internalId, workflow.etag, admin_only_action=global_action)
         click.echo("Deleted...")
 
 
@@ -339,6 +343,7 @@ def init_workflows_commands(group: Group):
                 help='Label to apply to the workflow. This flag can be repeated to specify multiple labels (e.g., --label tag1 --label tag2)',
                 multiple=True,
             ),
+            GLOBAL_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -350,7 +355,8 @@ def init_workflows_commands(group: Group):
                         name: Optional[str],
                         description: FileOrValue,
                         authors: Optional[str],
-                        labels: List[str]):
+                        labels: List[str],
+                        global_action: bool = False):
         """
         Update an existing workflow
 
@@ -368,7 +374,7 @@ def init_workflows_commands(group: Group):
         patch_list = [patch for patch in patch_list if patch]
 
         if patch_list:
-            workflow = workflows_client.update_workflow(workflow_id, workflow.etag, patch_list)
+            workflow = workflows_client.update_workflow(workflow_id, workflow.etag, patch_list, admin_only_action=global_action)
             click.echo(to_json(normalize(workflow)))
         else:
             raise ValueError("Must specify at least one attribute to update")

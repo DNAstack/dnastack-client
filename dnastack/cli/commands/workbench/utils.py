@@ -21,6 +21,14 @@ NAMESPACE_ARG = ArgumentSpec(
          'extracted from the users credentials.',
 )
 
+GLOBAL_ARG = ArgumentSpec(
+    name='global_action',
+    arg_names=['--global'],
+    help='Perform this action as a global admin operation',
+    type=bool,
+    hidden=True,
+)
+
 def create_sort_arg(example: str) -> ArgumentSpec:
     return ArgumentSpec(
         name='sort',
