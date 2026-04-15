@@ -3,13 +3,13 @@ from typing import Optional
 
 import click
 
-import dnastack.cli.commands.workbench.utils as workbench_utils
 from dnastack.alpha.cli.commands import alpha_command_group
 from dnastack.cli.commands.auth import auth_command_group
 from dnastack.cli.commands.collections import collections_command_group
 from dnastack.cli.commands.config import config_command_group
 from dnastack.cli.commands.config.contexts import contexts_command_group, ContextCommandHandler
 from dnastack.cli.commands.dataconnect import data_connect_command_group
+from dnastack.cli.commands.explorer.commands import explorer_command_group
 from dnastack.cli.commands.drs import drs_command_group
 from dnastack.cli.commands.publisher import publisher_command_group
 from dnastack.cli.commands.workbench import workbench_command_group
@@ -21,8 +21,6 @@ from dnastack.common.logger import get_logger
 from dnastack.constants import __version__, PYPI_PACKAGE_NAME
 from dnastack.update_checker import check_for_update, notify_if_update_available, suppress_passive_notification
 
-# Set the global command info
-workbench_utils.DEFAULT_WORKBENCH_DESTINATION = "workbench.omics.ai"
 APP_NAME = sys.argv[0]
 
 __library_version = __version__
@@ -85,12 +83,30 @@ def version():
             type=bool,
             required=False,
             hidden=True,
+        ),
+        ArgumentSpec(
+            name='platform_credentials',
+            arg_names=['--platform-credentials'],
+            help='Use platform-specific credentials (IMDS) for authentication',
+            type=bool,
+            required=False,
+            hidden=True,
+        ),
+        ArgumentSpec(
+            name='subject_token',
+            arg_names=['--subject-token'],
+            help='Subject token for token exchange authentication',
+            type=str,
+            required=False,
+            hidden=True,
         )
     ]
 )
 def use(registry_hostname_or_url: str,
         context_name: Optional[str] = None,
-        no_auth: bool = False):
+        no_auth: bool = False,
+        platform_credentials: bool = False,
+        subject_token: Optional[str] = None):
     """
     Import a configuration from host's service registry (if available) or the corresponding public configuration from
     cloud storage. If "--no-auth" is not defined, it will automatically initiate all authentication.
@@ -99,7 +115,7 @@ def use(registry_hostname_or_url: str,
 
     This is a shortcut to omics config contexts use".
     """
-    _context_command_handler.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth)
+    _context_command_handler.use(registry_hostname_or_url, context_name=context_name, no_auth=no_auth, platform_credentials=platform_credentials, subject_token=subject_token)
 
 
 # noinspection PyTypeChecker
@@ -108,6 +124,8 @@ omics.add_command(data_connect_command_group)
 omics.add_command(config_command_group)
 # noinspection PyTypeChecker
 omics.add_command(drs_command_group)
+# noinspection PyTypeChecker
+omics.add_command(explorer_command_group)
 # noinspection PyTypeChecker
 omics.add_command(auth_command_group)
 # noinspection PyTypeChecker

@@ -7,7 +7,7 @@ from unittest import TestCase
 import yaml
 from click.testing import CliRunner
 
-from dnastack import __main__ as dnastack_cli
+from dnastack.omics_cli import omics as cli_app
 
 
 # ASSERTS
@@ -38,7 +38,7 @@ def get_cli_config(
     runner: CliRunner, key: str, delimiter: str = ".", datatype: type = str
 ):
     result = runner.invoke(
-        dnastack_cli.dnastack,
+        cli_app,
         ["config", "get", key, "--delimiter", delimiter],
     )
 
@@ -49,7 +49,7 @@ def get_cli_config(
 
 def set_cli_config(runner: CliRunner, key: str, val: Any, delimiter: str = "."):
     result = runner.invoke(
-        dnastack_cli.dnastack, ["config", "set", key, val, "--delimiter", delimiter]
+        cli_app, ["config", "set", key, val, "--delimiter", delimiter]
     )
 
     if result.exit_code != 0:
@@ -85,4 +85,4 @@ def login_with_refresh_token_for_service(
     set_cli_config(
         runner, f"{config_service}.auth.refresh_token", refresh_token, delimiter="|"
     )
-    runner.invoke(dnastack_cli.dnastack, ["auth", "login", service])
+    runner.invoke(cli_app, ["auth", "login", service])

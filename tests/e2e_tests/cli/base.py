@@ -9,7 +9,7 @@ import yaml
 from click.testing import CliRunner, Result
 from imagination import container
 
-from dnastack.__main__ import dnastack as cli_app
+from dnastack.omics_cli import omics as cli_app
 from dnastack.common.logger import get_logger
 from dnastack.configuration.models import Configuration
 from dnastack.context.manager import ContextManager, BaseContextManager
