@@ -34,3 +34,6 @@ cli_show_list_item_index = flag('DNASTACK_SHOW_LIST_ITEM_INDEX',
 detailed_error = flag('DNASTACK_DETAILED_ERROR', description='Provide more details on error')
 show_distributed_trace_stack_on_error = flag('DNASTACK_DISPLAY_TRACE_ON_ERROR',
                                              description='Display distributed trace on error')
+
+metrics_enabled = flag('DNASTACK_METRICS_ENABLED',
+                       description='Enable telemetry submission after publisher question execution')
