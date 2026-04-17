@@ -1,5 +1,6 @@
 import platform
 import secrets
+from typing import Literal
 
 from dnastack.common.logger import get_logger
 
@@ -17,7 +18,7 @@ def build_otlp_span(
     collection: str,
     start_time_ns: int,
     end_time_ns: int,
-    outcome: str,
+    outcome: Literal['success', 'error'],
 ) -> dict:
     """Build an OTLP-compliant JSON trace payload for a single question execution span."""
     trace_id = secrets.token_hex(16)
@@ -59,7 +60,7 @@ def submit_telemetry(
     collection: str,
     start_time_ns: int,
     end_time_ns: int,
-    outcome: str,
+    outcome: Literal['success', 'error'],
 ) -> None:
     """Submit OTLP telemetry to collection-service. Errors are silently swallowed."""
     try:
