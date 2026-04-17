@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 import click
@@ -8,6 +9,7 @@ from dnastack.cli.commands.publisher.questions.utils import (
     validate_question_parameters,
 )
 from dnastack.cli.commands.explorer.questions.utils import handle_question_results_output
+from dnastack.cli.commands.publisher.questions.telemetry import submit_telemetry
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import (
     ArgumentSpec,
@@ -21,6 +23,7 @@ from dnastack.common.json_argument_parser import JsonLike, parse_and_merge_argum
 from dnastack.cli.helpers.iterator_printer import show_iterator
 from dnastack.common.logger import get_logger
 from dnastack.common.tracing import Span
+from dnastack.feature_flags import metrics_enabled
 
 logger = get_logger(__name__)
 
@@ -154,6 +157,14 @@ def init_questions_commands(group: Group):
             click.echo(f"Error: {e}", err=True)
             raise click.Abort()
 
-        results_iter = client.ask_question(collection, question_name, inputs, trace=trace)
-        results = list(results_iter)
+        start_time_ns = time.time_ns()
+        outcome = 'error'
+        try:
+            results_iter = client.ask_question(collection, question_name, inputs, trace=trace)
+            results = list(results_iter)
+            outcome = 'success'
+        finally:
+            if metrics_enabled:
+                submit_telemetry(client, question_name, collection, start_time_ns, time.time_ns(), outcome)
+
         handle_question_results_output(results, output_file, output)
