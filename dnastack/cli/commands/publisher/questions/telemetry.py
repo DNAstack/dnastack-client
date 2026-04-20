@@ -2,6 +2,7 @@ import platform
 import secrets
 from typing import Literal
 
+from dnastack.common.environments import env
 from dnastack.common.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +22,7 @@ def build_otlp_span(
     outcome: Literal['success', 'error'],
 ) -> dict:
     """Build an OTLP-compliant JSON trace payload for a single question execution span."""
-    trace_id = secrets.token_hex(16)
+    trace_id = env('DNASTACK_TRACE_ID', description='Override trace ID for grouping spans across a pipeline run') or secrets.token_hex(16)
     span_id = secrets.token_hex(8)
     status_code = 1 if outcome == 'success' else 2  # OTLP: OK=1, ERROR=2
 

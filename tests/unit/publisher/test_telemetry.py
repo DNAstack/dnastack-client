@@ -51,6 +51,18 @@ class TestBuildOtlpSpan:
         int(s['traceId'], 16)  # must be valid hex
         int(s['spanId'], 16)
 
+    def test_trace_id_overridden_by_env_var(self, monkeypatch):
+        fixed_trace_id = 'aabbccdd' * 4
+        monkeypatch.setenv('DNASTACK_TRACE_ID', fixed_trace_id)
+        s = _first_span(build_otlp_span('q', 'c', 0, 1, 'success'))
+        assert s['traceId'] == fixed_trace_id
+
+    def test_trace_id_generated_randomly_when_env_var_not_set(self, monkeypatch):
+        monkeypatch.delenv('DNASTACK_TRACE_ID', raising=False)
+        s1 = _first_span(build_otlp_span('q', 'c', 0, 1, 'success'))
+        s2 = _first_span(build_otlp_span('q', 'c', 0, 1, 'success'))
+        assert s1['traceId'] != s2['traceId']
+
 
 class TestSubmitTelemetry:
 
