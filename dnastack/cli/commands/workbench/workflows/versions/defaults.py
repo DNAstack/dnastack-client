@@ -114,6 +114,21 @@ def create_workflow_defaults(context: Optional[str],
             help='The id of the workflow version',
             required=True,
         ),
+        ArgumentSpec(
+            name='engine',
+            arg_names=['--engine'],
+            help='Filter by engine selector value. Case-insensitive.',
+        ),
+        ArgumentSpec(
+            name='provider',
+            arg_names=['--provider'],
+            help='Filter by provider selector value (e.g. GCP, AWS). Case-insensitive.',
+        ),
+        ArgumentSpec(
+            name='region',
+            arg_names=['--region'],
+            help='Filter by region selector value (e.g. us-central1). Case-insensitive.',
+        ),
         NAMESPACE_ARG,
         MAX_RESULTS_ARG,
         PAGINATION_PAGE_ARG,
@@ -131,19 +146,91 @@ def list_workflow_defaults(context: Optional[str],
                            page_size: Optional[int],
                            sort: Optional[str],
                            workflow_id: str,
-                           version_id: str):
+                           version_id: str,
+                           engine: Optional[str] = None,
+                           provider: Optional[str] = None,
+                           region: Optional[str] = None):
     """
     List the defaults available for a workflow
     """
     client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
     show_iterator(output_format=OutputFormat.JSON,
-                  iterator=
-                  client.list_workflow_defaults(workflow_id=workflow_id, version_id=version_id,
-                                                      max_results=max_results,
-                                                      list_options=WorkflowDefaultsListOptions(page=page,
-                                                                                               page_size=page_size,
-                                                                                               sort=sort)))
+                  iterator=client.list_workflow_defaults(
+                      workflow_id=workflow_id,
+                      version_id=version_id,
+                      max_results=max_results,
+                      list_options=WorkflowDefaultsListOptions(
+                          page=page,
+                          page_size=page_size,
+                          sort=sort,
+                          engine=engine,
+                          provider=provider,
+                          region=region,
+                      )))
+
+
+@formatted_command(
+    group=workflows_versions_defaults_command_group,
+    name='search',
+    specs=[
+        ArgumentSpec(
+            name='workflow_id',
+            arg_names=['--workflow'],
+            help='The id of the workflow',
+            required=True,
+        ),
+        ArgumentSpec(
+            name='version_id',
+            arg_names=['--version'],
+            help='The id of the workflow version',
+            required=True,
+        ),
+        ArgumentSpec(
+            name='engine',
+            arg_names=['--engine'],
+            help='Engine selector value to match exactly.',
+        ),
+        ArgumentSpec(
+            name='provider',
+            arg_names=['--provider'],
+            help='Provider selector value to match exactly (e.g. GCP, AWS).',
+        ),
+        ArgumentSpec(
+            name='region',
+            arg_names=['--region'],
+            help='Region selector value to match exactly (e.g. us-central1).',
+        ),
+        NAMESPACE_ARG,
+        CONTEXT_ARG,
+        SINGLE_ENDPOINT_ID_ARG,
+    ]
+)
+def search_workflow_defaults(context: Optional[str],
+                              endpoint_id: Optional[str],
+                              namespace: Optional[str],
+                              workflow_id: str,
+                              version_id: str,
+                              engine: Optional[str] = None,
+                              provider: Optional[str] = None,
+                              region: Optional[str] = None):
+    """
+    Search for a workflow default by exact selector match.
+    Returns the default whose selector exactly matches the provided engine, provider, and region values.
+    Omitted flags match null selector fields.
+    """
+    client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
+    result = client.search_workflow_defaults(
+        workflow_id=workflow_id,
+        version_id=version_id,
+        engine=engine,
+        provider=provider,
+        region=region,
+    )
+    if result is None:
+        click.echo('No default found for the specified selector.', err=True)
+        raise SystemExit(1)
+    click.echo(to_json(normalize(result)))
 
 
 @formatted_command(

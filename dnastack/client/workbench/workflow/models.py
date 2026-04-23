@@ -164,6 +164,9 @@ class WorkflowDefaultsListResponse(PaginatedResource):
 
 class WorkflowDefaultsListOptions(BaseListOptions):
     sort: Optional[str] = None
+    engine: Optional[str] = None
+    provider: Optional[str] = None
+    region: Optional[str] = None
 
 
 class WorkflowTransformationCreate(BaseModel):
