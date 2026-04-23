@@ -57,6 +57,14 @@ def init_workflows_commands(group: Group):
                 help='Include deleted workflows in the list',
                 type=bool,
             ),
+            ArgumentSpec(
+                name='label',
+                arg_names=['--label'],
+                help='Filter by label. This flag can be repeated to filter by multiple labels (e.g., --label tag1 --label tag2). '
+                     'A workflow is included if the label appears on the workflow itself, any of its versions, or any of its transformations. '
+                     'Use "omics workbench workflows versions list --label <label>" to identify which version or transformation matched.',
+                multiple=True,
+            ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -71,6 +79,7 @@ def init_workflows_commands(group: Group):
                        order: Optional[str],
                        search: Optional[str],
                        source: Optional[WorkflowSource],
+                       label: List[str] = (),
                        include_deleted: Optional[bool] = False):
         """
         List workflows
@@ -97,7 +106,8 @@ def init_workflows_commands(group: Group):
             direction=order_direction,
             source=source,
             search=search,
-            deleted=include_deleted
+            deleted=include_deleted,
+            label=list(label) if label else None,
         )
         show_iterator(output_format=OutputFormat.JSON,
                       iterator=workflows_client.list_workflows(list_options=list_options, max_results=max_results))
