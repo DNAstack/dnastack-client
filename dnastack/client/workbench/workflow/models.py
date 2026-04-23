@@ -28,7 +28,6 @@ class WorkflowVersion(BaseModel):
     description: Optional[str] = None
     deleted: Optional[bool] = None
     etag: Optional[str] = None
-    labels: Optional[List[str]] = None
 
 
 class Workflow(BaseModel):
@@ -91,7 +90,6 @@ class WorkflowListOptions(BaseListOptions):
     sort: Optional[str] = None
     order: Optional[str] = Field(default=None, deprecated=True)
     direction: Optional[str] = None
-    label: Optional[List[str]] = None
 
 
 class WorkflowListResponse(PaginatedResource):
@@ -103,7 +101,6 @@ class WorkflowListResponse(PaginatedResource):
 
 class WorkflowVersionListOptions(BaseListOptions):
     deleted: Optional[bool] = None
-    label: Optional[List[str]] = None
 
 
 class WorkflowVersionListResponse(PaginatedResource):

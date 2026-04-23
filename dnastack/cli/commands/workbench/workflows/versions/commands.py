@@ -38,13 +38,6 @@ def init_workflows_versions_commands(group: Group):
                 help='An optional flag to include deleted workflows in the list',
                 type=bool,
             ),
-            ArgumentSpec(
-                name='label',
-                arg_names=['--label'],
-                help='Filter by label. This flag can be repeated to filter by multiple labels (e.g., --label tag1 --label tag2). '
-                     'A version is included if the label appears on the version itself or any of its transformations.',
-                multiple=True,
-            ),
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
         ]
@@ -54,7 +47,6 @@ def init_workflows_versions_commands(group: Group):
                       namespace: Optional[str],
                       workflow: str,
                       max_results: Optional[int],
-                      label: List[str] = (),
                       include_deleted: Optional[bool] = False):
         """
         List the available versions for the given workflow
@@ -63,8 +55,7 @@ def init_workflows_versions_commands(group: Group):
         """
         workflows_client = get_workflow_client(context, endpoint_id, namespace)
         list_options = WorkflowVersionListOptions(
-            deleted=include_deleted,
-            label=list(label) if label else None,
+            deleted=include_deleted
         )
         show_iterator(output_format=OutputFormat.JSON,
                       iterator=workflows_client.list_workflow_versions(workflow_id=workflow,
