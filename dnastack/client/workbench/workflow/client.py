@@ -15,7 +15,7 @@ from dnastack.client.workbench.workflow.models import WorkflowDescriptor, Workfl
     WorkflowDefaultsCreateRequest, WorkflowDependency, WorkflowDependencyListResponse, WorkflowDependencyListOptions, \
     WorkflowDependencyCreateRequest, WorkflowDependencyUpdateRequest
 from dnastack.common.tracing import Span
-from dnastack.http.session import JsonPatch, HttpSession
+from dnastack.http.session import JsonPatch, HttpSession, ClientError
 
 
 class WorkflowDefaultsListResultLoader(WorkbenchResultLoader):
@@ -335,6 +335,24 @@ class WorkflowClient(BaseWorkbenchClient):
             list_options=list_options,
             trace=None,
             max_results=max_results))
+
+    def search_workflow_defaults(self, workflow_id: str, version_id: str,
+                                engine: Optional[str] = None,
+                                provider: Optional[str] = None,
+                                region: Optional[str] = None) -> Optional[WorkflowDefaults]:
+        params = {k: v for k, v in {'engine': engine, 'provider': provider, 'region': region}.items() if v is not None}
+        with self.create_http_session() as session:
+            try:
+                response = session.get(
+                    urljoin(self.endpoint.url,
+                            f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}/defaults/search'),
+                    params=params
+                )
+                return WorkflowDefaults(**response.json())
+            except ClientError as e:
+                if e.response.status_code == 404:
+                    return None
+                raise
 
     def get_workflow_defaults(self, workflow_id: str, version_id: str, default_id: str) -> WorkflowDefaults:
         with self.create_http_session() as session:
