@@ -400,6 +400,15 @@ class CollectionServiceClient(BaseServiceClient):
             )
         )
 
+    def submit_telemetry(self, otlp_payload: dict, trace: Optional[Span] = None) -> None:
+        """Submit an OTLP trace payload. Best-effort — callers should handle failures gracefully."""
+        with self.create_http_session() as session:
+            session.post(
+                urljoin(self.url, 'otlp/v1/traces'),
+                json=otlp_payload,
+                trace_context=trace
+            )
+
     def data_connect_endpoint(self,
                               collection: Union[str, Collection, None] = None,
                               no_auth: bool = False) -> ServiceEndpoint:
