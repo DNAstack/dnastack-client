@@ -33,10 +33,17 @@ class TestBuildOtlpSpan:
 
     def test_attributes_include_question_name_and_collection(self):
         s = _first_span(build_otlp_span('my-q', 'my-col', 0, 1, 'success'))
-        attrs = {a['key']: a['value']['stringValue'] for a in s['attributes']}
+        attrs = {a['key']: a['value']['stringValue'] for a in s['attributes'] if 'stringValue' in a['value']}
         assert attrs['question.name'] == 'my-q'
         assert attrs['question.collection'] == 'my-col'
         assert attrs['question.outcome'] == 'success'
+
+    def test_duration_ms_is_calculated_from_start_and_end(self):
+        start_ns = 1_000_000_000
+        end_ns = 2_500_000_000  # 1500 ms later
+        s = _first_span(build_otlp_span('q', 'c', start_ns, end_ns, 'success'))
+        double_attrs = {a['key']: a['value']['doubleValue'] for a in s['attributes'] if 'doubleValue' in a['value']}
+        assert double_attrs['question.duration_ms'] == 1500.0
 
     def test_resource_attributes_include_service_name(self):
         span = build_otlp_span('q', 'c', 0, 1, 'success')
