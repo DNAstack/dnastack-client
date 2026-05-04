@@ -159,12 +159,14 @@ def init_questions_commands(group: Group):
 
         start_time_ns = time.time_ns()
         outcome = 'error'
+        row_count = None
         try:
             results_iter = client.ask_question(collection, question_name, inputs, trace=trace)
             results = list(results_iter)
             outcome = 'success'
+            row_count = len(results)
         finally:
             if metrics_enabled:
-                submit_telemetry(client, question_name, collection, start_time_ns, time.time_ns(), outcome)
+                submit_telemetry(client, question_name, collection, start_time_ns, time.time_ns(), outcome, row_count=row_count)
 
         handle_question_results_output(results, output_file, output)

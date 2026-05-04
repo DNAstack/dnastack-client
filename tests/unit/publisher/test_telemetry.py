@@ -45,6 +45,16 @@ class TestBuildOtlpSpan:
         double_attrs = {a['key']: a['value']['doubleValue'] for a in s['attributes'] if 'doubleValue' in a['value']}
         assert double_attrs['question.duration_ms'] == 1500.0
 
+    def test_row_count_included_when_provided(self):
+        s = _first_span(build_otlp_span('q', 'c', 0, 1, 'success', row_count=42))
+        int_attrs = {a['key']: a['value']['intValue'] for a in s['attributes'] if 'intValue' in a['value']}
+        assert int_attrs['question.row_count'] == 42
+
+    def test_row_count_omitted_when_not_provided(self):
+        s = _first_span(build_otlp_span('q', 'c', 0, 1, 'error'))
+        keys = [a['key'] for a in s['attributes']]
+        assert 'question.row_count' not in keys
+
     def test_resource_attributes_include_service_name(self):
         span = build_otlp_span('q', 'c', 0, 1, 'success')
         resource_attrs = {a['key']: a['value']['stringValue']

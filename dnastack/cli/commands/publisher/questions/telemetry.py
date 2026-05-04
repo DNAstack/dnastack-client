@@ -20,6 +20,7 @@ def build_otlp_span(
     start_time_ns: int,
     end_time_ns: int,
     outcome: Literal['success', 'error'],
+    row_count: int | None = None,
 ) -> dict:
     """Build an OTLP-compliant JSON trace payload for a single question execution span."""
     trace_id = env('DNASTACK_TRACE_ID', description='Override trace ID for grouping spans across a pipeline run') or secrets.token_hex(16)
@@ -48,6 +49,7 @@ def build_otlp_span(
                         {"key": "question.collection", "value": {"stringValue": collection}},
                         {"key": "question.outcome", "value": {"stringValue": outcome}},
                         {"key": "question.duration_ms", "value": {"doubleValue": (end_time_ns - start_time_ns) / 1_000_000}},
+                        *([{"key": "question.row_count", "value": {"intValue": row_count}}] if row_count is not None else []),
                         {"key": "runtime.python", "value": {"stringValue": platform.python_version()}},
                     ],
                 }]
@@ -63,10 +65,11 @@ def submit_telemetry(
     start_time_ns: int,
     end_time_ns: int,
     outcome: Literal['success', 'error'],
+    row_count: int | None = None,
 ) -> None:
     """Submit OTLP telemetry to collection-service. Errors are silently swallowed."""
     try:
-        payload = build_otlp_span(question_name, collection, start_time_ns, end_time_ns, outcome)
+        payload = build_otlp_span(question_name, collection, start_time_ns, end_time_ns, outcome, row_count)
         client.submit_telemetry(payload)
     except Exception as e:
         logger.debug(f"Telemetry submission failed (non-fatal): {e}")
