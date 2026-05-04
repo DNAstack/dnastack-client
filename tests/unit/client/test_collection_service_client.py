@@ -13,18 +13,18 @@ def _make_client(url='http://localhost:8093/'):
 
 class TestSubmitTelemetry:
 
-    def test_posts_to_otlp_traces_endpoint(self):
+    def test_posts_to_otlp_logs_endpoint(self):
         client = _make_client()
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
 
         with patch.object(client, 'create_http_session', return_value=mock_session):
-            client.submit_telemetry({'resourceSpans': []})
+            client.submit_telemetry({'resourceLogs': []})
 
         mock_session.post.assert_called_once_with(
-            'http://localhost:8093/otlp/v1/traces',
-            json={'resourceSpans': []},
+            'http://localhost:8093/otlp/v1/logs',
+            json={'resourceLogs': []},
             trace_context=None
         )
 
@@ -36,10 +36,10 @@ class TestSubmitTelemetry:
         mock_trace = MagicMock()
 
         with patch.object(client, 'create_http_session', return_value=mock_session):
-            client.submit_telemetry({'resourceSpans': []}, trace=mock_trace)
+            client.submit_telemetry({'resourceLogs': []}, trace=mock_trace)
 
         mock_session.post.assert_called_once_with(
-            'http://localhost:8093/otlp/v1/traces',
-            json={'resourceSpans': []},
+            'http://localhost:8093/otlp/v1/logs',
+            json={'resourceLogs': []},
             trace_context=mock_trace
         )

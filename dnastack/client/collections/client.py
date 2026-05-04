@@ -401,10 +401,10 @@ class CollectionServiceClient(BaseServiceClient):
         )
 
     def submit_telemetry(self, otlp_payload: dict, trace: Optional[Span] = None) -> None:
-        """Submit an OTLP trace payload. Best-effort — callers should handle failures gracefully."""
+        """Submit an OTLP logs payload. Best-effort — callers should handle failures gracefully."""
         with self.create_http_session() as session:
             session.post(
-                urljoin(self.url, 'otlp/v1/traces'),
+                urljoin(self.url, 'otlp/v1/logs'),
                 json=otlp_payload,
                 trace_context=trace
             )
