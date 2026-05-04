@@ -49,7 +49,7 @@ def build_otlp_span(
                         {"key": "question.collection", "value": {"stringValue": collection}},
                         {"key": "question.outcome", "value": {"stringValue": outcome}},
                         {"key": "question.duration_ms", "value": {"doubleValue": (end_time_ns - start_time_ns) / 1_000_000}},
-                        *([{"key": "question.row_count", "value": {"intValue": row_count}}] if row_count is not None else []),
+                        *([{"key": "question.row_count", "value": {"doubleValue": float(row_count)}}] if row_count is not None else []),
                         {"key": "runtime.python", "value": {"stringValue": platform.python_version()}},
                     ],
                 }]

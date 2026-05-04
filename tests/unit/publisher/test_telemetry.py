@@ -47,8 +47,8 @@ class TestBuildOtlpSpan:
 
     def test_row_count_included_when_provided(self):
         s = _first_span(build_otlp_span('q', 'c', 0, 1, 'success', row_count=42))
-        int_attrs = {a['key']: a['value']['intValue'] for a in s['attributes'] if 'intValue' in a['value']}
-        assert int_attrs['question.row_count'] == 42
+        double_attrs = {a['key']: a['value']['doubleValue'] for a in s['attributes'] if 'doubleValue' in a['value']}
+        assert double_attrs['question.row_count'] == 42.0
 
     def test_row_count_omitted_when_not_provided(self):
         s = _first_span(build_otlp_span('q', 'c', 0, 1, 'error'))
