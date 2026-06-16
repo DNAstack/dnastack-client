@@ -17,7 +17,7 @@ def init_data_connect_commands(group: Group):
             ArgumentSpec(
                 name='query',
                 arg_type=ArgumentType.POSITIONAL,
-                help='The query.',
+                help='The SQL query, or @path/to/query.sql to read from a file.',
                 required=True,
             ),
             ArgumentSpec(
@@ -47,4 +47,5 @@ def init_data_connect_commands(group: Group):
                             decimal_as=decimal_as,
                             no_auth=no_auth,
                             output_format=output,
+                            allow_using_query_from_file=True,
                             trace=trace)
