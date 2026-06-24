@@ -33,7 +33,7 @@ dependencies = [
     "requests-toolbelt>=0.9.1,<1",
     "httpie>=3.2.1",
     "beautifulsoup4>=4.10.0",
-    "flask~=2.1",
+    "flask>=2.1,<4.0",
     "google-cloud-secret-manager",
     "google-crc32c",
     "pandas",
