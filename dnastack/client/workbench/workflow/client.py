@@ -17,6 +17,8 @@ from dnastack.client.workbench.workflow.models import WorkflowDescriptor, Workfl
 from dnastack.common.tracing import Span
 from dnastack.http.session import JsonPatch, HttpSession, ClientError
 
+_GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true', 'X-Admin-Only-Action': 'true'}
+
 
 class WorkflowDefaultsListResultLoader(WorkbenchResultLoader):
     def __init__(self,
@@ -216,7 +218,7 @@ class WorkflowClient(BaseWorkbenchClient):
                         admin_only_action: bool = False) -> Workflow:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             data = {
                 'name': (None, workflow_create_request.name),
@@ -239,7 +241,7 @@ class WorkflowClient(BaseWorkbenchClient):
                        admin_only_action: bool = False) -> WorkflowVersion:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             data = {
                 'version_name': (None, workflow_version_create_request.version_name),
@@ -256,7 +258,7 @@ class WorkflowClient(BaseWorkbenchClient):
     def delete_workflow(self, workflow_id: str, etag: str, admin_only_action: bool = False):
         headers = {'If-Match': etag}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}'),
@@ -267,7 +269,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                admin_only_action: bool = False):
         headers = {'If-Match': etag}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{version_id}'),
@@ -278,7 +280,7 @@ class WorkflowClient(BaseWorkbenchClient):
                         admin_only_action: bool = False) -> Workflow:
         headers = {'If-Match': etag}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             updates = [update.model_dump() for update in updates]
             response = session.json_patch(
@@ -293,7 +295,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                 admin_only_action: bool = False) -> WorkflowVersion:
         headers = {'If-Match': etag}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             updates = [update.model_dump() for update in updates]
             response = session.json_patch(
@@ -367,7 +369,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                  admin_only_action: bool = False) -> WorkflowDefaults:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url,
@@ -381,7 +383,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                  admin_only_action: bool = False):
         headers = {"If-Match": if_match}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url,
@@ -394,7 +396,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                  admin_only_action: bool = False):
         headers = {"If-Match": if_match}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             response = session.submit("PUT",
                 urljoin(self.endpoint.url,
@@ -427,7 +429,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                        admin_only_action: bool = False):
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             session.delete(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/transformations/{transformation_id}'),
@@ -439,7 +441,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                        admin_only_action: bool = False) -> WorkflowTransformation:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         with self.create_http_session() as session:
             response = session.post(
                 urljoin(self.endpoint.url, f'{self.namespace}/workflows/{workflow_id}/versions/{workflow_version_id}/transformations'),
@@ -472,7 +474,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                    admin_only_action: bool = False) -> WorkflowDependency:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         
         with self.create_http_session() as session:
             response = session.post(
@@ -487,7 +489,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                    admin_only_action: bool = False) -> WorkflowDependency:
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         
         with self.create_http_session() as session:
             response = session.submit("PUT",
@@ -501,7 +503,7 @@ class WorkflowClient(BaseWorkbenchClient):
                                    admin_only_action: bool = False):
         headers = {}
         if admin_only_action:
-            headers['X-Admin-Only-Action'] = 'true'
+            headers.update(_GLOBAL_NAMESPACE_HEADERS)
         
         with self.create_http_session() as session:
             session.delete(

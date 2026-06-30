@@ -1,4 +1,4 @@
-"""Tests that WorkflowClient methods inject X-Admin-Only-Action header when admin_only_action=True."""
+"""Tests that WorkflowClient methods inject X-Global-Namespace header when admin_only_action=True."""
 from unittest.mock import MagicMock, patch
 
 from dnastack.client.models import ServiceEndpoint
@@ -61,15 +61,16 @@ def _mock_session(response_json=None):
 
 
 class TestAdminOnlyActionHeader:
-    """Verify that admin_only_action=True adds the X-Admin-Only-Action header."""
+    """Verify that admin_only_action=True adds the X-Global-Namespace header."""
 
     def _assert_header_present(self, call_kwargs):
         headers = call_kwargs.get('headers', {})
-        assert 'X-Admin-Only-Action' in headers, f"Expected X-Admin-Only-Action header, got: {headers}"
-        assert headers['X-Admin-Only-Action'] == 'true'
+        assert headers.get('X-Global-Namespace') == 'true', f"Expected X-Global-Namespace=true, got: {headers}"
+        assert headers.get('X-Admin-Only-Action') == 'true', f"Expected X-Admin-Only-Action=true, got: {headers}"
 
     def _assert_header_absent(self, call_kwargs):
         headers = call_kwargs.get('headers', {})
+        assert 'X-Global-Namespace' not in headers, f"Unexpected X-Global-Namespace header in: {headers}"
         assert 'X-Admin-Only-Action' not in headers, f"Unexpected X-Admin-Only-Action header in: {headers}"
 
     def test_create_workflow_sends_admin_header(self):
