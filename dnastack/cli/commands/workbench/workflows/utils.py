@@ -11,7 +11,7 @@ from imagination import container
 from dnastack.cli.commands.workbench.utils import _populate_workbench_endpoint
 from dnastack.cli.commands.workbench.utils import get_user_client
 from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
-from dnastack.client.workbench.workflow.client import WorkflowClient
+from dnastack.client.workbench.workflow.client import WorkflowClient, GLOBAL_NAMESPACE
 from dnastack.client.workbench.workflow.models import WorkflowFile, WorkflowFileType
 from dnastack.common.json_argument_parser import FileOrValue
 from dnastack.http.session import JsonPatch
@@ -46,10 +46,18 @@ class IncorrectFlagError(Exception):
 
 def get_workflow_client(context_name: Optional[str] = None,
                         endpoint_id: Optional[str] = None,
-                        namespace: Optional[str] = None) -> WorkflowClient:
+                        namespace: Optional[str] = None,
+                        global_action: bool = False) -> WorkflowClient:
     if not namespace:
-        user_client = get_user_client(context_name=context_name, endpoint_id=endpoint_id)
-        namespace = user_client.get_user_config().default_namespace
+        if global_action:
+            # Platform admins have no namespace. The workflow-service ignores the path
+            # namespace for global (admin) operations and routes via the X-Global-Namespace
+            # header, so a non-empty placeholder is enough to keep the URL well-formed
+            # without a (failing) users/me lookup.
+            namespace = GLOBAL_NAMESPACE
+        else:
+            user_client = get_user_client(context_name=context_name, endpoint_id=endpoint_id)
+            namespace = user_client.get_user_config().default_namespace
 
     factory: ConfigurationBasedClientFactory = container.get(ConfigurationBasedClientFactory)
     try:

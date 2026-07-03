@@ -124,7 +124,8 @@ def create(context: Optional[str] = None,
     workflow_client = get_workflow_client(
         context_name=context,
         endpoint_id=endpoint_id,
-        namespace=namespace
+        namespace=namespace,
+        global_action=global_action
     )
 
     # Parse and resolve dependencies

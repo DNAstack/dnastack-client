@@ -19,6 +19,11 @@ from dnastack.http.session import JsonPatch, HttpSession, ClientError
 
 _GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true', 'X-Admin-Only-Action': 'true'}
 
+# Placeholder path segment for global (platform-admin) operations. The workflow-service
+# ignores the namespace in the path when the global headers are present, so any non-empty,
+# URL-safe value works; it only keeps the request URL well-formed.
+GLOBAL_NAMESPACE = 'global'
+
 
 class WorkflowDefaultsListResultLoader(WorkbenchResultLoader):
     def __init__(self,

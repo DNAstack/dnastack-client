@@ -89,7 +89,8 @@ def create_workflow_defaults(context: Optional[str],
     """
     Create a default for a workflow
     """
-    client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
+    client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace,
+                                 global_action=global_action)
     parsed = values.parsed_value()
     selector = WorkflowDefaultsSelector(engine=engine, provider=provider, region=region)
     workflow_defaults = WorkflowDefaultsCreateRequest(id=default_id, name=name, selector=selector, values=parsed)

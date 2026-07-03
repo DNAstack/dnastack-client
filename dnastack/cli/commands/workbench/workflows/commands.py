@@ -236,7 +236,7 @@ def init_workflows_commands(group: Group):
 
         docs: https://docs.omics.ai/docs/workflows-create
         """
-        workflows_client = get_workflow_client(context, endpoint_id, namespace)
+        workflows_client = get_workflow_client(context, endpoint_id, namespace, global_action=global_action)
         # Add entrypoint to workflow_files
 
         workflow_files_list: List[Path] = [Path(f.value()) for f in workflow_file]
