@@ -8,7 +8,8 @@ from dnastack.client.workbench.models import PaginatedResource
 class WorkbenchUser(BaseModel):
     email: str
     full_name: Optional[str] = None
-    default_namespace: str
+    # Platform admins have an account but no namespace, so this can be absent/null.
+    default_namespace: Optional[str] = None
 
 
 class Namespace(BaseModel):

@@ -225,7 +225,8 @@ def add_workflow_transformation(context: Optional[str],
                                 labels: List[str],
                                 global_action: bool = False):
     """Create a new workflow transformation"""
-    client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
+    client = get_workflow_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace,
+                                 global_action=global_action)
 
     workflow_transformation = WorkflowTransformationCreate(
         id=transformation_id,
