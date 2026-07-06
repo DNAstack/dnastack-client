@@ -21,8 +21,9 @@ _GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true', 'X-Admin-Only-Action'
 
 # Placeholder path segment for global (platform-admin) operations. The workflow-service
 # ignores the namespace in the path when the global headers are present, so any non-empty,
-# URL-safe value works; it only keeps the request URL well-formed.
-GLOBAL_NAMESPACE = 'global'
+# URL-safe value works; it only keeps the request URL well-formed. Uses a 36-char nil UUID
+# so it satisfies the api-host ingress route regex ({namespace:[a-zA-Z0-9-]{36,}}).
+GLOBAL_NAMESPACE = '00000000-0000-0000-0000-000000000000'
 
 
 class WorkflowDefaultsListResultLoader(WorkbenchResultLoader):
