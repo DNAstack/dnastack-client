@@ -7,7 +7,7 @@ on:
 jobs:
   concourse-build-check:
     name: Concourse Build Check
-    uses: DNAstack/dnastack-development-tools/.github/workflows/concourse-build-check.yml@4f3ab84f922ae9829598631c30fcba26df4a733f
+    uses: DNAstack/dnastack-development-tools/.github/workflows/concourse-build-check.yml@6d4a5b5a58ed0494fca2d60edc1c9b98eac033a9
     with:
       pipeline_name: 'publisher-dev'
       job_name: 'setup-dnastack-client-library-e2e-test-client'
