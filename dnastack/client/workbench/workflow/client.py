@@ -17,7 +17,7 @@ from dnastack.client.workbench.workflow.models import WorkflowDescriptor, Workfl
 from dnastack.common.tracing import Span
 from dnastack.http.session import JsonPatch, HttpSession, ClientError
 
-_GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true', 'X-Admin-Only-Action': 'true'}
+_GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true'}
 
 
 class WorkflowDefaultsListResultLoader(WorkbenchResultLoader):

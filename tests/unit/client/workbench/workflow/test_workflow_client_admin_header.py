@@ -66,12 +66,10 @@ class TestAdminOnlyActionHeader:
     def _assert_header_present(self, call_kwargs):
         headers = call_kwargs.get('headers', {})
         assert headers.get('X-Global-Namespace') == 'true', f"Expected X-Global-Namespace=true, got: {headers}"
-        assert headers.get('X-Admin-Only-Action') == 'true', f"Expected X-Admin-Only-Action=true, got: {headers}"
 
     def _assert_header_absent(self, call_kwargs):
         headers = call_kwargs.get('headers', {})
         assert 'X-Global-Namespace' not in headers, f"Unexpected X-Global-Namespace header in: {headers}"
-        assert 'X-Admin-Only-Action' not in headers, f"Unexpected X-Admin-Only-Action header in: {headers}"
 
     def test_create_workflow_sends_admin_header(self):
         client = _create_workflow_client()
