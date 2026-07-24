@@ -16,7 +16,7 @@ In `dnastack/cli/commands/workbench/workflows/utils.py:47-59` (`get_workflow_cli
 - The getter runs `if not namespace: namespace = get_user_client(...).get_user_config().default_namespace`. **It is unaware of `global_action`.** Even when the user passes `--global`, the getter still resolves `default_namespace`.
 - `default_namespace` is declared a **required, non-optional `str`** on `WorkbenchUser` (`workbench_user_service/models.py:11`). For an accountless platform admin, `GET users/me` either 401/403/404s, returns a body that raises a pydantic `ValidationError` at `WorkbenchUser(**response.json())` (`workbench_user_service/client.py:84-89`), or yields an empty string. No validator, comment, or test covers the empty case.
 - `WorkflowClient` builds every URL as `urljoin(self.endpoint.url, f'{self.namespace}/workflows/...')`. With `""` or `None`, the path segment is broken (`None/workflows`, or a leading-slash host reset that drops the base path).
-- `admin_only_action` **only adds headers** — `_GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true', 'X-Admin-Only-Action': 'true'}` (`dnastack/client/workbench/workflow/client.py:20`). It never changes `self.namespace` or the URL. So even in global mode the request still targets `{self.namespace}` in the path.
+- `admin_only_action` **only adds headers** — `_GLOBAL_NAMESPACE_HEADERS = {'X-Global-Namespace': 'true'}` (`dnastack/client/workbench/workflow/client.py:20`). It never changes `self.namespace` or the URL. So even in global mode the request still targets `{self.namespace}` in the path.
 
 The consequence: what a global operation should carry in the path segment is **undocumented and never exercised** by working code.
 
@@ -42,7 +42,7 @@ A third fact, surfaced by the adversarial reviews and **not** in the original in
 
 **What path-namespace does workflow-service expect for a global operation?** Every option states an *assumption* here; none can verify it from the repo. Concretely, the backend team must answer:
 
-1. When `X-Global-Namespace: true` / `X-Admin-Only-Action: true` are present, does the service **ignore** the `{namespace}` path segment, **validate/authorize** it, or **attribute** the created resource to it? (Ignore → any well-formed placeholder works. Validate → a wrong sentinel 404/403s. Attribute → a global `create` could silently file the resource under a bogus owner — a 2xx data-integrity hazard.)
+1. When `X-Global-Namespace: true` is present, does the service **ignore** the `{namespace}` path segment, **validate/authorize** it, or **attribute** the created resource to it? (Ignore → any well-formed placeholder works. Validate → a wrong sentinel 404/403s. Attribute → a global `create` could silently file the resource under a bogus owner — a 2xx data-integrity hazard.)
 2. Is there a **specific reserved token** (empty, `-`, `_`, `global`, a distinct `/admin` route), or is the segment free-form?
 3. Are the global headers honored on **GET/list** endpoints (needed for reads *and* for the delete/update etag pre-fetch), or only on mutations?
 4. For a global list, what path shape does the server return in `next_page_url` (does pagination even start)?
@@ -246,7 +246,7 @@ This is blocking. Answers select the architecture and the sentinel value:
 **Tests to add.**
 - **Model (currently missing empty-namespace case):** `default_namespace` null *and* absent both deserialize to `None` with no `ValidationError`; an explicit value still round-trips.
 - **Getter:** `global_action=True` **does not** call `get_user_client`/`get_user_config` (`assert_not_called`) and builds the client with the placeholder; `global_action=False` still resolves `default_namespace`; blank + non-global raises `click.UsageError`.
-- **Client (contract-shape):** in global mode the built URL contains the confirmed segment and the request carries `X-Global-Namespace`/`X-Admin-Only-Action`; if session-level injection is adopted, assert the **etag pre-fetch GET and pagination loaders also carry the headers** — this is the case a per-method approach cannot cover.
+- **Client (contract-shape):** in global mode the built URL contains the confirmed segment and the request carries `X-Global-Namespace`; if session-level injection is adopted, assert the **etag pre-fetch GET and pagination loaders also carry the headers** — this is the case a per-method approach cannot cover.
 - **Regression:** run the getter-`@patch` suites (`test_workflows_commands`, `test_workbench_workflow_dependencies`, `test_workflow_defaults_commands`, `test_workflow_label_filter`, `test_workbench_workflow_versions`) unchanged to confirm no signature/patch breakage. Do **not** mass-edit call-arg assertions — verified across the reviews that no test asserts getter call-args, so most of the "test churn" the other designs list is spurious.
 - **E2E (gated, before merge):** a platform-admin `workflows create --global` **and** a `delete`/`update --global` against a real/staged workflow-service — the only way to validate the contract assumption and the etag-read behavior.
 
