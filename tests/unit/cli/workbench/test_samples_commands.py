@@ -412,12 +412,28 @@ class TestSamplesMetadataUploadCommand(unittest.TestCase):
         self.assertIs(self.mock_samples_client.upload_metadata.call_args.kwargs['preserve_existing'], True)
 
     @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_exits_one_when_the_service_rejects_an_empty_attributes_entry(self, mock_get_client):
+        """The upload path rejects an empty object per sample, so it cannot clear a bag"""
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with({
+            'fileName': 'clear.attributes.json',
+            'outcome': 'FAILED',
+            'sampleIds': [],
+            'errors': ['HG002: No attributes given for this sample'],
+        })
+
+        result = self._invoke(files=('clear.attributes.json',), contents='{"HG002": {}}')
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('No attributes given for this sample', result.output)
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
     def test_upload_rejects_an_unrecognized_file_name_without_calling_the_service(self, mock_get_client):
         mock_get_client.return_value = self.mock_samples_client
 
         result = self._invoke(files=('cohort.txt',))
 
-        self.assertNotEqual(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 1)
         self.assertIn('cohort.txt is not a metadata file', result.output)
         self.assertIn('*.attributes.json', result.output)
         self.mock_samples_client.upload_metadata.assert_not_called()

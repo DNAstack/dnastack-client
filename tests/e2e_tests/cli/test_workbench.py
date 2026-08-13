@@ -722,29 +722,21 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         attributes = {'kit_lot': 'A7-2291', 'passed_qc': True, 'operator': None,
                       'barcodes': [{'sample_id': sample_id, 'barcode': 'i5--i7'}]}
 
-        with TemporaryDirectory() as directory:
-            document = Path(directory) / 'e2e.attributes.json'
-            document.write_text(json.dumps({sample_id: attributes}))
-            response = self.simple_invoke(
-                'workbench', 'samples', 'metadata', 'upload', str(document)
+        try:
+            response = self._upload_attributes({sample_id: attributes}, 'e2e.attributes.json')
+
+            results = response['results']
+            self.assertEqual(len(results), 1, f'Expected one row per file. Found {results}')
+            self.assertEqual(results[0]['file_name'], 'e2e.attributes.json')
+            self.assertEqual(results[0]['outcome'], 'SUCCESS')
+            self.assertEqual(results[0]['sample_ids'], [sample_id])
+
+            stored = self.simple_invoke(
+                'workbench', 'samples', 'describe', sample_id, '--attributes'
             )
-
-        results = response['results']
-        self.assertEqual(len(results), 1, f'Expected one row per file. Found {results}')
-        self.assertEqual(results[0]['file_name'], 'e2e.attributes.json')
-        self.assertEqual(results[0]['outcome'], 'SUCCESS')
-        self.assertEqual(results[0]['sample_ids'], [sample_id])
-
-        stored = self.simple_invoke(
-            'workbench', 'samples', 'describe', sample_id, '--attributes'
-        )
-        self.assertEqual(stored, attributes)
-
-        # An upload replaces the whole bag, so an empty document for the sample clears it.
-        with TemporaryDirectory() as directory:
-            document = Path(directory) / 'clear.attributes.json'
-            document.write_text(json.dumps({sample_id: {}}))
-            self.invoke('workbench', 'samples', 'metadata', 'upload', str(document))
+            self.assertEqual(stored, attributes)
+        finally:
+            self._reset_sample_attributes(sample_id)
 
     def test_samples_metadata_upload_reports_a_missing_sample_without_failing_the_whole_upload(self):
         self._create_storage_account(provider=Provider.aws)
@@ -752,19 +744,37 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
         self._wait()
         sample_id = samples[0].id
 
-        with TemporaryDirectory() as directory:
-            document = Path(directory) / 'partial.attributes.json'
-            document.write_text(json.dumps({sample_id: {'kit_lot': 'A7-2291'},
-                                            'no-such-sample-e2e': {'kit_lot': 'B1-0000'}}))
-            result = self.invoke('workbench', 'samples', 'metadata', 'upload', str(document),
-                                 bypass_error=True)
+        try:
+            with TemporaryDirectory() as directory:
+                document = Path(directory) / 'partial.attributes.json'
+                document.write_text(json.dumps({sample_id: {'kit_lot': 'A7-2291'},
+                                                'no-such-sample-e2e': {'kit_lot': 'B1-0000'}}))
+                result = self.invoke('workbench', 'samples', 'metadata', 'upload', str(document),
+                                     bypass_error=True)
 
-        self.assertEqual(result.exit_code, 2, 'A partial upload should be distinguishable from a total failure')
-        results = self.parse_json_or_yaml(result.output)['results']
-        self.assertEqual(results[0]['sample_ids'], [sample_id])
-        self.assert_not_empty(results[0]['errors'], 'Expected the missing sample to be named in errors')
-        self.assertTrue(any('no-such-sample-e2e' in error for error in results[0]['errors']),
-                        f'Expected the missing sample id in {results[0]["errors"]}')
+            self.assertEqual(result.exit_code, 2,
+                             'A partial upload should be distinguishable from a total failure')
+            results = self.parse_json_or_yaml(result.output)['results']
+            self.assertEqual(results[0]['sample_ids'], [sample_id])
+            self.assert_not_empty(results[0]['errors'], 'Expected the missing sample to be named in errors')
+            self.assertTrue(any('no-such-sample-e2e' in error for error in results[0]['errors']),
+                            f'Expected the missing sample id in {results[0]["errors"]}')
+        finally:
+            self._reset_sample_attributes(sample_id)
+
+    def _upload_attributes(self, document: dict, file_name: str):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / file_name
+            path.write_text(json.dumps(document))
+            return self.simple_invoke('workbench', 'samples', 'metadata', 'upload', str(path))
+
+    def _reset_sample_attributes(self, sample_id: str):
+        """
+        Shrink the sample's attributes back to a marker. The upload path rejects an empty object per
+        sample, so it cannot clear a bag outright -- only PUT /attributes can, which the CLI does not
+        expose.
+        """
+        self._upload_attributes({sample_id: {'e2e_cleanup': True}}, 'cleanup.attributes.json')
 
     def test_samples_files_list(self):
         self._create_storage_account(provider=Provider.aws)

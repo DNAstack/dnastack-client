@@ -137,8 +137,18 @@ class SamplesClient(BaseWorkbenchClient):
                         trace: Optional[Span] = None
                         ) -> MetadataProcessingResponse:
         """
-        Upload metadata files. Each file's name determines how the service reads it, so the name is
-        sent exactly as given.
+        Upload metadata files and return one result per file.
+
+        Each file's name determines how the service reads it, so the name is sent exactly as given:
+        `*.ped` as a pedigree, `*.attributes.json` as custom attributes keyed by sample id,
+        `*.json` and `*.jsonl` as phenopackets, and `*.zip` as an archive of any of those.
+
+        An attributes document replaces each named sample's attributes outright, whatever
+        `preserve_existing` is set to.
+
+        With `preserve_existing`, a pedigree or phenopacket fills only the fields a sample does not
+        already have and adds its phenotypes to the sample's existing ones. By default the file's
+        values replace existing sex, affected status, family and parentage, and replace phenotypes.
         """
         trace = trace or Span(origin=self)
         # The service treats a missing part as override=false, which preserves existing values.
