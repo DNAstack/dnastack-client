@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Iterator, Optional
 from urllib.parse import urljoin
 
@@ -6,7 +7,8 @@ from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
 from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader
 from dnastack.client.workbench.samples.models import SampleListOptions, SampleListResponse, Sample, \
-    SampleFilesListOptions, SampleFileListResponse, InstrumentListResponse, InstrumentListOptions
+    SampleFilesListOptions, SampleFileListResponse, InstrumentListResponse, InstrumentListOptions, \
+    MetadataProcessingResponse
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
 
@@ -128,6 +130,38 @@ class SamplesClient(BaseWorkbenchClient):
             max_results=max_results,
             trace=trace
         ))
+
+    def upload_metadata(self,
+                        files: List[Path],
+                        preserve_existing: bool = False,
+                        trace: Optional[Span] = None
+                        ) -> MetadataProcessingResponse:
+        """
+        Upload metadata files. Each file's name determines how the service reads it, so the name is
+        sent exactly as given.
+        """
+        trace = trace or Span(origin=self)
+        # The service treats a missing part as override=false, which preserves existing values.
+        data = {'override': (None, 'false' if preserve_existing else 'true')}
+        parts = [('metadata', (file.name, file.read_bytes())) for file in files]
+        with self.create_http_session() as session:
+            response = session.post(urljoin(self.endpoint.url, f'{self.namespace}/samples/metadata'),
+                                    data=data,
+                                    files=parts,
+                                    trace_context=trace)
+            return MetadataProcessingResponse(**response.json())
+
+    def get_sample_attributes(self, sample_id: str, trace: Optional[Span] = None) -> str:
+        """
+        Return the sample's attributes as the service stored them. The response text is returned
+        unparsed so nulls and key order survive.
+        """
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.get(
+                urljoin(self.endpoint.url, f'{self.namespace}/samples/{sample_id}/attributes'),
+                trace_context=trace)
+            return response.text
 
     def list_instruments(self,
                          list_options: Optional[InstrumentListOptions] = None,

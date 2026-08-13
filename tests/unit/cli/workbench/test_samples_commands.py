@@ -1,11 +1,15 @@
 """Unit tests for workbench samples commands"""
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 from click.testing import CliRunner
 from click import Group
 
 from dnastack.cli.commands.workbench.samples.commands import init_samples_commands
-from dnastack.client.workbench.samples.models import SampleListOptions, Sex, PerspectiveType
+from dnastack.cli.commands.workbench.samples.metadata import metadata_command_group
+from dnastack.client.workbench.samples.models import SampleListOptions, Sex, PerspectiveType, \
+    MetadataProcessingResponse, MetadataProcessingResult
 from dnastack.client.workbench.common.models import State
 from dnastack.client.workbench.storage.models import PlatformType
 
@@ -277,9 +281,146 @@ class TestSamplesListCommand(unittest.TestCase):
         self.mock_samples_client.get_sample.return_value = mock_sample
         
         result = self.runner.invoke(self.group, ['describe', 'sample-123'])
-        
+
         self.assertEqual(result.exit_code, 0)
         self.mock_samples_client.get_sample.assert_called_once_with('sample-123')
+
+    @patch('dnastack.cli.commands.workbench.samples.commands.get_samples_client')
+    def test_describe_sample_with_attributes_prints_the_stored_document_verbatim(self, mock_get_client):
+        """Attributes are echoed unparsed, so nulls, key order and types survive"""
+        mock_get_client.return_value = self.mock_samples_client
+        stored = '{"zeta": {"nested": null, "flag": true}, "alpha": 1, "id": "not-the-sample-id"}'
+        self.mock_samples_client.get_sample_attributes.return_value = stored
+
+        result = self.runner.invoke(self.group, ['describe', 'sample-123', '--attributes'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output.strip(), stored)
+        self.mock_samples_client.get_sample_attributes.assert_called_once_with('sample-123')
+        self.mock_samples_client.get_sample.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.samples.commands.get_samples_client')
+    def test_describe_sample_with_attributes_prints_empty_object_when_none_are_set(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self.mock_samples_client.get_sample_attributes.return_value = '{}'
+
+        result = self.runner.invoke(self.group, ['describe', 'sample-123', '--attributes'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output.strip(), '{}')
+
+
+class TestSamplesMetadataUploadCommand(unittest.TestCase):
+    """Unit tests for the samples metadata upload command"""
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.mock_samples_client = Mock()
+        self.group = Group()
+        self.group.add_command(metadata_command_group)
+
+    def _respond_with(self, *results):
+        self.mock_samples_client.upload_metadata.return_value = MetadataProcessingResponse(
+            results=[MetadataProcessingResult(**result) for result in results]
+        )
+
+    def _invoke(self, *args, files=('cohort.ped',), contents='#ped\n'):
+        with self.runner.isolated_filesystem():
+            for name in files:
+                Path(name).write_text(contents)
+            return self.runner.invoke(self.group, ['metadata', 'upload', *files, *args])
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_prints_a_row_per_file_and_exits_zero_when_every_file_applied(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with(
+            {'fileName': 'cohort.ped', 'outcome': 'SUCCESS', 'sampleIds': ['HG002', 'HG003']},
+            {'fileName': 'lab.attributes.json', 'outcome': 'SUCCESS', 'sampleIds': ['HG004']},
+        )
+
+        result = self._invoke(files=('cohort.ped', 'lab.attributes.json'))
+
+        self.assertEqual(result.exit_code, 0)
+        printed = json.loads(result.output)
+        self.assertEqual([row['file_name'] for row in printed['results']],
+                         ['cohort.ped', 'lab.attributes.json'])
+        self.assertEqual([row['sample_ids'] for row in printed['results']],
+                         [['HG002', 'HG003'], ['HG004']])
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_exits_two_when_a_file_applied_only_some_of_its_samples(self, mock_get_client):
+        """The service reports SUCCESS with errors when part of a file landed"""
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with({
+            'fileName': 'lab.attributes.json',
+            'outcome': 'SUCCESS',
+            'sampleIds': ['HG002'],
+            'errors': ['HG999: Sample does not exist'],
+        })
+
+        result = self._invoke(files=('lab.attributes.json',), contents='{"HG002": {}}')
+
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn('HG999: Sample does not exist', result.output)
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_exits_two_when_one_file_failed_and_another_applied(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with(
+            {'fileName': 'cohort.ped', 'outcome': 'SUCCESS', 'sampleIds': ['HG002']},
+            {'fileName': 'broken.json', 'outcome': 'FAILED', 'sampleIds': [],
+             'errors': ['Not a phenopacket']},
+        )
+
+        result = self._invoke(files=('cohort.ped', 'broken.json'))
+
+        self.assertEqual(result.exit_code, 2)
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_exits_one_when_no_sample_was_written(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with({'fileName': 'broken.json', 'outcome': 'FAILED', 'sampleIds': [],
+                            'errors': ['Not a phenopacket']})
+
+        result = self._invoke(files=('broken.json',))
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('No samples were written', result.output)
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_sends_each_file_under_the_name_the_user_gave_it(self, mock_get_client):
+        """The service dispatches on file name, so the CLI must not rewrite it"""
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with({'fileName': 'lab.attributes.json', 'outcome': 'SUCCESS',
+                            'sampleIds': ['HG002']})
+
+        result = self._invoke(files=('lab.attributes.json',), contents='{"HG002": {}}')
+
+        self.assertEqual(result.exit_code, 0)
+        sent = self.mock_samples_client.upload_metadata.call_args.kwargs['files']
+        self.assertEqual([path.name for path in sent], ['lab.attributes.json'])
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_overwrites_existing_values_unless_preserve_existing_is_given(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self._respond_with({'fileName': 'cohort.ped', 'outcome': 'SUCCESS', 'sampleIds': ['HG002']})
+
+        self._invoke()
+        self.assertIs(self.mock_samples_client.upload_metadata.call_args.kwargs['preserve_existing'], False)
+
+        self._invoke('--preserve-existing')
+        self.assertIs(self.mock_samples_client.upload_metadata.call_args.kwargs['preserve_existing'], True)
+
+    @patch('dnastack.cli.commands.workbench.samples.metadata.get_samples_client')
+    def test_upload_rejects_an_unrecognized_file_name_without_calling_the_service(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+
+        result = self._invoke(files=('cohort.txt',))
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('cohort.txt is not a metadata file', result.output)
+        self.assertIn('*.attributes.json', result.output)
+        self.mock_samples_client.upload_metadata.assert_not_called()
 
 
 if __name__ == '__main__':

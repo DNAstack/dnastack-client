@@ -163,6 +163,7 @@ def init_samples_commands(group: Group):
                      ):
         """
         List samples
+
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/samples-list
         """
 
@@ -205,6 +206,14 @@ def init_samples_commands(group: Group):
                 help='The id of the sample to describe.',
                 required=True,
             ),
+            ArgumentSpec(
+                name='attributes',
+                arg_names=['--attributes'],
+                help="Print only the sample's custom attributes, exactly as stored. "
+                     "Prints {} when none have been set.",
+                required=False,
+                type=bool
+            ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
             SINGLE_ENDPOINT_ID_ARG,
@@ -213,12 +222,17 @@ def init_samples_commands(group: Group):
     def describe_samples(context: Optional[str],
                          endpoint_id: Optional[str],
                          namespace: Optional[str],
-                         sample_id: str):
+                         sample_id: str,
+                         attributes: bool = False):
         """
         Describe a sample
 
-        docs: https://docs.dnastack.com/docs/samples-describe
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/samples-describe
         """
         client = get_samples_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
+        if attributes:
+            # Echoed unparsed: the printer sorts keys and hoists `id`, which would rewrite the document.
+            click.echo(client.get_sample_attributes(sample_id))
+            return
         described_sample = client.get_sample(sample_id)
         click.echo(to_json(normalize(described_sample)))
