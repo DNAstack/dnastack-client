@@ -173,6 +173,24 @@ class SamplesClient(BaseWorkbenchClient):
                 trace_context=trace)
             return response.text
 
+    def replace_sample_attributes(self, sample_id: str, attributes: str,
+                                  trace: Optional[Span] = None) -> str:
+        """
+        Replace the sample's attributes with `attributes`, a JSON object, and return what the
+        service stored. Attributes the object omits are deleted; an empty object clears the sample.
+
+        The text is sent as given rather than re-serialised, so values keep the types and precision
+        the caller wrote.
+        """
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.put(
+                urljoin(self.endpoint.url, f'{self.namespace}/samples/{sample_id}/attributes'),
+                data=attributes.encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                trace_context=trace)
+            return response.text
+
     def list_instruments(self,
                          list_options: Optional[InstrumentListOptions] = None,
                          max_results: Optional[int] = None,

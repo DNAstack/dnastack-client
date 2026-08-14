@@ -7,6 +7,7 @@ from click.testing import CliRunner
 from click import Group
 
 from dnastack.cli.commands.workbench.samples.commands import init_samples_commands
+from dnastack.cli.commands.workbench.samples.attributes import attributes_command_group
 from dnastack.cli.commands.workbench.samples.metadata import metadata_command_group
 from dnastack.client.workbench.samples.models import SampleListOptions, Sex, PerspectiveType, \
     MetadataProcessingResponse, MetadataProcessingResult
@@ -285,29 +286,119 @@ class TestSamplesListCommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.mock_samples_client.get_sample.assert_called_once_with('sample-123')
 
-    @patch('dnastack.cli.commands.workbench.samples.commands.get_samples_client')
-    def test_describe_sample_with_attributes_prints_the_stored_document_verbatim(self, mock_get_client):
-        """Attributes are echoed unparsed, so nulls, key order and types survive"""
+
+class TestSamplesAttributesCommands(unittest.TestCase):
+    """Unit tests for the samples attributes get/set/clear commands"""
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.mock_samples_client = Mock()
+        self.group = Group()
+        self.group.add_command(attributes_command_group)
+
+    def _invoke(self, *args, stdin=None):
+        return self.runner.invoke(self.group, ['attributes', *args], input=stdin)
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_get_prints_the_stored_document_verbatim(self, mock_get_client):
+        """Printed unparsed, so nulls, key order and types survive"""
         mock_get_client.return_value = self.mock_samples_client
         stored = '{"zeta": {"nested": null, "flag": true}, "alpha": 1, "id": "not-the-sample-id"}'
         self.mock_samples_client.get_sample_attributes.return_value = stored
 
-        result = self.runner.invoke(self.group, ['describe', 'sample-123', '--attributes'])
+        result = self._invoke('get', 'HG002')
 
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output.strip(), stored)
-        self.mock_samples_client.get_sample_attributes.assert_called_once_with('sample-123')
-        self.mock_samples_client.get_sample.assert_not_called()
+        self.mock_samples_client.get_sample_attributes.assert_called_once_with('HG002')
 
-    @patch('dnastack.cli.commands.workbench.samples.commands.get_samples_client')
-    def test_describe_sample_with_attributes_prints_empty_object_when_none_are_set(self, mock_get_client):
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_get_prints_an_empty_object_when_the_sample_has_no_attributes(self, mock_get_client):
         mock_get_client.return_value = self.mock_samples_client
         self.mock_samples_client.get_sample_attributes.return_value = '{}'
 
-        result = self.runner.invoke(self.group, ['describe', 'sample-123', '--attributes'])
+        result = self._invoke('get', 'HG002')
 
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output.strip(), '{}')
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_set_sends_a_json_literal_without_reserialising_it(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self.mock_samples_client.replace_sample_attributes.return_value = '{}'
+        document = '{"zeta": {"nested": null, "flag": true}, "alpha": 1.0}'
+
+        result = self._invoke('set', 'HG002', document)
+
+        self.assertEqual(result.exit_code, 0)
+        self.mock_samples_client.replace_sample_attributes.assert_called_once_with('HG002', document)
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_set_reads_the_document_from_a_file(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self.mock_samples_client.replace_sample_attributes.return_value = '{}'
+
+        with self.runner.isolated_filesystem():
+            Path('bag.json').write_text('{"kit_lot": "A7-2291"}')
+            result = self._invoke('set', 'HG002', '@bag.json')
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(self.mock_samples_client.replace_sample_attributes.call_args[0][1],
+                         '{"kit_lot": "A7-2291"}')
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_set_rejects_a_bulk_document_and_points_at_the_upload_command(self, mock_get_client):
+        """A sample-id-keyed document would otherwise nest the whole cohort under one sample"""
+        mock_get_client.return_value = self.mock_samples_client
+
+        with self.runner.isolated_filesystem():
+            Path('cohort.attributes.json').write_text('{"HG002": {"kit_lot": "A7-2291"}}')
+            result = self._invoke('set', 'HG002', '@cohort.attributes.json')
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('samples metadata upload', result.output)
+        self.mock_samples_client.replace_sample_attributes.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_set_suggests_the_at_prefix_when_given_a_bare_path(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+
+        with self.runner.isolated_filesystem():
+            Path('bag.json').write_text('{"kit_lot": "A7-2291"}')
+            result = self._invoke('set', 'HG002', 'bag.json')
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('Did you mean @bag.json?', result.output)
+        self.mock_samples_client.replace_sample_attributes.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_set_rejects_json_that_is_not_an_object(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+
+        result = self._invoke('set', 'HG002', '[1, 2]')
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('must be a JSON object', result.output)
+        self.mock_samples_client.replace_sample_attributes.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_clear_replaces_the_attributes_with_an_empty_object(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+        self.mock_samples_client.replace_sample_attributes.return_value = '{}'
+
+        result = self._invoke('clear', 'HG002', '--force')
+
+        self.assertEqual(result.exit_code, 0)
+        self.mock_samples_client.replace_sample_attributes.assert_called_once_with('HG002', '{}')
+
+    @patch('dnastack.cli.commands.workbench.samples.attributes.get_samples_client')
+    def test_clear_does_nothing_when_the_confirmation_is_declined(self, mock_get_client):
+        mock_get_client.return_value = self.mock_samples_client
+
+        result = self._invoke('clear', 'HG002', stdin='n\n')
+
+        self.assertEqual(result.exit_code, 0)
+        self.mock_samples_client.replace_sample_attributes.assert_not_called()
 
 
 class TestSamplesMetadataUploadCommand(unittest.TestCase):

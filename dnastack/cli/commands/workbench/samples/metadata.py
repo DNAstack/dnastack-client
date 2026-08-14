@@ -89,8 +89,8 @@ def upload_metadata(context: Optional[str],
       {"HG002": {"kit_lot": "A7-2291"}}
 
     Every sample in the document needs at least one attribute. An empty object is reported as an
-    error for that sample rather than clearing it, so an upload cannot remove a sample's last
-    attribute.
+    error for that sample rather than clearing it. To set or remove one sample's attributes, use
+    "samples attributes set" and "samples attributes clear".
 
     By default the file's values also replace existing sex, affected status, family and parentage,
     and replace phenotypes rather than adding to them. This is not reversible.

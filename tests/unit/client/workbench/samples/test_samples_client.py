@@ -62,6 +62,31 @@ class TestGetSampleAttributes:
         assert session.get.call_args.args[0] == 'https://sample-service.test/ns/samples/HG002/attributes'
 
 
+class TestReplaceSampleAttributes:
+
+    def _replace(self, document):
+        response = Mock()
+        response.text = document
+        client, session = _client_with_session(response)
+        with patch.object(SamplesClient, 'create_http_session', return_value=session):
+            client.replace_sample_attributes('HG002', document)
+        return session.put.call_args
+
+    def test_sends_the_document_as_given_rather_than_reserialising_it(self):
+        """Re-encoding would normalise floats and drop the caller's key order."""
+        document = '{"zeta": {"nested": null}, "alpha": 1.0}'
+        call = self._replace(document)
+        assert call.kwargs['data'] == document.encode('utf-8')
+
+    def test_declares_a_json_content_type(self):
+        call = self._replace('{}')
+        assert call.kwargs['headers'] == {'Content-Type': 'application/json'}
+
+    def test_puts_to_the_sample_attributes_resource(self):
+        call = self._replace('{}')
+        assert call.args[0] == 'https://sample-service.test/ns/samples/HG002/attributes'
+
+
 class TestMetadataProcessingResult:
 
     def test_reads_the_camel_case_wire_format(self):

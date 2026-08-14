@@ -732,11 +732,11 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             self.assertEqual(results[0]['sample_ids'], [sample_id])
 
             stored = self.simple_invoke(
-                'workbench', 'samples', 'describe', sample_id, '--attributes'
+                'workbench', 'samples', 'attributes', 'get', sample_id
             )
             self.assertEqual(stored, attributes)
         finally:
-            self._reset_sample_attributes(sample_id)
+            self._clear_sample_attributes(sample_id)
 
     def test_samples_metadata_upload_reports_a_missing_sample_without_failing_the_whole_upload(self):
         self._create_storage_account(provider=Provider.aws)
@@ -760,7 +760,33 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             self.assertTrue(any('no-such-sample-e2e' in error for error in results[0]['errors']),
                             f'Expected the missing sample id in {results[0]["errors"]}')
         finally:
-            self._reset_sample_attributes(sample_id)
+            self._clear_sample_attributes(sample_id)
+
+    def test_samples_attributes_set_get_and_clear_round_trip_a_single_sample(self):
+        self._create_storage_account(provider=Provider.aws)
+        samples = self._wait_for_samples()
+        self._wait()
+        sample_id = samples[0].id
+
+        # A nested object, a null and a boolean must survive as written.
+        document = '{"kit_lot": "A7-2291", "passed_qc": true, "operator": null, "depth": 30.0}'
+        try:
+            self.simple_invoke('workbench', 'samples', 'attributes', 'set', sample_id, document)
+            self.assertEqual(
+                self.simple_invoke('workbench', 'samples', 'attributes', 'get', sample_id),
+                {'kit_lot': 'A7-2291', 'passed_qc': True, 'operator': None, 'depth': 30.0})
+
+            # Setting replaces the whole set, so an omitted key is gone rather than merged.
+            self.simple_invoke('workbench', 'samples', 'attributes', 'set', sample_id,
+                               '{"kit_lot": "B1-0004"}')
+            self.assertEqual(
+                self.simple_invoke('workbench', 'samples', 'attributes', 'get', sample_id),
+                {'kit_lot': 'B1-0004'})
+        finally:
+            self._clear_sample_attributes(sample_id)
+
+        self.assertEqual(
+            self.simple_invoke('workbench', 'samples', 'attributes', 'get', sample_id), {})
 
     def _upload_attributes(self, document: dict, file_name: str):
         with TemporaryDirectory() as directory:
@@ -768,13 +794,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             path.write_text(json.dumps(document))
             return self.simple_invoke('workbench', 'samples', 'metadata', 'upload', str(path))
 
-    def _reset_sample_attributes(self, sample_id: str):
-        """
-        Shrink the sample's attributes back to a marker. The upload path rejects an empty object per
-        sample, so it cannot clear a bag outright -- only PUT /attributes can, which the CLI does not
-        expose.
-        """
-        self._upload_attributes({sample_id: {'e2e_cleanup': True}}, 'cleanup.attributes.json')
+    def _clear_sample_attributes(self, sample_id: str):
+        self.simple_invoke('workbench', 'samples', 'attributes', 'clear', sample_id, '--force')
 
     def test_samples_files_list(self):
         self._create_storage_account(provider=Provider.aws)
