@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from dnastack.client.workbench.common.models import State, CaseInsensitiveEnum
 from dnastack.client.workbench.models import BaseListOptions, PaginatedResource
@@ -118,6 +118,27 @@ class SampleFileListResponse(PaginatedResource):
 
     def items(self) -> List[Any]:
         return self.files
+
+
+class ProcessingOutcome(str, CaseInsensitiveEnum):
+    success = "SUCCESS"
+    failed = "FAILED"
+
+
+class MetadataProcessingResult(BaseModel):
+    """One uploaded file's outcome. `sample_ids` holds the samples the file wrote."""
+
+    # Unlike the rest of sample-service, the metadata endpoint serialises camelCase.
+    model_config = ConfigDict(populate_by_name=True)
+
+    file_name: Optional[str] = Field(default=None, alias='fileName')
+    outcome: Optional[ProcessingOutcome] = None
+    errors: Optional[List[str]] = None
+    sample_ids: List[str] = Field(default_factory=list, alias='sampleIds')
+
+
+class MetadataProcessingResponse(BaseModel):
+    results: List[MetadataProcessingResult] = Field(default_factory=list)
 
 
 class InstrumentListOptions(BaseListOptions):

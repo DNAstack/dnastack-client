@@ -163,6 +163,7 @@ def init_samples_commands(group: Group):
                      ):
         """
         List samples
+
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/samples-list
         """
 
@@ -217,7 +218,9 @@ def init_samples_commands(group: Group):
         """
         Describe a sample
 
-        docs: https://docs.dnastack.com/docs/samples-describe
+        Custom attributes are not included. Use "samples attributes get" for those.
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/samples-describe
         """
         client = get_samples_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
         described_sample = client.get_sample(sample_id)
