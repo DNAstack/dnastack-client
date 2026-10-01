@@ -1,5 +1,6 @@
 import os
 import uuid
+from functools import cache
 from typing import Optional, Iterable, List
 
 import click
@@ -508,7 +509,8 @@ def init_runs_commands(group: Group):
             ArgumentSpec(
                 name='storage_account_id',
                 arg_names=['--storage-account'],
-                help='The storage account ID that the samples given with --sample belong to. '
+                help='The storage account ID that the samples belong to. Applies to samples given with --sample '
+                     'and to samples in --run-request that do not set storage_account_id. '
                      + STORAGE_ACCOUNT_DEFAULT_HELP,
             ),
             NAMESPACE_ARG,
@@ -567,6 +569,12 @@ def init_runs_commands(group: Group):
 
         ewes_client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
 
+        @cache
+        def get_sample_storage_account_id():
+            return resolve_storage_account_id(storage_account_id,
+                                              context_name=context,
+                                              namespace=ewes_client.namespace)
+
         def parse_samples():
             if samples:
                 sample_list = samples
@@ -575,10 +583,7 @@ def init_runs_commands(group: Group):
             else:
                 return None
 
-            resolved_storage_account_id = resolve_storage_account_id(storage_account_id,
-                                                                     context_name=context,
-                                                                     namespace=ewes_client.namespace)
-            return [SimpleSample(id=sample_id, storage_account_id=resolved_storage_account_id)
+            return [SimpleSample(id=sample_id, storage_account_id=get_sample_storage_account_id())
                     for sample_id in sample_list]
 
         def get_default_engine_id():
@@ -628,6 +633,9 @@ def init_runs_commands(group: Group):
         for run_request in run_requests:
             parsed_value = run_request.parsed_value() if run_request else None
             parsed_run_request = ExtendedRunRequest(**parsed_value)
+            for sample in parsed_run_request.samples or []:
+                if not sample.storage_account_id:
+                    sample.storage_account_id = get_sample_storage_account_id()
             batch_request.run_requests.append(parsed_run_request)
 
         for workflow_param in workflow_params:

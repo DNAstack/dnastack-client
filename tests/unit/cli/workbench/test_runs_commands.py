@@ -385,6 +385,92 @@ class TestRunsSubmitCommand(unittest.TestCase):
         self.assertIn('No storage accounts', result.output)
         self.mock_ewes_client.submit_batch.assert_not_called()
 
+    @patch('dnastack.cli.commands.workbench.runs.commands.get_ewes_client')
+    def test_submit_run_request_sample_without_storage_account_uses_only_storage_account(self, mock_get_client):
+        """Test that samples in --run-request JSON without a storage account default to the only storage account"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        result = self.runner.invoke(
+            self.group,
+            ['submit', '--url', self.test_workflow_url,
+             '--run-request', '{"samples": [{"id": "sample-1"}]}']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        batch_request = self.mock_ewes_client.submit_batch.call_args[0][0]
+        self.assertEqual(batch_request.run_requests[0].samples[0].storage_account_id, 'sa-default')
+
+    @patch('dnastack.cli.commands.workbench.runs.commands.get_ewes_client')
+    def test_submit_run_request_sample_with_storage_account_is_kept_without_lookup(self, mock_get_client):
+        """Test that a storage account given in --run-request JSON is kept and no lookup is made"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        result = self.runner.invoke(
+            self.group,
+            ['submit', '--url', self.test_workflow_url,
+             '--run-request', '{"samples": [{"id": "sample-1", "storage_account_id": "sa-json"}]}',
+             '--storage-account', 'sa-flag']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.mock_get_storage_client.assert_not_called()
+        batch_request = self.mock_ewes_client.submit_batch.call_args[0][0]
+        self.assertEqual(batch_request.run_requests[0].samples[0].storage_account_id, 'sa-json')
+
+    @patch('dnastack.cli.commands.workbench.runs.commands.get_ewes_client')
+    def test_submit_run_request_sample_without_storage_account_uses_storage_account_flag(self, mock_get_client):
+        """Test that --storage-account fills in samples in --run-request JSON that have no storage account"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        result = self.runner.invoke(
+            self.group,
+            ['submit', '--url', self.test_workflow_url,
+             '--run-request', '{"samples": [{"id": "sample-1"}]}',
+             '--storage-account', 'sa-flag']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.mock_get_storage_client.assert_not_called()
+        batch_request = self.mock_ewes_client.submit_batch.call_args[0][0]
+        self.assertEqual(batch_request.run_requests[0].samples[0].storage_account_id, 'sa-flag')
+
+    @patch('dnastack.cli.commands.workbench.runs.commands.get_ewes_client')
+    def test_submit_looks_up_storage_account_once_for_sample_flag_and_run_requests(self, mock_get_client):
+        """Test that the storage account lookup runs once when --sample and --run-request samples both need it"""
+        mock_get_client.return_value = self.mock_ewes_client
+
+        result = self.runner.invoke(
+            self.group,
+            ['submit', '--url', self.test_workflow_url,
+             '--sample', 'sample-1',
+             '--run-request', '{"samples": [{"id": "sample-2"}]}',
+             '--run-request', '{"samples": [{"id": "sample-3"}]}']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.mock_storage_client.list_storage_accounts.assert_called_once()
+        batch_request = self.mock_ewes_client.submit_batch.call_args[0][0]
+        self.assertEqual(batch_request.samples[0].storage_account_id, 'sa-default')
+        self.assertEqual([r.samples[0].storage_account_id for r in batch_request.run_requests],
+                         ['sa-default', 'sa-default'])
+
+    @patch('dnastack.cli.commands.workbench.runs.commands.get_ewes_client')
+    def test_submit_run_request_sample_fails_when_namespace_has_multiple_storage_accounts(self, mock_get_client):
+        """Test that a --run-request sample without a storage account fails when the storage account is ambiguous"""
+        mock_get_client.return_value = self.mock_ewes_client
+        self.mock_storage_client.list_storage_accounts.side_effect = \
+            lambda *args, **kwargs: iter([StorageAccount(id='sa-1'), StorageAccount(id='sa-2')])
+
+        result = self.runner.invoke(
+            self.group,
+            ['submit', '--url', self.test_workflow_url,
+             '--run-request', '{"samples": [{"id": "sample-1"}]}']
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('--storage-account', result.output)
+        self.mock_ewes_client.submit_batch.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
