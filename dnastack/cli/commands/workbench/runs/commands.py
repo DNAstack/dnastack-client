@@ -8,7 +8,7 @@ from click import style, Group
 from dnastack.cli.commands.workbench.runs.utils import UnableToFindParameterError, NoDefaultEngineError
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
 from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, create_sort_arg, \
-    parse_to_datetime_iso_format
+    parse_to_datetime_iso_format, resolve_storage_account_id
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
@@ -508,7 +508,9 @@ def init_runs_commands(group: Group):
             ArgumentSpec(
                 name='storage_account_id',
                 arg_names=['--storage-account'],
-                help='The storage account ID to restrict sample files to when submitting the workflow. ',
+                help='The storage account ID that the samples given with --sample belong to. '
+                     'Runs are only linked to their samples in Workbench when the storage account is set. '
+                     'If not specified and the namespace has only one storage account, that one is used.',
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -574,7 +576,11 @@ def init_runs_commands(group: Group):
             else:
                 return None
 
-            return [SimpleSample(id=sample_id, storage_account_id=storage_account_id) for sample_id in sample_list]
+            resolved_storage_account_id = resolve_storage_account_id(storage_account_id,
+                                                                     context_name=context,
+                                                                     namespace=ewes_client.namespace)
+            return [SimpleSample(id=sample_id, storage_account_id=resolved_storage_account_id)
+                    for sample_id in sample_list]
 
         def get_default_engine_id():
             list_options = ExecutionEngineListOptions()

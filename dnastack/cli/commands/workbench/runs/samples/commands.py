@@ -2,7 +2,7 @@ from typing import Optional
 
 import click
 
-from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG
+from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, resolve_storage_account_id
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
@@ -32,7 +32,9 @@ def init_samples_commands(group):
             ArgumentSpec(
                 name='storage_account_id',
                 arg_names=['--storage-account'],
-                help='The storage account ID to associate with the samples.',
+                help='The storage account ID to associate with the samples. '
+                     'Runs are only linked to their samples in Workbench when the storage account is set. '
+                     'If not specified and the namespace has only one storage account, that one is used.',
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -52,19 +54,31 @@ def init_samples_commands(group):
 
         new_samples = []
         provided_sample_ids = set(samples)
+        existing_ids = {s.id for s in existing}
 
-        # Update existing samples with new storage_account_id if provided
+        # Only look up a default storage account when a provided sample has none
+        default_storage_account_id = None
+        needs_storage_account = (any(sample_id not in existing_ids for sample_id in samples)
+                                 or any(s.id in provided_sample_ids and not s.storage_account_id for s in existing))
+        if storage_account_id is None and needs_storage_account:
+            default_storage_account_id = resolve_storage_account_id(None,
+                                                                    context_name=context,
+                                                                    namespace=client.namespace)
+
+        # Update existing samples with new storage_account_id if provided, or fill in a missing one
         for s in existing:
-            if s.id in provided_sample_ids and storage_account_id is not None:
-                new_samples.append(SimpleSample(id=s.id, storage_account_id=storage_account_id))
+            if s.id in provided_sample_ids:
+                new_samples.append(SimpleSample(
+                    id=s.id,
+                    storage_account_id=storage_account_id or s.storage_account_id or default_storage_account_id))
             else:
                 new_samples.append(s)
 
         # Add truly new samples
-        existing_ids = {s.id for s in existing}
         for sample_id in samples:
             if sample_id not in existing_ids:
-                new_samples.append(SimpleSample(id=sample_id, storage_account_id=storage_account_id))
+                new_samples.append(SimpleSample(id=sample_id,
+                                                storage_account_id=storage_account_id or default_storage_account_id))
 
         result = client.update_run_samples(run_id, new_samples)
         click.echo(to_json(normalize(result)))

@@ -6,6 +6,7 @@ from click import Group
 
 from dnastack.cli.commands.workbench.runs.samples.commands import init_samples_commands
 from dnastack.client.workbench.ewes.models import SimpleSample, ExtendedRun, ExtendedRunRequest, ExtendedRunStatus
+from dnastack.client.workbench.storage.models import StorageAccount
 
 
 class TestRunsSamplesAddCommand(unittest.TestCase):
@@ -14,9 +15,28 @@ class TestRunsSamplesAddCommand(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.mock_ewes_client = Mock()
+        self.mock_ewes_client.namespace = 'test-ns'
+
+        # Storage account lookup used when a sample needs a storage account and --storage-account is not given
+        storage_client_patcher = patch('dnastack.cli.commands.workbench.utils.get_storage_client')
+        self.mock_get_storage_client = storage_client_patcher.start()
+        self.addCleanup(storage_client_patcher.stop)
+        self.mock_storage_client = self.mock_get_storage_client.return_value
+        self.mock_storage_client.list_storage_accounts.side_effect = \
+            lambda *args, **kwargs: iter([StorageAccount(id='sa-default')])
 
         self.group = Group()
         init_samples_commands(self.group)
+
+    def _given_run_with_samples(self, samples):
+        existing_run = Mock(spec=ExtendedRun)
+        existing_run.request = Mock(spec=ExtendedRunRequest)
+        existing_run.request.samples = samples
+        self.mock_ewes_client.get_run.return_value = existing_run
+
+        mock_result = Mock(spec=ExtendedRunStatus)
+        mock_result.model_dump.return_value = {'samples': []}
+        self.mock_ewes_client.update_run_samples.return_value = mock_result
 
     @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
     def test_add_samples_to_run(self, mock_get_client):
@@ -92,6 +112,7 @@ class TestRunsSamplesAddCommand(unittest.TestCase):
         samples = call_args[0][1]
         self.assertEqual(len(samples), 1)
         self.assertEqual(samples[0].id, 'new-1')
+        self.assertEqual(samples[0].storage_account_id, 'sa-default')
 
     @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
     def test_add_samples_missing_run_id(self, mock_get_client):
@@ -163,6 +184,75 @@ class TestRunsSamplesAddCommand(unittest.TestCase):
         self.assertEqual(len(samples), 1)
         self.assertEqual(samples[0].storage_account_id, 'sa-original',
                          "Existing storage_account_id should be preserved when --storage-account not provided")
+        self.mock_get_storage_client.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_existing_sample_without_storage_account_fills_in_only_storage_account(self, mock_get_client):
+        """Test that re-adding a sample with no storage account defaults to the namespace's only storage account"""
+        mock_get_client.return_value = self.mock_ewes_client
+        self._given_run_with_samples([
+            SimpleSample(id='sample-1', storage_account_id=None),
+            SimpleSample(id='sample-2', storage_account_id='sa-original'),
+        ])
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'sample-1', '--sample', 'sample-2']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.mock_get_storage_client.assert_called_once_with(context_name=None, namespace='test-ns')
+        samples = self.mock_ewes_client.update_run_samples.call_args[0][1]
+        self.assertEqual({s.id: s.storage_account_id for s in samples},
+                         {'sample-1': 'sa-default', 'sample-2': 'sa-original'})
+
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_samples_with_explicit_storage_account_skips_lookup(self, mock_get_client):
+        """Test that an explicit --storage-account is used without listing storage accounts"""
+        mock_get_client.return_value = self.mock_ewes_client
+        self._given_run_with_samples(None)
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'new-1', '--storage-account', 'sa-explicit']
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.mock_get_storage_client.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_samples_fails_when_namespace_has_multiple_storage_accounts(self, mock_get_client):
+        """Test that adding a sample without --storage-account fails when the storage account is ambiguous"""
+        mock_get_client.return_value = self.mock_ewes_client
+        self._given_run_with_samples(None)
+        self.mock_storage_client.list_storage_accounts.side_effect = \
+            lambda *args, **kwargs: iter([StorageAccount(id='sa-1'), StorageAccount(id='sa-2')])
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'new-1']
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('--storage-account', result.output)
+        self.assertIn('sa-1', result.output)
+        self.mock_ewes_client.update_run_samples.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')
+    def test_add_samples_fails_when_namespace_has_no_storage_accounts(self, mock_get_client):
+        """Test that adding a sample without --storage-account fails when the namespace has no storage accounts"""
+        mock_get_client.return_value = self.mock_ewes_client
+        self._given_run_with_samples(None)
+        self.mock_storage_client.list_storage_accounts.side_effect = lambda *args, **kwargs: iter([])
+
+        result = self.runner.invoke(
+            self.group,
+            ['add', '--run-id', 'run-1', '--sample', 'new-1']
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('No storage accounts', result.output)
+        self.mock_ewes_client.update_run_samples.assert_not_called()
 
 
 class TestRunsSamplesRemoveCommand(unittest.TestCase):
