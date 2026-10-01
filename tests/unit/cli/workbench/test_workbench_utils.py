@@ -71,7 +71,16 @@ class TestResolveStorageAccountId(unittest.TestCase):
         with self.assertRaises(click.ClickException) as error:
             resolve_storage_account_id(None, context_name=None, namespace='ns')
 
-        assert_that(error.exception.message).contains('--storage-account', 'sa-1', 'sa-2')
+        assert_that(error.exception.message).contains('--storage-account', 'dnastack workbench storage list')
+
+    @patch('dnastack.cli.commands.workbench.utils.get_storage_client')
+    def test_that_storage_account_lookup_fetches_at_most_two_accounts(self, mock_get_storage_client):
+        mock_get_storage_client.return_value.list_storage_accounts.return_value = iter([StorageAccount(id='sa-only')])
+
+        resolve_storage_account_id(None, context_name=None, namespace='ns')
+
+        call_args = mock_get_storage_client.return_value.list_storage_accounts.call_args
+        assert_that(call_args.kwargs['max_results']).is_equal_to(2)
 
     @patch('dnastack.cli.commands.workbench.utils.get_storage_client')
     def test_that_no_storage_accounts_raise_error(self, mock_get_storage_client):

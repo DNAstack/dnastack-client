@@ -8,7 +8,7 @@ from click import style, Group
 from dnastack.cli.commands.workbench.runs.utils import UnableToFindParameterError, NoDefaultEngineError
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
 from dnastack.cli.commands.workbench.utils import get_ewes_client, NAMESPACE_ARG, create_sort_arg, \
-    parse_to_datetime_iso_format, resolve_storage_account_id
+    parse_to_datetime_iso_format, resolve_storage_account_id, STORAGE_ACCOUNT_DEFAULT_HELP
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
@@ -509,8 +509,7 @@ def init_runs_commands(group: Group):
                 name='storage_account_id',
                 arg_names=['--storage-account'],
                 help='The storage account ID that the samples given with --sample belong to. '
-                     'Runs are only linked to their samples in Workbench when the storage account is set. '
-                     'If not specified and the namespace has only one storage account, that one is used.',
+                     + STORAGE_ACCOUNT_DEFAULT_HELP,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,

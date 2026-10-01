@@ -235,7 +235,7 @@ class TestRunsSamplesAddCommand(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('--storage-account', result.output)
-        self.assertIn('sa-1', result.output)
+        self.assertIn('dnastack workbench storage list', result.output)
         self.mock_ewes_client.update_run_samples.assert_not_called()
 
     @patch('dnastack.cli.commands.workbench.runs.samples.commands.get_ewes_client')

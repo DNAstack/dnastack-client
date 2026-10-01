@@ -99,6 +99,10 @@ def get_storage_client(context_name: Optional[str] = None,
         return factory.get(StorageClient, endpoint_id=endpoint_id, context_name=context_name, namespace=namespace)
 
 
+STORAGE_ACCOUNT_DEFAULT_HELP = ('Runs are only linked to their samples in Workbench when the storage account is set. '
+                                'If not specified and the namespace has only one storage account, that one is used.')
+
+
 def resolve_storage_account_id(storage_account_id: Optional[str],
                                context_name: Optional[str],
                                namespace: Optional[str]) -> str:
@@ -110,14 +114,17 @@ def resolve_storage_account_id(storage_account_id: Optional[str],
         return storage_account_id
 
     storage_client = get_storage_client(context_name=context_name, namespace=namespace)
-    storage_account_ids = [account.id for account in storage_client.list_storage_accounts(StorageListOptions(), None)]
+    # Two results are enough to tell whether the namespace has a single storage account
+    storage_account_ids = [account.id for account in
+                           storage_client.list_storage_accounts(StorageListOptions(), max_results=2)]
 
     if not storage_account_ids:
         raise click.ClickException(f'No storage accounts found in namespace {namespace}. '
-                                   f'Samples must belong to a storage account.')
+                                   'Samples must belong to a storage account.')
     if len(storage_account_ids) > 1:
         raise click.ClickException(f'Namespace {namespace} has multiple storage accounts. '
-                                   f'Specify one with --storage-account: {", ".join(storage_account_ids)}')
+                                   'Specify one with --storage-account. '
+                                   'Run `dnastack workbench storage list` to see them.')
 
     click.echo(f'Using storage account {storage_account_ids[0]}, the only storage account in namespace {namespace}.',
                err=True)
