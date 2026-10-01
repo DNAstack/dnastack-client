@@ -1,6 +1,7 @@
 
 from typing import Optional
 
+import click
 from imagination import container
 
 from dnastack.cli.commands.config.contexts import ContextCommandHandler
@@ -9,6 +10,7 @@ from dnastack.cli.helpers.client_factory import ConfigurationBasedClientFactory
 from dnastack.client.workbench.ewes.client import EWesClient
 from dnastack.client.workbench.samples.client import SamplesClient
 from dnastack.client.workbench.storage.client import StorageClient
+from dnastack.client.workbench.storage.models import StorageListOptions
 from dnastack.client.workbench.workbench_user_service.client import WorkbenchUserClient
 
 DEFAULT_WORKBENCH_DESTINATION = "workbench.omics.ai"
@@ -95,6 +97,38 @@ def get_storage_client(context_name: Optional[str] = None,
     except AssertionError:
         _populate_workbench_endpoint()
         return factory.get(StorageClient, endpoint_id=endpoint_id, context_name=context_name, namespace=namespace)
+
+
+STORAGE_ACCOUNT_DEFAULT_HELP = ('Runs are only linked to their samples in Workbench when the storage account is set. '
+                                'If not specified and the namespace has only one storage account, that one is used.')
+
+
+def resolve_storage_account_id(storage_account_id: Optional[str],
+                               context_name: Optional[str],
+                               namespace: Optional[str]) -> str:
+    """
+    Return the given storage account, or the namespace's only storage account if none is given.
+    Samples without a storage account are not linked to their runs in Workbench.
+    """
+    if storage_account_id:
+        return storage_account_id
+
+    storage_client = get_storage_client(context_name=context_name, namespace=namespace)
+    # Two results are enough to tell whether the namespace has a single storage account
+    storage_account_ids = [account.id for account in
+                           storage_client.list_storage_accounts(StorageListOptions(), max_results=2)]
+
+    if not storage_account_ids:
+        raise click.ClickException(f'No storage accounts found in namespace {namespace}. '
+                                   'Samples must belong to a storage account.')
+    if len(storage_account_ids) > 1:
+        raise click.ClickException(f'Namespace {namespace} has multiple storage accounts. '
+                                   'Specify one with --storage-account. '
+                                   'Run `dnastack workbench storage list` to see them.')
+
+    click.echo(f'Using storage account {storage_account_ids[0]}, the only storage account in namespace {namespace}.',
+               err=True)
+    return storage_account_ids[0]
 
 
 def parse_to_datetime_iso_format(date: str, start_of_day: bool = False, end_of_day: bool = False) -> str:
