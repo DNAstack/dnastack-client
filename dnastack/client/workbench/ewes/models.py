@@ -387,6 +387,7 @@ class ExecutionEngineProviderType(str, Enum):
 
 class ExecutionEngine(BaseModel):
     id: str
+    version: Optional[str] = None
     name: str
     description: Optional[str] = None
     provider: ExecutionEngineProviderType

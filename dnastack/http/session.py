@@ -97,7 +97,8 @@ class HttpSession(AbstractContextManager):
                  authenticators: List[Authenticator] = None,
                  suppress_error: bool = True,
                  enable_auth: bool = True,
-                 session: Optional[Session] = None):
+                 session: Optional[Session] = None,
+                 log_response_body: bool = True):
         super().__init__()
 
         self.__id = uuid or str(uuid4())
@@ -106,6 +107,7 @@ class HttpSession(AbstractContextManager):
         self.__session: Optional[Session] = session
         self.__suppress_error = suppress_error
         self.__enable_auth = enable_auth
+        self.__log_response_body = log_response_body
 
         # This will inherit event types from
         self.__events = EventSource(['authentication-before',
@@ -152,6 +154,14 @@ class HttpSession(AbstractContextManager):
     def __exit__(self, exc_type, exc_val, exc_tb):
         super().__exit__(exc_type, exc_val, exc_tb)
         self.close()
+
+    @property
+    def log_response_body(self) -> bool:
+        return self.__log_response_body
+
+    def _response_body_for_log(self, response: Response) -> str:
+        # Off for services whose responses can carry credentials, such as Workbench engines.
+        return response.text if self.__log_response_body else '(response body not logged)'
 
     def submit(self,
                method: str,
@@ -218,7 +228,7 @@ class HttpSession(AbstractContextManager):
             response = getattr(session, http_method)(url, **kwargs)
 
             sub_logger.debug(f'HTTP {response.status_code} {method} {url} ({len(response.text)}B)'
-                             f'\n{response.text}')
+                             f'\n{self._response_body_for_log(response)}')
 
         if response.ok:
             return response
@@ -231,7 +241,7 @@ class HttpSession(AbstractContextManager):
 
             if self.__enable_auth:
                 fallback_logger = trace_context.create_span_logger(logger, get_authenticator_log_level())
-                fallback_logger.debug(f'HTTP {status_code}: {method} {url}\n{response.text}')
+                fallback_logger.debug(f'HTTP {status_code}: {method} {url}\n{self._response_body_for_log(response)}')
 
                 if status_code == 401 and authenticator:
                     authenticator.clear_access_token()
