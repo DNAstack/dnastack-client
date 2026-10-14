@@ -907,7 +907,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
             '--sas', "https://example.com",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: sas, access_key. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'sas, access_key. Use only one.')
 
         self.expect_error_from([
             'workbench', 'storage', 'add', 'azure',
@@ -917,7 +918,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
             '--tenant-id', "foo",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: access_key, service_principal. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'access_key, service_principal. Use only one.')
 
         self.expect_error_from([
             'workbench', 'storage', 'add', 'azure',
@@ -929,7 +931,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--client-id', "foo",
             '--client-secret', "foo",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: sas, service_principal. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'sas, service_principal. Use only one.')
 
     def test_update_azure_storage_account(self):
         # Setup test data for adding
@@ -965,7 +968,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
             '--sas', "https://example.com",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: sas, access_key. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'sas, access_key. Use only one.')
 
         self.expect_error_from([
             'workbench', 'storage', 'update', 'azure',
@@ -976,7 +980,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--access-key', env('E2E_AZURE_ACCESS_KEY', required=True),
             '--tenant-id', "foo",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: access_key, service_principal. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'access_key, service_principal. Use only one.')
 
         self.expect_error_from([
             'workbench', 'storage', 'update', 'azure',
@@ -989,7 +994,8 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
             '--client-id', "foo",
             '--client-secret', "foo",
         ],
-            r'^BadParameter: Conflicting authentication methods provided: sas, service_principal. Use only one.')
+            r'Error: Invalid value: Conflicting authentication methods provided: '
+            r'sas, service_principal. Use only one.')
 
     def test_storage_list(self):
         created_storage_account = self._get_or_create_storage_account(provider=Provider.aws)

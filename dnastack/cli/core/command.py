@@ -1,16 +1,15 @@
-from traceback import print_exc
-from typing import List, Any
+import inspect
+from typing import List, Optional
 
 import click
 
 from dnastack.cli.core.command_formatting import FormattedHelpCommand
 from dnastack.cli.core.command_spec import ArgumentType, ArgumentSpec
 from dnastack.common.logger import get_logger
-from dnastack.common.tracing import Span
-from dnastack.feature_flags import currently_in_debug_mode, show_distributed_trace_stack_on_error
 
 
-def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = False):
+def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = False,
+                      required_section_title: Optional[str] = None):
     """
     Decorator that creates a CLI command with formatted help output.
 
@@ -19,68 +18,19 @@ def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = Fal
         name: Name of the command
         specs: List of ArgumentSpec objects defining the command parameters
         hidden: Whether to hide the command from help output
+        required_section_title: The heading of the required options section in help, instead of
+            "Required Options:"
     """
     def decorator(f):
         # Set up logging
         _logger = get_logger(f'@formatted_command/{name}')
 
         # Create the command first with hidden parameter
-        cmd = FormattedHelpCommand(name=name, callback=f, help=f.__doc__, hidden=hidden)
-
-        def handle_invocation(*args, **kwargs) -> Any:
-            """Wrapper to handle errors and tracing"""
-            result = None
-
-            if currently_in_debug_mode():
-                try:
-                    result = f(*args, **kwargs)
-                    if isinstance(result, Exception):
-                        click.echo(str(result), err=True)
-                        raise SystemExit(1)
-                    return result
-                except Exception as e:
-                    def _printer(msg: str):
-                        click.secho(msg, dim=True, err=True)
-
-                    if hasattr(e, 'trace'):
-                        e.trace.print_tree(external_printer=_printer)
-
-                    raise e
-            else:
-                try:
-                    result = f(*args, **kwargs)
-                    if isinstance(result, Exception):
-                        click.echo(str(result), err=True)
-                        raise SystemExit(1)
-                    return result
-                except (IOError, TypeError, AttributeError, IndexError, KeyError) as e:
-                    click.secho('Unexpected programming error', fg='red', err=True)
-                    print_exc()
-                    raise SystemExit(1) from e
-                except Exception as e:
-                    error_type = type(e).__name__
-                    click.secho(f'{error_type}: ', fg='red', bold=True, nl=False, err=True)
-                    click.secho(str(e), fg='red', err=True)
-
-                    if hasattr(e, 'trace'):
-                        trace: Span = e.trace
-                        click.secho(f'Incident ID {trace.trace_id}', dim=True, err=True)
-
-                        def _printer(msg: str):
-                            click.secho(msg, dim=True, err=True)
-
-                        if show_distributed_trace_stack_on_error:
-                            trace.print_tree(external_printer=_printer)
-                        else:
-                            _logger.debug('Set DNASTACK_DISPLAY_TRACE_ON_ERROR (environment variable) '
-                                          'to "true" for the trace information without the debug mode')
-
-                    raise SystemExit(1) from e
-
-            return result
-
-        # Replace the callback with our error-handling version
-        cmd.callback = handle_invocation
+        # The help is printed as written, so dedent it to print flush whatever the docstring's indentation.
+        cmd = FormattedHelpCommand(name=name, callback=f, help=inspect.cleandoc(f.__doc__) if f.__doc__ else None,
+                                   hidden=hidden)
+        if required_section_title:
+            cmd.required_section_title = required_section_title
 
         # Create a wrapper function that matches parameter names
         def wrapped_callback(**kwargs):
@@ -113,6 +63,9 @@ def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = Fal
                     click.echo(str(result), err=True)
                     raise SystemExit(1)
                 return result
+            except click.ClickException:
+                # Usage and bad-parameter errors: click prints them with the usage line and exits 2.
+                raise
             except Exception as e:
                 click.secho(f"{type(e).__name__}: {str(e)}", fg='red', err=True)
                 raise SystemExit(1) from e
@@ -173,7 +126,7 @@ def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = Fal
                 option_kwargs['show_default'] = False
 
             if spec.choices:
-                option_kwargs['type'] = click.Choice(spec.choices)
+                option_kwargs['type'] = click.Choice(spec.choices, case_sensitive=spec.case_sensitive)
                 option_kwargs['show_choices'] = True
 
             option = click.option(*arg_names, **option_kwargs)
@@ -181,6 +134,19 @@ def formatted_command(group, name, specs: List[ArgumentSpec], hidden: bool = Fal
 
         # Get all params from the wrapped callback
         cmd.params = wrapped_callback.__click_params__ if hasattr(wrapped_callback, '__click_params__') else []
+        for spec in option_specs:
+            if spec.common_option or spec.display_required:
+                for param in cmd.params:
+                    if set(param.opts) & set(spec.get_argument_names()):
+                        if spec.common_option:
+                            cmd.store_common_option(param.name)
+                        if spec.display_required:
+                            cmd.store_display_required_option(param.name)
+        for spec in option_specs:
+            if spec.example_value:
+                for param in cmd.params:
+                    if set(param.opts) & set(spec.get_argument_names()):
+                        cmd.store_example_value(param.name, spec.example_value)
 
         # Update the command's callback
         cmd.callback = wrapped_callback

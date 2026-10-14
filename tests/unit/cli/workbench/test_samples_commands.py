@@ -266,8 +266,9 @@ class TestSamplesListCommand(unittest.TestCase):
         )
         
         # Should fail because workflow-id is required with workflow perspective
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn('workflow-id is required', result.output)
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn('Usage:', result.output)
+        self.assertIn('Error: When perspective is set to "WORKFLOW", the workflow-id is required.', result.output)
 
     @patch('dnastack.cli.commands.workbench.samples.commands.get_samples_client')
     def test_describe_sample(self, mock_get_client):
