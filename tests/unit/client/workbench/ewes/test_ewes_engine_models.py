@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from dnastack.client.workbench.ewes.engine_models import (
     ENGINE_ID_PATTERN, ENGINE_SECRET_FIELDS, SECRET_PLACEHOLDER, EngineParamPresetRequest, ExecutionEngineRequest,
     derive_engine_id, drop_placeholder_secrets, get_field, redact_engine_secrets,
-    required_create_fields, url_problems, validate_engine_for_create, validate_engine_for_update,
+    required_create_fields, url_password, url_problems, validate_engine_for_create, validate_engine_for_update,
 )
 from dnastack.client.workbench.ewes.models import ExecutionEngine
 from tests.unit.client.workbench.ewes.engine_fixtures import (
@@ -343,6 +343,42 @@ def test_redaction_masks_the_password_in_the_url(url, shown):
     data['engine_adapter_configuration']['url'] = url
     assert redact_engine_secrets(data)['engine_adapter_configuration']['url'] == shown
     assert data['engine_adapter_configuration']['url'] == url
+
+
+# urlsplit silently drops tab, CR and LF, so the parsed password no longer matches the raw text.
+@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
+@pytest.mark.parametrize('url', ['https://user:SECRET-URL{}X@host/x', 'https://:SECRET-URL{}X@host/x',
+                                 'https://us{}er:SECRET-URL@host/x?q=a@b#f'])
+def test_redaction_masks_a_url_password_holding_characters_urlsplit_strips(url, stripped):
+    url = url.format(stripped)
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = url
+    masked = redact_engine_secrets(data)['engine_adapter_configuration']['url']
+    assert 'SECRET-URL' not in masked
+    assert '***@host/x' in masked
+    assert data['engine_adapter_configuration']['url'] == url
+
+
+@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
+@pytest.mark.parametrize('url', ['https:{}//user:SECRET-URL@host/x', 'https:/{}/user:SECRET-URL@host/x',
+                                 'https{}://user:SECRET-URL@host/x'])
+def test_redaction_masks_a_password_when_the_stripped_character_splits_the_scheme_or_slashes(url, stripped):
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = url.format(stripped)
+    assert 'SECRET-URL' not in redact_engine_secrets(data)['engine_adapter_configuration']['url']
+
+
+@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
+def test_redaction_never_shows_the_password_wherever_a_stripped_character_is_inserted(stripped):
+    original = 'https://user:SECRET-URL@host:8443/x?q#f'
+    for position in range(len(original) + 1):
+        url = original[:position] + stripped + original[position:]
+        if url_password(url) is None:
+            continue
+        data = engine('wes_oauth')
+        data['engine_adapter_configuration']['url'] = url
+        masked = redact_engine_secrets(data)['engine_adapter_configuration']['url']
+        assert 'SECRET-URL' not in masked, url
 
 
 @pytest.mark.parametrize('key', ['gcp', 'wes_oauth', 'wes_mtls', 'azure'])

@@ -9,7 +9,7 @@ import json
 import re
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -237,6 +237,24 @@ def _has_userinfo(url: str) -> bool:
         return False
 
 
+# urlsplit silently drops these characters, so what it parses can differ from the raw text.
+_URLSPLIT_STRIPPED = ('\t', '\r', '\n')
+
+
+def _has_stripped_characters(url: str) -> bool:
+    return any(char in url for char in _URLSPLIT_STRIPPED)
+
+
+def _raw_user_info(url: str) -> Optional[str]:
+    """The user info of the raw URL text: between the scheme's // and the last @ before the first / ? or #."""
+    _, separator, rest = url.partition('//')
+    if not separator:
+        return None
+    authority = re.split(r'[/?#]', rest, maxsplit=1)[0]
+    user_info, at, _ = authority.rpartition('@')
+    return user_info if at else None
+
+
 def url_password(url: Any) -> Optional[str]:
     """The password inside a URL's user info, or None when it has none or does not parse."""
     if not isinstance(url, str):
@@ -247,10 +265,35 @@ def url_password(url: Any) -> Optional[str]:
         return None
 
 
+def raw_url_password(url: Any) -> Optional[str]:
+    """The password as written in the URL text, which differs from url_password where urlsplit strips characters."""
+    if url_password(url) is None:
+        return None
+    user_info = _raw_user_info(url)
+    if user_info is None or ':' not in user_info:
+        return None
+    return user_info.partition(':')[2] or None
+
+
+def _mask_parsed_url_password(url: str) -> str:
+    """Rebuild the URL from its parsed form with the password masked, for when the raw user info cannot be found."""
+    parts = urlsplit(url)
+    user_info, _, host = parts.netloc.rpartition('@')
+    return urlunsplit(parts._replace(netloc=f'{user_info.partition(":")[0]}:{SECRET_PLACEHOLDER}@{host}'))
+
+
 def _mask_url_password(url: Any) -> Any:
     """The URL with the password in its user info replaced by the placeholder; anything else is kept as given."""
     if url_password(url) is None:
         return url
+    if _has_stripped_characters(url):
+        # The parsed netloc no longer matches the text, so mask the raw user info instead.
+        user_info = _raw_user_info(url)
+        if user_info is None:
+            return _mask_parsed_url_password(url)
+        user, colon, _ = user_info.partition(':')
+        masked = f'{user}:{SECRET_PLACEHOLDER}' if colon else SECRET_PLACEHOLDER
+        return url.replace(f'{user_info}@', f'{masked}@', 1)
     netloc = urlsplit(url).netloc
     user_info, _, host = netloc.rpartition('@')
     user = user_info.partition(':')[0]

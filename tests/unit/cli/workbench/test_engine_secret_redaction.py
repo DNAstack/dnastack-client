@@ -1,6 +1,7 @@
 """Unit tests for masking an engine request's secrets in service text."""
 import json
 
+import pytest
 import requests
 
 from dnastack.cli.commands.workbench.engines.secret_redaction import (
@@ -64,3 +65,11 @@ def test_url_without_a_password_adds_no_secret():
     data = engine('wes_oauth')
     data['engine_adapter_configuration']['url'] = 'https://user@wes.example.com'
     assert 'user' not in request_secret_values(ExecutionEngineRequest(**data))
+
+
+@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
+def test_password_in_the_url_is_a_secret_as_written_when_urlsplit_strips_characters(stripped):
+    raw = f'SECRET-URL{stripped}X'
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = f'https://user:{raw}@wes.example.com'
+    assert raw in request_secret_values(ExecutionEngineRequest(**data))

@@ -1325,6 +1325,37 @@ def test_service_error_echoing_a_url_password_masks_it(tmp_path):
     _assert_no_secrets(result)
 
 
+STRIPPED_CHARACTERS = ['\t', '\n', '\r']
+
+
+@pytest.mark.parametrize('stripped', STRIPPED_CHARACTERS)
+def test_describe_masks_a_url_password_holding_characters_urlsplit_strips(stripped):
+    stored = engine('wes_oauth')
+    stored['engine_adapter_configuration']['url'] = f'https://user:SECRET-URL{stripped}X@host/x'
+    client = _client(existing=stored)
+    with _patched(client):
+        result = _invoke(['describe', stored['id']])
+    assert result.exit_code == 0, result.stderr
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
+@pytest.mark.parametrize('stripped', STRIPPED_CHARACTERS)
+def test_service_error_echoing_a_url_password_holding_stripped_characters_masks_it(tmp_path, stripped):
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = f'https://user:SECRET-URL{stripped}X@host.example.com'
+    client = _client(existing=engine('wes_oauth'))
+    client.update_engine.side_effect = lambda engine_id, engine, if_match: (_ for _ in ()).throw(
+        _echoing_error(ClientError, 400, engine.to_request_body()))
+    client.get_engine.return_value = ExecutionEngine(**as_service_response(data))
+    with _patched(client):
+        result = _invoke(['update', 'wes', data['id'], '--config', _write(tmp_path, 'e.json', data)])
+    assert result.exit_code == 1
+    assert 'ClientError: ' in result.stderr
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
 # "authentication_method": null in --config
 
 
