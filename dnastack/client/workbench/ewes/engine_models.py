@@ -31,6 +31,7 @@ ENGINE_SECRET_FIELDS: List[str] = [
 ENGINE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9-]{2,}$')
 
 _URL_PROBLEM = 'engine_adapter_configuration.url must use https:// (http:// is only allowed for localhost)'
+_URL_USERINFO_PROBLEM = 'engine_adapter_configuration.url must not contain a user name or password'
 _LOCAL_HOSTS = ('localhost', '127.0.0.1')
 
 
@@ -228,10 +229,46 @@ def _is_allowed_url(url: str) -> bool:
     return parts.scheme == 'http' and hostname in _LOCAL_HOSTS
 
 
+def _has_userinfo(url: str) -> bool:
+    try:
+        parts = urlsplit(url)
+        return parts.username is not None or parts.password is not None
+    except ValueError:
+        return False
+
+
+def url_password(url: Any) -> Optional[str]:
+    """The password inside a URL's user info, or None when it has none or does not parse."""
+    if not isinstance(url, str):
+        return None
+    try:
+        return urlsplit(url).password or None
+    except ValueError:
+        return None
+
+
+def _mask_url_password(url: Any) -> Any:
+    """The URL with the password in its user info replaced by the placeholder; anything else is kept as given."""
+    if url_password(url) is None:
+        return url
+    netloc = urlsplit(url).netloc
+    user_info, _, host = netloc.rpartition('@')
+    user = user_info.partition(':')[0]
+    # The netloc first appears right after the scheme, so only the user info changes.
+    return url.replace(netloc, f'{user}:{SECRET_PLACEHOLDER}@{host}', 1)
+
+
 def url_problems(adapter: Dict[str, Any]) -> List[str]:
-    """The UI only accepts https engine URLs; plain http is allowed here for engines on this machine."""
+    """The UI only accepts https engine URLs; plain http is allowed here for engines on this machine.
+
+    A URL holding a user name or password is refused, and never quoted, since the password is a secret.
+    """
     url = adapter.get('url')
-    if _is_blank(url) or _is_allowed_url(url):
+    if _is_blank(url):
+        return []
+    if isinstance(url, str) and _has_userinfo(url):
+        return [_URL_USERINFO_PROBLEM]
+    if _is_allowed_url(url):
         return []
     return [_URL_PROBLEM]
 
@@ -291,13 +328,16 @@ def validate_engine_for_update(engine: ExecutionEngineRequest, stored: Execution
 
 
 def redact_engine_secrets(engine: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a copy of an engine dict with every present secret replaced by the placeholder."""
+    """Return a copy of an engine dict with every present secret, and any password in its URL, replaced by
+    the placeholder."""
     redacted = copy.deepcopy(engine)
     adapter = redacted.get('engine_adapter_configuration')
     if isinstance(adapter, dict):
         for path in ENGINE_SECRET_FIELDS:
             if get_field(adapter, path) is not None:
                 set_field(adapter, path, SECRET_PLACEHOLDER)
+        if 'url' in adapter:
+            adapter['url'] = _mask_url_password(adapter['url'])
     return redacted
 
 

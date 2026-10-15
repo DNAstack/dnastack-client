@@ -311,6 +311,7 @@ def build_engine_description(kind: EngineKind,
             _prepare_parents(engine, option.path)
             set_field(engine, option.path, option.value(raw))
     if for_create:
+        _prepare_parents(engine, f'{_ADAPTER}.type')
         set_field(engine, f'{_ADAPTER}.type', kind.adapter_type.value)
         if kind.provider:
             engine['provider'] = kind.provider

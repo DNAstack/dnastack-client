@@ -1209,3 +1209,219 @@ def test_create_help_examples_show_secret_options_as_at_path():
     assert '--secret-access-key VALUE' not in examples
     assert '--service-account-json @PATH' in _help_of(['create', 'gcp']).split('Examples:')[1]
     assert '--client-secret @PATH' in _help_of(['create', 'azure']).split('Examples:')[1]
+
+
+# A user name or password inside an engine URL
+
+URL_WITH_PASSWORD = 'https://user:SECRET-URL@host.example.com'
+KINDS_WITH_URL = ['gcp', 'wes', 'azure']
+KEYS_WITH_URL = ['gcp', 'wes_oauth', 'wes_mtls', 'azure']
+
+
+def _assert_url_secret_hidden(result):
+    assert 'SECRET-URL' not in result.stdout
+    assert 'SECRET-URL' not in result.stderr
+
+
+@pytest.mark.parametrize('kind', KINDS_WITH_URL)
+def test_create_with_a_password_in_the_url_option_is_refused(tmp_path, kind):
+    args = list(OPTIONS_BY_KIND[kind])
+    if None in args:
+        args[args.index(None)] = _write(tmp_path, 'sa.json', GCP_SERVICE_ACCOUNT)
+    args[args.index('--url') + 1] = URL_WITH_PASSWORD
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', kind, *args])
+    assert result.exit_code == 1
+    assert '  - --url must not contain a user name or password.' in result.stderr
+    _assert_url_secret_hidden(result)
+    client.create_engine.assert_not_called()
+
+
+@pytest.mark.parametrize('key', KEYS_WITH_URL)
+def test_create_with_a_password_in_the_config_url_is_refused(tmp_path, key):
+    data = engine(key)
+    data['engine_adapter_configuration']['url'] = URL_WITH_PASSWORD
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', KIND[key], '--config', _write(tmp_path, 'e.json', data)])
+    assert result.exit_code == 1
+    assert 'must not contain a user name or password.' in result.stderr
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+    client.create_engine.assert_not_called()
+
+
+@pytest.mark.parametrize('key', KEYS_WITH_URL)
+def test_update_to_a_url_with_a_password_is_refused(key):
+    client = _client(existing=engine(key))
+    with _patched(client):
+        result = _invoke(['update', KIND[key], engine(key)['id'], '--url', URL_WITH_PASSWORD])
+    assert result.exit_code == 1
+    assert '  - --url must not contain a user name or password.' in result.stderr
+    _assert_url_secret_hidden(result)
+    client.update_engine.assert_not_called()
+
+
+def _stored_with_url_password(key):
+    data = engine(key)
+    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host/x'
+    return data
+
+
+@pytest.mark.parametrize('key', KEYS_WITH_URL)
+def test_describe_masks_the_password_in_the_url(key):
+    stored = _stored_with_url_password(key)
+    client = _client(existing=stored)
+    with _patched(client):
+        result = _invoke(['describe', stored['id']])
+    assert result.exit_code == 0, result.stderr
+    assert json.loads(result.stdout)[0]['engine_adapter_configuration']['url'] == 'https://user:***@host/x'
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
+def test_list_masks_the_password_in_the_url():
+    client = _client()
+    client.list_engines.return_value = iter(
+        [ExecutionEngine(**as_service_response(_stored_with_url_password(key))) for key in KEYS_WITH_URL])
+    with _patched(client):
+        result = _invoke(['list'])
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.count('https://user:***@host/x') == len(KEYS_WITH_URL)
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
+@pytest.mark.parametrize('key', KEYS_WITH_URL)
+def test_update_of_an_engine_with_a_stored_url_password_keeps_it_and_masks_output(key):
+    stored = _stored_with_url_password(key)
+    client = _client(existing=stored)
+    # The service answers with the whole stored engine, URL included.
+    client.update_engine.side_effect = lambda engine_id, engine, if_match: ExecutionEngine(
+        **as_service_response({**stored, 'name': 'Renamed engine'}))
+    with _patched(client):
+        result = _invoke(['update', KIND[key], stored['id'], '--name', 'Renamed engine'])
+    assert result.exit_code == 0, result.stderr
+    sent = client.update_engine.call_args.kwargs['engine'].to_request_body()
+    assert 'url' not in sent['engine_adapter_configuration']
+    assert json.loads(result.stdout)['engine_adapter_configuration']['url'] == 'https://user:***@host/x'
+    _assert_url_secret_hidden(result)
+
+
+def test_service_error_echoing_a_url_password_masks_it(tmp_path):
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host.example.com'
+    client = _client(existing=engine('wes_oauth'))
+    client.update_engine.side_effect = lambda engine_id, engine, if_match: (_ for _ in ()).throw(
+        _echoing_error(ClientError, 400, engine.to_request_body()))
+    # The stored URL equals the one sent, so the update's local URL check does not refuse it.
+    client.get_engine.return_value = ExecutionEngine(**as_service_response(data))
+    with _patched(client):
+        result = _invoke(['update', 'wes', data['id'], '--config', _write(tmp_path, 'e.json', data)])
+    assert result.exit_code == 1
+    assert 'ClientError: ' in result.stderr
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
+# "authentication_method": null in --config
+
+
+def test_update_with_a_null_authentication_method_keeps_mtls():
+    client = _client(existing=engine('wes_mtls'))
+    config = {'name': 'Renamed engine', 'engine_adapter_configuration': {'authentication_method': None}}
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-mtls', '--config', json.dumps(config)])
+    assert result.exit_code == 0, result.stderr
+    adapter = client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    assert adapter['authentication_method'] == 'MTLS'
+    _assert_no_secrets(result)
+
+
+def test_update_with_a_null_authentication_method_takes_an_mtls_key(tmp_path):
+    client = _client(existing=engine('wes_mtls'))
+    config = {'name': 'Renamed engine', 'engine_adapter_configuration': {'authentication_method': None}}
+    pem = '-----BEGIN PRIVATE KEY-----\nSECRET-MTLS\n-----END PRIVATE KEY-----\n'
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-mtls', '--config', json.dumps(config),
+                          '--client-key-and-certificate-chain', _write(tmp_path, 'key.pem', pem)])
+    assert result.exit_code == 0, result.stderr
+    assert 'does not apply' not in result.stderr
+    adapter = client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    assert adapter['authentication_method'] == 'MTLS'
+    assert adapter['ssl_config']['client_key_and_certificate_chain'] == pem
+    _assert_no_secrets(result)
+
+
+# A secret option whose parent object is null in --config
+
+NULL_PARENT_CASES = [
+    ('wes_oauth', 'oauth_config', '--client-secret', 'SECRET-OAUTH', 'oauth_config.clientSecret'),
+    ('gcp', 'auth_config', '--service-account-json', None, 'auth_config.service_account_json'),
+    ('wes_mtls', 'ssl_config', '--client-key-and-certificate-chain', None,
+     'ssl_config.client_key_and_certificate_chain'),
+]
+
+
+def _null_parent_args(tmp_path, key, parent, option, value):
+    data = engine(key)
+    data['engine_adapter_configuration'][parent] = None
+    if value is None:
+        expected = (json.dumps(GCP_SERVICE_ACCOUNT) if option == '--service-account-json'
+                    else '-----BEGIN PRIVATE KEY-----\nSECRET-MTLS\n-----END PRIVATE KEY-----\n')
+        value = _write(tmp_path, 'secret', expected)
+    else:
+        expected = value
+    return data, ['--config', _write(tmp_path, 'e.json', data), option, value], expected
+
+
+@pytest.mark.parametrize('key, parent, option, value, path', NULL_PARENT_CASES)
+def test_create_secret_option_with_a_null_parent_in_config(tmp_path, key, parent, option, value, path):
+    data, args, expected = _null_parent_args(tmp_path, key, parent, option, value)
+    if parent == 'oauth_config':
+        # Nulling oauth_config drops the other OAuth settings too, which create requires.
+        args += ['--client-id', 'wes-client', '--token-uri', 'https://auth.example.com/token',
+                 '--resource', 'https://wes.example.com', '--scope', 'wes']
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', KIND[key], *args])
+    assert result.exit_code == 0, result.stderr
+    adapter = client.create_engine.call_args.args[0].to_request_body()['engine_adapter_configuration']
+    assert get_field(adapter, path) == expected
+    _assert_no_secrets(result)
+
+
+@pytest.mark.parametrize('key, parent, option, value, path', NULL_PARENT_CASES)
+def test_update_secret_option_with_a_null_parent_in_config(tmp_path, key, parent, option, value, path):
+    data, args, expected = _null_parent_args(tmp_path, key, parent, option, value)
+    client = _client(existing=engine(key))
+    with _patched(client):
+        result = _invoke(['update', KIND[key], data['id'], *args])
+    assert result.exit_code == 0, result.stderr
+    adapter = client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    assert get_field(adapter, path) == expected
+    _assert_no_secrets(result)
+
+
+def test_create_with_a_null_adapter_configuration_reports_missing_options():
+    config = {'name': 'AWS Engine', 'region': 'us-east-1', 'engine_adapter_configuration': None}
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', 'aws', '--config', json.dumps(config)])
+    assert result.exit_code == 2, result.stderr
+    assert 'TypeError' not in result.stderr
+    assert "Error: Missing options '--access-key-id', '--secret-access-key'" in result.stderr
+    client.create_engine.assert_not_called()
+
+
+def test_update_with_a_null_adapter_configuration_takes_a_secret_option():
+    client = _client(existing=engine('aws'))
+    config = {'name': 'Renamed engine', 'engine_adapter_configuration': None}
+    with _patched(client):
+        result = _invoke(['update', 'aws', 'aws-omics', '--config', json.dumps(config),
+                          '--secret-access-key', 'SECRET-AWS'])
+    assert result.exit_code == 0, result.stderr
+    adapter = client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    assert adapter == {'type': 'AWS_HEALTH_OMICS', 'secret_access_key': 'SECRET-AWS'}
+    _assert_no_secrets(result)

@@ -423,3 +423,24 @@ def test_azure_scope_is_otherwise_left_alone(update, stored):
 def test_default_azure_scope_ignores_other_adapter_types():
     data = {'engine_adapter_configuration': {'type': 'AWS_HEALTH_OMICS', 'client_id': 'new'}}
     assert follow_default_azure_scope(data, _stored_azure()) == data
+
+
+def test_inherit_authentication_method_treats_null_as_omitted():
+    data = {'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL', 'authentication_method': None}}
+    result = inherit_authentication_method(data, {'authentication_method': 'MTLS'})
+    assert result['engine_adapter_configuration']['authentication_method'] == 'MTLS'
+    assert data['engine_adapter_configuration']['authentication_method'] is None
+
+
+@pytest.mark.parametrize('key, parent, option', [
+    ('wes_oauth', 'oauth_config', 'client_secret'),
+    ('gcp', 'auth_config', 'service_account_json'),
+    ('wes_mtls', 'ssl_config', 'client_key_and_certificate_chain'),
+])
+def test_secret_option_into_a_null_parent_creates_it(tmp_path, key, parent, option):
+    data = engine(key)
+    data['engine_adapter_configuration'][parent] = None
+    value = json.dumps(GCP_SERVICE_ACCOUNT) if option == 'service_account_json' else 'SECRET-NULL-PARENT'
+    result = apply_secret_flags(data, **{option: _write(tmp_path, 's', value)})
+    assert isinstance(result['engine_adapter_configuration'][parent], dict)
+    assert data['engine_adapter_configuration'][parent] is None

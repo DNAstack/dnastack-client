@@ -251,7 +251,7 @@ class HttpSession(AbstractContextManager):
                                               with_reauthentication=retry_with_reauthentication,
                                               with_next_authenticator=retry_with_next_authenticator,
                                               encountered_http_status=status_code,
-                                              encountered_http_response=response.text,
+                                              encountered_http_response=self._response_body_for_log(response),
                                               resolution='')
                     retry_history.append(retry)
 

@@ -287,3 +287,65 @@ def test_create_validation_reports_each_required_field_by_its_full_path():
     data = {'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL', 'authentication_method': 'MTLS'}}
     problems = validate_engine_for_create(ExecutionEngineRequest(**data))
     assert problems == [f'{path} is required' for path in required_create_fields('WES_ON_CROMWELL', 'MTLS')]
+
+
+# A user name or password inside an engine URL
+
+_USERINFO_PROBLEM = 'engine_adapter_configuration.url must not contain a user name or password'
+
+
+@pytest.mark.parametrize('url', [
+    'https://user:SECRET-URL@wes.example.com',
+    'https://user@wes.example.com',
+    'https://:SECRET-URL@wes.example.com/x',
+    'http://user:SECRET-URL@localhost:8080',
+])
+def test_url_with_userinfo_is_refused_without_echoing_it(url):
+    problems = url_problems({'type': 'WES_ON_CROMWELL', 'url': url})
+    assert problems == [_USERINFO_PROBLEM]
+    assert 'SECRET-URL' not in ' '.join(problems)
+
+
+@pytest.mark.parametrize('key', ['gcp', 'wes_oauth', 'azure'])
+def test_url_with_userinfo_is_refused_on_create(key):
+    data = engine(key)
+    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host.example.com'
+    problems = _validate(data)
+    assert _USERINFO_PROBLEM in problems
+    assert 'SECRET-URL' not in ' '.join(problems)
+
+
+def test_update_refuses_a_changed_url_with_userinfo():
+    data = {'engine_adapter_configuration': {'type': 'AZURE_CONTAINER_APP_CROMWELL',
+                                             'url': 'https://user:SECRET-URL@x.example.com'}}
+    assert validate_engine_for_update(ExecutionEngineRequest(**data), _stored('azure')) == [_USERINFO_PROBLEM]
+
+
+def test_update_keeps_a_stored_url_with_userinfo():
+    url = 'https://user:SECRET-URL@x.example.com'
+    stored = _stored('azure')
+    stored.engine_adapter_configuration['url'] = url
+    data = {'engine_adapter_configuration': {'type': 'AZURE_CONTAINER_APP_CROMWELL', 'url': url}}
+    assert validate_engine_for_update(ExecutionEngineRequest(**data), stored) == []
+
+
+@pytest.mark.parametrize('url, shown', [
+    ('https://user:SECRET-URL@host/x', 'https://user:***@host/x'),
+    ('https://user:SECRET-URL@host.example.com:8443/a/b?q=1#frag',
+     'https://user:***@host.example.com:8443/a/b?q=1#frag'),
+    ('https://:SECRET-URL@host/x', 'https://:***@host/x'),
+    ('https://user@host/x', 'https://user@host/x'),
+    ('https://host.example.com/x', 'https://host.example.com/x'),
+    ('https://user:SECRET-URL@[bad', 'https://user:SECRET-URL@[bad'),
+])
+def test_redaction_masks_the_password_in_the_url(url, shown):
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = url
+    assert redact_engine_secrets(data)['engine_adapter_configuration']['url'] == shown
+    assert data['engine_adapter_configuration']['url'] == url
+
+
+@pytest.mark.parametrize('key', ['gcp', 'wes_oauth', 'wes_mtls', 'azure'])
+def test_redaction_leaves_a_url_without_userinfo_unchanged(key):
+    assert (redact_engine_secrets(engine(key))['engine_adapter_configuration']['url']
+            == ALL_ENGINES[key]['engine_adapter_configuration']['url'])

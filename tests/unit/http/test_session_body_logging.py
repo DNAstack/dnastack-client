@@ -10,7 +10,7 @@ from dnastack.client.workbench.ewes.client import EngineListResultLoader
 from dnastack.client.workbench.ewes.models import ExecutionEngineListOptions
 from dnastack.common.logger import TraceableLogger
 from dnastack.common.tracing import Span
-from dnastack.http.session import HttpSession
+from dnastack.http.session import AuthenticationError, HttpSession
 
 MARKER = 'SECRET-IN-BODY'
 
@@ -77,3 +77,33 @@ def test_engine_list_loader_errors_do_not_contain_body_when_disabled():
     with pytest.raises(PageableApiError) as non_json_error:
         list(ResultIterator(loader))
     assert MARKER not in str(non_json_error.value)
+
+
+RETRY_MARKER = 'SECRET-401'
+
+
+def _failed_sign_in_log(log_response_body: bool) -> str:
+    requests_session = Mock()
+    requests_session.get.return_value = Mock(ok=False, status_code=401, text=f'{{"error": "{RETRY_MARKER}"}}')
+    authenticator = Mock(session_id='session-1')
+    authenticator.events.get_fixed_types.return_value = []
+    with patch.object(TraceableLogger, 'debug', autospec=True) as debug, \
+            patch.object(TraceableLogger, 'error', autospec=True) as error:
+        with HttpSession(authenticators=[authenticator], session=requests_session, suppress_error=False,
+                         log_response_body=log_response_body) as session:
+            with pytest.raises(AuthenticationError):
+                session.get('https://api.example.com/engines/x')
+    assert requests_session.get.call_count == 2
+    assert error.call_args_list, 'the exhausted retries are logged at ERROR'
+    calls = debug.call_args_list + error.call_args_list
+    return '\n'.join(str(call.args[1]) for call in calls if len(call.args) > 1)
+
+
+def test_failed_sign_in_retries_do_not_log_body_when_disabled():
+    log = _failed_sign_in_log(log_response_body=False)
+    assert RETRY_MARKER not in log
+    assert 'HTTP 401' in log
+
+
+def test_failed_sign_in_retries_log_body_when_enabled():
+    assert RETRY_MARKER in _failed_sign_in_log(log_response_body=True)

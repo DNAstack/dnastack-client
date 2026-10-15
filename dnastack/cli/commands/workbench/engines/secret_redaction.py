@@ -8,7 +8,7 @@ import json
 from typing import Any, List
 
 from dnastack.client.workbench.ewes.engine_models import (
-    ENGINE_SECRET_FIELDS, SECRET_PLACEHOLDER, ExecutionEngineRequest, get_field,
+    ENGINE_SECRET_FIELDS, SECRET_PLACEHOLDER, ExecutionEngineRequest, get_field, url_password,
 )
 from dnastack.http.session import HttpError
 
@@ -24,7 +24,7 @@ def _is_present(value: Any) -> bool:
 def request_secret_values(request: ExecutionEngineRequest) -> List[str]:
     """Every secret value the request sends, longest first so a secret is never masked inside a longer one."""
     adapter = request.to_request_body().get('engine_adapter_configuration') or {}
-    values = [get_field(adapter, path) for path in ENGINE_SECRET_FIELDS]
+    values = [get_field(adapter, path) for path in ENGINE_SECRET_FIELDS] + [url_password(adapter.get('url'))]
     service_account = get_field(adapter, _SERVICE_ACCOUNT_PATH)
     if _is_present(service_account):
         try:

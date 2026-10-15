@@ -173,12 +173,13 @@ def read_secret_options(secret_options: Dict[str, Optional[str]]) -> Dict[str, s
 
 
 def _require_object_parents(adapter: Dict[str, Any], path: str) -> None:
+    """Make every parent object along the path exist, replacing a null one with an empty object."""
     parents = path.split('.')[:-1]
     node: Any = adapter
     for i, key in enumerate(parents):
-        node = node.get(key)
-        if node is None:
-            return
+        if node.get(key) is None:
+            node[key] = {}
+        node = node[key]
         if not isinstance(node, dict):
             raise EngineInputError(f"engine_adapter_configuration.{'.'.join(parents[:i + 1])} must be an object")
 
@@ -236,16 +237,17 @@ def apply_secret_flags(engine: Dict[str, Any],
 
 def inherit_authentication_method(engine: Dict[str, Any],
                                   existing_adapter: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Copy a WES engine's stored authentication_method into an update that omits it.
+    """Copy a WES engine's stored authentication_method into an update that omits it or sets it to null.
 
     The service treats an omitted authentication_method as OAUTH rather than keeping the stored
-    value, so an update of an MTLS engine would otherwise switch it to OAUTH.
+    value, so an update of an MTLS engine would otherwise switch it to OAUTH. A null is never sent,
+    so it is treated exactly like an omitted value.
     """
     adapter = engine.get('engine_adapter_configuration')
     stored_method = (existing_adapter or {}).get('authentication_method')
     if (not isinstance(adapter, dict)
             or adapter.get('type') != EngineAdapterType.WES_ON_CROMWELL.value
-            or 'authentication_method' in adapter
+            or adapter.get('authentication_method') is not None
             or not stored_method):
         return engine
     result = copy.deepcopy(engine)

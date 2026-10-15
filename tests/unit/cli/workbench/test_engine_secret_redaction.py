@@ -52,3 +52,15 @@ def test_redacted_http_error_keeps_the_type_and_status():
         redacted = redacted_http_error(error_type(_response(status, 'echo SECRET-Z')), ['SECRET-Z'])
         assert type(redacted) is error_type
         assert str(redacted) == f'HTTP {status}: echo ***'
+
+
+def test_password_in_the_url_is_a_secret():
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@wes.example.com'
+    assert 'SECRET-URL' in request_secret_values(ExecutionEngineRequest(**data))
+
+
+def test_url_without_a_password_adds_no_secret():
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['url'] = 'https://user@wes.example.com'
+    assert 'user' not in request_secret_values(ExecutionEngineRequest(**data))
