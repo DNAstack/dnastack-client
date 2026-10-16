@@ -7,7 +7,7 @@ import pytest
 from dnastack.cli.commands.workbench.engines.engine_input import (
     EngineInputError, EngineOptionError, apply_secret_flags, fill_engine_id, follow_default_azure_scope,
     inherit_adapter_type, inherit_authentication_method, load_engine_object, load_json_object, parse_engine_request,
-    resolve_if_match,
+    resolve_if_match, set_config_field,
 )
 from dnastack.common.json_argument_parser import JsonLike
 from tests.unit.client.workbench.ewes.engine_fixtures import GCP_SERVICE_ACCOUNT, as_service_response, engine
@@ -146,27 +146,20 @@ def test_inherit_authentication_method_keeps_explicit_value():
 
 
 def test_parse_strips_server_set_fields():
-    request = parse_engine_request(as_service_response(engine('gcp')), for_update=True)
+    request = parse_engine_request(as_service_response(engine('gcp')))
     assert 'version' not in request.to_request_body()
-
-
-def test_parse_for_update_drops_placeholder():
-    data = engine('azure')
-    data['engine_adapter_configuration']['client_secret'] = '***'
-    body = parse_engine_request(data, for_update=True).to_request_body()
-    assert 'client_secret' not in body['engine_adapter_configuration']
 
 
 def test_parse_requires_adapter_type():
     with pytest.raises(EngineInputError, match='engine_adapter_configuration.type is required'):
-        parse_engine_request({'id': 'x', 'engine_adapter_configuration': {}}, for_update=False)
+        parse_engine_request({'id': 'x', 'engine_adapter_configuration': {}})
 
 
 def test_validation_error_does_not_echo_secret():
     data = engine('azure')
     data['engine_adapter_configuration']['client_secret'] = {'nested': 'SECRET-AZURE'}
     with pytest.raises(EngineInputError) as error:
-        parse_engine_request(data, for_update=False)
+        parse_engine_request(data)
     assert 'SECRET-AZURE' not in str(error.value)
     assert 'client_secret' in str(error.value)
     assert 'engine_adapter_configuration.client_secret' in str(error.value)
@@ -174,7 +167,7 @@ def test_validation_error_does_not_echo_secret():
 
 def test_unknown_adapter_type_does_not_echo_value():
     with pytest.raises(EngineInputError) as error:
-        parse_engine_request({'engine_adapter_configuration': {'type': 'SECRET-TYPO'}}, for_update=False)
+        parse_engine_request({'engine_adapter_configuration': {'type': 'SECRET-TYPO'}})
     message = str(error.value)
     assert 'SECRET-TYPO' not in message
     assert ('engine_adapter_configuration.type: must be one of WES_ON_CROMWELL, GCP_CLOUD_RUN_CROMWELL, '
@@ -203,7 +196,7 @@ def test_missing_file_in_key_value_syntax_does_not_echo_the_text_after_the_at_si
 
 
 def test_secret_option_into_a_non_object_adapter_configuration_is_a_clean_error():
-    with pytest.raises(EngineInputError) as error:
+    with pytest.raises(EngineOptionError) as error:
         apply_secret_flags({'engine_adapter_configuration': 'x'}, secret_access_key='SECRET-KEY')
     assert 'engine_adapter_configuration must be an object' in str(error.value)
     assert 'SECRET-KEY' not in str(error.value)
@@ -212,9 +205,11 @@ def test_secret_option_into_a_non_object_adapter_configuration_is_a_clean_error(
 def test_secret_option_into_a_non_object_parent_is_a_clean_error():
     data = engine('gcp')
     data['engine_adapter_configuration']['auth_config'] = 'x'
-    with pytest.raises(EngineInputError) as error:
+    with pytest.raises(EngineOptionError) as error:
         apply_secret_flags(data, service_account_json='{"a": "SECRET-SA"}')
-    assert 'engine_adapter_configuration.auth_config must be an object' in str(error.value)
+    # The same error, naming --config, as a field option writing below a non-object parent.
+    assert _shown(error) == ("Invalid value for '--config': "
+                             "engine_adapter_configuration.auth_config must be an object.")
     assert 'SECRET-SA' not in str(error.value)
 
 
@@ -328,6 +323,31 @@ def test_inherit_adapter_type_rejects_a_change():
         inherit_adapter_type({'engine_adapter_configuration': {'type': 'GCP_CLOUD_RUN_CROMWELL'}}, 'AWS_HEALTH_OMICS')
 
 
+def test_inherit_adapter_type_does_not_echo_an_unknown_type():
+    with pytest.raises(EngineInputError) as error:
+        inherit_adapter_type({'engine_adapter_configuration': {'type': 'SECRET-PASTED'}}, 'AWS_HEALTH_OMICS')
+    assert str(error.value) == 'engine_adapter_configuration.type cannot be changed (stored: AWS_HEALTH_OMICS).'
+
+
+def test_set_config_field_replaces_missing_and_null_parents():
+    data = {'a': None}
+    set_config_field(data, 'a.b.c', 1)
+    assert data == {'a': {'b': {'c': 1}}}
+
+
+def test_set_config_field_keeps_existing_parents():
+    data = {'a': {'b': {'keep': 1}}}
+    set_config_field(data, 'a.b.c', 2)
+    assert data == {'a': {'b': {'keep': 1, 'c': 2}}}
+
+
+@pytest.mark.parametrize('parent', ['text', 5, ['x']])
+def test_set_config_field_names_the_first_parent_that_is_not_an_object(parent):
+    with pytest.raises(EngineOptionError) as error:
+        set_config_field({'a': {'b': parent}}, 'a.b.c', 'SECRET-VALUE')
+    assert _shown(error) == "Invalid value for '--config': a.b must be an object."
+
+
 def test_inherit_adapter_type_does_not_mutate():
     data = {'engine_adapter_configuration': {'role_arn': 'r'}}
     inherit_adapter_type(data, 'AWS_HEALTH_OMICS')
@@ -368,7 +388,7 @@ def test_secret_flag_that_applies_with_a_non_string_method_fails_only_as_input_e
     data = engine('wes_oauth')
     data['engine_adapter_configuration']['authentication_method'] = method
     with pytest.raises(EngineInputError) as error:
-        parse_engine_request(apply_secret_flags(data, client_secret=_write(tmp_path, 's', 'NEW')), for_update=False)
+        parse_engine_request(apply_secret_flags(data, client_secret=_write(tmp_path, 's', 'NEW')))
     assert 'SECRET-METHOD' not in str(error.value)
 
 
@@ -377,7 +397,7 @@ def test_unknown_field_names_its_parent_but_not_the_key():
     data['engine_adapter_configuration']['SECRET-PASTED-KEY'] = 'x'
     data['engine_adapter_configuration']['another-SECRET'] = 'y'
     with pytest.raises(EngineInputError) as error:
-        parse_engine_request(data, for_update=False)
+        parse_engine_request(data)
     message = str(error.value)
     assert 'SECRET' not in message
     assert message.count('engine_adapter_configuration has a field this engine type does not use.') == 1
@@ -388,7 +408,7 @@ def test_unknown_nested_and_top_level_fields_name_their_parent():
     data['engine_adapter_configuration']['oauth_config']['SECRET-A'] = 'x'
     data['SECRET-B'] = 'y'
     with pytest.raises(EngineInputError) as error:
-        parse_engine_request(data, for_update=False)
+        parse_engine_request(data)
     message = str(error.value)
     assert 'SECRET' not in message
     assert 'engine_adapter_configuration.oauth_config has a field this engine type does not use.' in message

@@ -10,13 +10,13 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 import click
 
-from dnastack.cli.commands.workbench.engines.engine_input import EngineOptionError, read_option_text
+from dnastack.cli.commands.workbench.engines.engine_input import EngineOptionError, read_option_text, set_config_field
 from dnastack.cli.commands.workbench.engines.engine_names import SUBCOMMAND_NAMES, with_article
 from dnastack.cli.core.command_spec import ArgumentSpec
 from dnastack.cli.core.constants import TOTAL_WIDTH
 from dnastack.cli.core.formatting_utils import wrap_text
 from dnastack.client.workbench.ewes.engine_models import (
-    EngineAdapterType, WesOnCromwellAuthenticationMethod, get_field, required_create_fields, set_field,
+    EngineAdapterType, WesOnCromwellAuthenticationMethod, get_field, is_blank, required_create_fields,
 )
 from dnastack.common.json_argument_parser import JsonLike
 
@@ -118,7 +118,9 @@ _UPDATE_COMMON = tuple(o for o in _CREATE_COMMON if o.flag != '--id')
 _PROVIDER = EngineOption('--provider', 'provider', 'Where the WES service runs.',
                          choices=('aws', 'azure', 'gcp', 'local'), upper=True, case_sensitive=False)
 _OAUTH_REQUIRED = 'Required with --authentication-method oauth (the default), unless given in --config.'
-_CROMWELL_URL = 'The Cromwell URL: https, or http for localhost only.'
+_NO_USERINFO = "with no '@', so no user name or password"
+_URL_RULES = f'https, or http for localhost only, {_NO_USERINFO}'
+_CROMWELL_URL = f'The Cromwell URL: {_URL_RULES}.'
 
 ENGINE_KINDS: Tuple[EngineKind, ...] = (
     EngineKind(
@@ -140,12 +142,12 @@ ENGINE_KINDS: Tuple[EngineKind, ...] = (
         summary='a GA4GH WES engine', provider=None,
         region_hint='Use local with --provider local.',
         options=(
-            EngineOption('--url', f'{_ADAPTER}.url', 'The WES service URL: https, or http for localhost only.'),
+            EngineOption('--url', f'{_ADAPTER}.url', f'The WES service URL: {_URL_RULES}.'),
             EngineOption('--authentication-method', f'{_ADAPTER}.authentication_method',
                          'How Workbench authenticates to the WES service.', 'Defaults to oauth.',
                          choices=('oauth', 'mtls'), upper=True, case_sensitive=False),
             EngineOption('--client-id', f'{_ADAPTER}.oauth_config.clientId', 'The OAuth client id.', _OAUTH_REQUIRED),
-            EngineOption('--token-uri', f'{_ADAPTER}.oauth_config.tokenUri', 'The OAuth token URL.',
+            EngineOption('--token-uri', f'{_ADAPTER}.oauth_config.tokenUri', f'The OAuth token URL, {_NO_USERINFO}.',
                          _OAUTH_REQUIRED),
             EngineOption('--resource', f'{_ADAPTER}.oauth_config.resource',
                          'The OAuth resource (audience) to request the token for.', _OAUTH_REQUIRED),
@@ -278,18 +280,6 @@ def _check_config_matches(kind: EngineKind, engine: Dict[str, Any], for_create: 
         raise EngineOptionError(f'provider must be {kind.provider} for {kind.name} engines, or left out', '--config')
 
 
-def _prepare_parents(engine: Dict[str, Any], path: str) -> None:
-    """Make every object above the last path segment exist, so a null one in --config does not crash set_field."""
-    parts = path.split('.')[:-1]
-    node = engine
-    for index, key in enumerate(parts):
-        if node.get(key) is None:
-            node[key] = {}
-        if not isinstance(node[key], dict):
-            raise EngineOptionError(f"{'.'.join(parts[:index + 1])} must be an object", '--config')
-        node = node[key]
-
-
 def build_engine_description(kind: EngineKind,
                              engine_config: Optional[Dict[str, Any]],
                              values: Dict[str, Any],
@@ -308,11 +298,9 @@ def build_engine_description(kind: EngineKind,
     for option in _field_options(kind, for_create):
         raw = values.get(option.name)
         if raw is not None:
-            _prepare_parents(engine, option.path)
-            set_field(engine, option.path, option.value(raw))
+            set_config_field(engine, option.path, option.value(raw))
     if for_create:
-        _prepare_parents(engine, f'{_ADAPTER}.type')
-        set_field(engine, f'{_ADAPTER}.type', kind.adapter_type.value)
+        set_config_field(engine, f'{_ADAPTER}.type', kind.adapter_type.value)
         if kind.provider:
             engine['provider'] = kind.provider
     return engine
@@ -339,14 +327,20 @@ def missing_create_options(kind: EngineKind, engine: Dict[str, Any], values: Dic
     method = get_field(engine, f'{_ADAPTER}.authentication_method')
     missing = []
     for path in required_create_fields(kind.adapter_type.value, method if isinstance(method, str) else None):
-        value = get_field(engine, path)
-        if value is not None and not (isinstance(value, str) and not value.strip()):
+        if not is_blank(get_field(engine, path)):
             continue
         if path in secret_names and values.get(secret_names[path]) is not None:
             continue
         if path in flags:
             missing.append(flags[path])
     return missing
+
+
+def adapter_fields_given_by_option(kind: EngineKind, values: Dict[str, Any], for_create: bool) -> FrozenSet[str]:
+    """The paths, relative to engine_adapter_configuration, of the adapter fields set by a passed option."""
+    prefix = f'{_ADAPTER}.'
+    return frozenset(o.path[len(prefix):] for o in _field_options(kind, for_create)
+                     if o.path.startswith(prefix) and values.get(o.name) is not None)
 
 
 def has_changes(kind: EngineKind, values: Dict[str, Any], for_create: bool) -> bool:

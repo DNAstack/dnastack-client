@@ -6,8 +6,8 @@ import click
 from dnastack.cli.commands.workbench.engines.commands import ENGINE_ID_ARG, redacted_engine
 from dnastack.cli.commands.workbench.engines.engine_input import SERVER_SET_FIELDS, load_engine_object
 from dnastack.cli.commands.workbench.engines.engine_kinds import (
-    ENGINE_KINDS, EngineKind, build_engine_description, command_help, has_changes, option_names, option_specs,
-    secret_options_from,
+    ENGINE_KINDS, EngineKind, adapter_fields_given_by_option, build_engine_description, command_help, has_changes,
+    option_names, option_specs, secret_options_from,
 )
 from dnastack.cli.commands.workbench.engines.engine_submission import (
     prepare_engine_update, update_engine_from_description,
@@ -57,7 +57,9 @@ def _add_update_command(kind: EngineKind) -> None:
         client = get_ewes_client(context_name=context, endpoint_id=endpoint_id, namespace=namespace)
         updated = update_engine_from_description(client, engine_id, engine, secret_values=secret_values,
                                                  adapter_type=kind.adapter_type.value,
-                                                 option_names=option_names(kind, for_create=False))
+                                                 option_names=option_names(kind, for_create=False),
+                                                 given_by_option=adapter_fields_given_by_option(kind, values,
+                                                                                                for_create=False))
         click.echo(to_json(redacted_engine(updated)))
 
     update_engine.__doc__ = _help(kind)

@@ -61,10 +61,10 @@ def test_password_in_the_url_is_a_secret():
     assert 'SECRET-URL' in request_secret_values(ExecutionEngineRequest(**data))
 
 
-def test_url_without_a_password_adds_no_secret():
+def test_user_name_in_the_url_is_masked_like_describe_masks_it():
     data = engine('wes_oauth')
     data['engine_adapter_configuration']['url'] = 'https://user@wes.example.com'
-    assert 'user' not in request_secret_values(ExecutionEngineRequest(**data))
+    assert 'user' in request_secret_values(ExecutionEngineRequest(**data))
 
 
 @pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])

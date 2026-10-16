@@ -5,10 +5,11 @@ before it is printed.
 """
 import copy
 import json
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 from dnastack.client.workbench.ewes.engine_models import (
-    ENGINE_SECRET_FIELDS, SECRET_PLACEHOLDER, ExecutionEngineRequest, get_field, raw_url_password, url_password,
+    ENGINE_SECRET_FIELDS, ENGINE_URL_FIELDS, SECRET_PLACEHOLDER, ExecutionEngineRequest, get_field,
+    url_credential_values,
 )
 from dnastack.http.session import HttpError
 
@@ -21,11 +22,21 @@ def _is_present(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def request_secret_values(request: ExecutionEngineRequest) -> List[str]:
-    """Every secret value the request sends, longest first so a secret is never masked inside a longer one."""
+def url_secret_values(adapter: Optional[Dict[str, Any]]) -> List[str]:
+    """The credentials in every URL field of an adapter configuration, in each form a service could echo."""
+    return [value for path in ENGINE_URL_FIELDS for value in url_credential_values(get_field(adapter or {}, path))]
+
+
+def request_secret_values(request: ExecutionEngineRequest,
+                          stored_adapter: Optional[Dict[str, Any]] = None) -> List[str]:
+    """Every secret value the request sends, longest first so a secret is never masked inside a longer one.
+
+    For an update, stored_adapter adds the stored URL credentials: the service keeps a URL the update leaves out,
+    and its health check can quote it.
+    """
     adapter = request.to_request_body().get('engine_adapter_configuration') or {}
-    values = [get_field(adapter, path) for path in ENGINE_SECRET_FIELDS] + [
-        url_password(adapter.get('url')), raw_url_password(adapter.get('url'))]
+    values = ([get_field(adapter, path) for path in ENGINE_SECRET_FIELDS]
+              + url_secret_values(adapter) + url_secret_values(stored_adapter))
     service_account = get_field(adapter, _SERVICE_ACCOUNT_PATH)
     if _is_present(service_account):
         try:

@@ -6,8 +6,9 @@ from pydantic import ValidationError
 
 from dnastack.client.workbench.ewes.engine_models import (
     ENGINE_ID_PATTERN, ENGINE_SECRET_FIELDS, SECRET_PLACEHOLDER, EngineParamPresetRequest, ExecutionEngineRequest,
-    derive_engine_id, drop_placeholder_secrets, get_field, redact_engine_secrets,
-    required_create_fields, url_password, url_problems, validate_engine_for_create, validate_engine_for_update,
+    derive_engine_id, drop_redacted_values, get_field, mask_url_credentials, redact_engine_secrets,
+    required_create_fields, url_credential_values, url_problems, validate_engine_for_create,
+    validate_engine_for_update,
 )
 from dnastack.client.workbench.ewes.models import ExecutionEngine
 from tests.unit.client.workbench.ewes.engine_fixtures import (
@@ -213,9 +214,9 @@ def test_redaction_tolerates_missing_adapter_configuration():
     assert redact_engine_secrets({'id': 'x'}) == {'id': 'x'}
 
 
-def test_drop_placeholder_secrets():
+def test_drop_redacted_values_drops_placeholder_secrets():
     data = redact_engine_secrets(engine('wes_oauth'))
-    cleaned = drop_placeholder_secrets(data)
+    cleaned = drop_redacted_values(data, None)
     assert get_field(cleaned['engine_adapter_configuration'], 'oauth_config.clientSecret') is None
     assert get_field(cleaned['engine_adapter_configuration'], 'oauth_config.clientId') == 'wes-client'
     ExecutionEngineRequest(**cleaned)  # still parses
@@ -291,7 +292,8 @@ def test_create_validation_reports_each_required_field_by_its_full_path():
 
 # A user name or password inside an engine URL
 
-_USERINFO_PROBLEM = 'engine_adapter_configuration.url must not contain a user name or password'
+def _userinfo_problem(path='url'):
+    return f"engine_adapter_configuration.{path} must not contain '@': a user name or password is not allowed"
 
 
 @pytest.mark.parametrize('url', [
@@ -299,11 +301,29 @@ _USERINFO_PROBLEM = 'engine_adapter_configuration.url must not contain a user na
     'https://user@wes.example.com',
     'https://:SECRET-URL@wes.example.com/x',
     'http://user:SECRET-URL@localhost:8080',
+    # urlsplit ends the host at the first '/', '?' or '#', so it finds no user info in these.
+    'https://user:SECRET#URL@wes.example.com',
+    'https://user:SECRET/URL@wes.example.com',
+    'https://user:SECRET?URL@wes.example.com',
+    'https://user:SECRET-URL@[bad',
+    'https://wes.example.com/x@y',
 ])
-def test_url_with_userinfo_is_refused_without_echoing_it(url):
+def test_url_with_an_at_sign_is_refused_without_echoing_it(url):
     problems = url_problems({'type': 'WES_ON_CROMWELL', 'url': url})
-    assert problems == [_USERINFO_PROBLEM]
-    assert 'SECRET-URL' not in ' '.join(problems)
+    assert problems == [_userinfo_problem()]
+    assert 'SECRET' not in ' '.join(problems)
+
+
+def test_token_uri_with_an_at_sign_is_refused():
+    adapter = {'type': 'WES_ON_CROMWELL', 'oauth_config': {'tokenUri': 'https://c:SECRET-TOKEN@idp.example.com/t'}}
+    assert url_problems(adapter) == [_userinfo_problem('oauth_config.tokenUri')]
+
+
+def test_url_problems_checks_only_the_given_paths():
+    adapter = {'type': 'WES_ON_CROMWELL', 'url': 'https://u:p@host',
+               'oauth_config': {'tokenUri': 'https://c:p@idp.example.com/t'}}
+    assert url_problems(adapter, {'oauth_config.tokenUri'}) == [_userinfo_problem('oauth_config.tokenUri')]
+    assert url_problems(adapter, set()) == []
 
 
 @pytest.mark.parametrize('key', ['gcp', 'wes_oauth', 'azure'])
@@ -311,14 +331,20 @@ def test_url_with_userinfo_is_refused_on_create(key):
     data = engine(key)
     data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host.example.com'
     problems = _validate(data)
-    assert _USERINFO_PROBLEM in problems
+    assert _userinfo_problem() in problems
     assert 'SECRET-URL' not in ' '.join(problems)
+
+
+def test_token_uri_with_userinfo_is_refused_on_create():
+    data = engine('wes_oauth')
+    data['engine_adapter_configuration']['oauth_config']['tokenUri'] = 'https://c:SECRET-TOKEN@idp.example.com/t'
+    assert _userinfo_problem('oauth_config.tokenUri') in _validate(data)
 
 
 def test_update_refuses_a_changed_url_with_userinfo():
     data = {'engine_adapter_configuration': {'type': 'AZURE_CONTAINER_APP_CROMWELL',
                                              'url': 'https://user:SECRET-URL@x.example.com'}}
-    assert validate_engine_for_update(ExecutionEngineRequest(**data), _stored('azure')) == [_USERINFO_PROBLEM]
+    assert validate_engine_for_update(ExecutionEngineRequest(**data), _stored('azure')) == [_userinfo_problem()]
 
 
 def test_update_keeps_a_stored_url_with_userinfo():
@@ -329,59 +355,161 @@ def test_update_keeps_a_stored_url_with_userinfo():
     assert validate_engine_for_update(ExecutionEngineRequest(**data), stored) == []
 
 
+def test_update_checks_an_unchanged_url_an_option_gave():
+    url = 'https://user:SECRET-URL@x.example.com'
+    stored = _stored('azure')
+    stored.engine_adapter_configuration['url'] = url
+    data = {'engine_adapter_configuration': {'type': 'AZURE_CONTAINER_APP_CROMWELL', 'url': url}}
+    assert validate_engine_for_update(ExecutionEngineRequest(**data), stored, {'url'}) == [_userinfo_problem()]
+
+
+# The other authentication method's settings on an update
+
+def _wes_update(adapter):
+    return ExecutionEngineRequest(**{'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL', **adapter}})
+
+
+def test_update_to_mtls_refuses_oauth_settings():
+    oauth_config = _stored('wes_oauth').engine_adapter_configuration['oauth_config']
+    request = _wes_update({'authentication_method': 'MTLS', 'oauth_config': oauth_config,
+                           'ssl_config': {'client_key_and_certificate_chain': 'KEY'}})
+    assert validate_engine_for_update(request, _stored('wes_oauth')) == [
+        'engine_adapter_configuration.oauth_config is only used with OAUTH authentication; remove it']
+
+
+def test_update_of_an_oauth_engine_refuses_an_mtls_key():
+    request = _wes_update({'authentication_method': 'OAUTH',
+                           'ssl_config': {'client_key_and_certificate_chain': 'KEY'}})
+    assert validate_engine_for_update(request, _stored('wes_oauth')) == [
+        'engine_adapter_configuration.ssl_config.client_key_and_certificate_chain is only used with MTLS '
+        'authentication; remove it']
+
+
+def test_update_of_an_mtls_engine_keeps_stored_oauth_settings_sent_back_unchanged():
+    stored = _stored('wes_mtls')
+    stored.engine_adapter_configuration['oauth_config'] = {'clientId': 'legacy'}
+    request = _wes_update({'authentication_method': 'MTLS', 'oauth_config': {'clientId': 'legacy'}})
+    assert validate_engine_for_update(request, stored) == []
+
+
+def test_update_of_an_mtls_engine_refuses_changed_oauth_settings():
+    request = _wes_update({'authentication_method': 'MTLS', 'oauth_config': {'clientId': 'new'}})
+    assert validate_engine_for_update(request, _stored('wes_mtls')) == [
+        'engine_adapter_configuration.oauth_config is only used with OAUTH authentication; remove it']
+
+
+# Masking a URL's user info
+
 @pytest.mark.parametrize('url, shown', [
-    ('https://user:SECRET-URL@host/x', 'https://user:***@host/x'),
-    ('https://user:SECRET-URL@host.example.com:8443/a/b?q=1#frag',
-     'https://user:***@host.example.com:8443/a/b?q=1#frag'),
-    ('https://:SECRET-URL@host/x', 'https://:***@host/x'),
-    ('https://user@host/x', 'https://user@host/x'),
+    ('https://user:SECRET-URL@host/x', 'https://***@host/x'),
+    ('https://user:SECRET-URL@host.example.com:8443/a/b?q=1#frag', 'https://***@host.example.com:8443/a/b?q=1#frag'),
+    ('https://:SECRET-URL@host/x', 'https://***@host/x'),
+    ('https://user@host/x', 'https://***@host/x'),
     ('https://host.example.com/x', 'https://host.example.com/x'),
-    ('https://user:SECRET-URL@[bad', 'https://user:SECRET-URL@[bad'),
+    # urlsplit reads '#', '/' and '?' as the end of the host, and rejects an unbalanced IPv6 bracket outright.
+    ('https://user:SECRET#URL@host/x', 'https://***@host/x'),
+    ('https://user:SECRET/URL@host/x', 'https://***@host/x'),
+    ('https://user:SECRET?URL@host/x', 'https://***@host/x'),
+    ('https://user:SECRET-URL@[bad', 'https://***@[bad'),
+    # Without a scheme and '//' at the start, everything up to the last '@' is masked.
+    ('https:/user:SECRET-URL@host/x', '***@host/x'),
+    ('user:SECRET-URL@host/x', '***@host/x'),
 ])
-def test_redaction_masks_the_password_in_the_url(url, shown):
+def test_redaction_masks_the_user_info_in_the_url(url, shown):
     data = engine('wes_oauth')
     data['engine_adapter_configuration']['url'] = url
     assert redact_engine_secrets(data)['engine_adapter_configuration']['url'] == shown
     assert data['engine_adapter_configuration']['url'] == url
 
 
-# urlsplit silently drops tab, CR and LF, so the parsed password no longer matches the raw text.
-@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
-@pytest.mark.parametrize('url', ['https://user:SECRET-URL{}X@host/x', 'https://:SECRET-URL{}X@host/x',
-                                 'https://us{}er:SECRET-URL@host/x?q=a@b#f'])
-def test_redaction_masks_a_url_password_holding_characters_urlsplit_strips(url, stripped):
-    url = url.format(stripped)
+def test_redaction_masks_the_user_info_in_the_token_uri():
     data = engine('wes_oauth')
-    data['engine_adapter_configuration']['url'] = url
-    masked = redact_engine_secrets(data)['engine_adapter_configuration']['url']
-    assert 'SECRET-URL' not in masked
-    assert '***@host/x' in masked
-    assert data['engine_adapter_configuration']['url'] == url
+    data['engine_adapter_configuration']['oauth_config']['tokenUri'] = 'https://c:SECRET-TOKEN@idp.example.com/t'
+    redacted = redact_engine_secrets(data)
+    assert redacted['engine_adapter_configuration']['oauth_config']['tokenUri'] == 'https://***@idp.example.com/t'
 
 
+@pytest.mark.parametrize('url', [None, 5, '', 'https://host/x'])
+def test_mask_url_credentials_keeps_a_value_without_an_at_sign(url):
+    assert mask_url_credentials(url) == url
+
+
+# urlsplit silently drops tab, CR and LF, so what it reads can differ from the raw text.
 @pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
-@pytest.mark.parametrize('url', ['https:{}//user:SECRET-URL@host/x', 'https:/{}/user:SECRET-URL@host/x',
-                                 'https{}://user:SECRET-URL@host/x'])
-def test_redaction_masks_a_password_when_the_stripped_character_splits_the_scheme_or_slashes(url, stripped):
-    data = engine('wes_oauth')
-    data['engine_adapter_configuration']['url'] = url.format(stripped)
-    assert 'SECRET-URL' not in redact_engine_secrets(data)['engine_adapter_configuration']['url']
-
-
-@pytest.mark.parametrize('stripped', ['\t', '\n', '\r'])
-def test_redaction_never_shows_the_password_wherever_a_stripped_character_is_inserted(stripped):
-    original = 'https://user:SECRET-URL@host:8443/x?q#f'
+@pytest.mark.parametrize('original', ['https://user:SECRET-URL@host:8443/x?q#f',
+                                      'https://user:SECRET-URL@host/a//b:c@d',
+                                      'https://user:SECRET-URL@[bad'])
+def test_redaction_never_shows_the_password_wherever_a_stripped_character_is_inserted(original, stripped):
     for position in range(len(original) + 1):
         url = original[:position] + stripped + original[position:]
-        if url_password(url) is None:
-            continue
         data = engine('wes_oauth')
         data['engine_adapter_configuration']['url'] = url
-        masked = redact_engine_secrets(data)['engine_adapter_configuration']['url']
-        assert 'SECRET-URL' not in masked, url
+        assert 'SECRET-URL' not in redact_engine_secrets(data)['engine_adapter_configuration']['url'], repr(url)
 
 
 @pytest.mark.parametrize('key', ['gcp', 'wes_oauth', 'wes_mtls', 'azure'])
 def test_redaction_leaves_a_url_without_userinfo_unchanged(key):
     assert (redact_engine_secrets(engine(key))['engine_adapter_configuration']['url']
             == ALL_ENGINES[key]['engine_adapter_configuration']['url'])
+
+
+@pytest.mark.parametrize('url, expected', [
+    ('https://user:SECRET-URL@host/x', ['user:SECRET-URL', 'SECRET-URL']),
+    ('https://user:p%40ss@host/x', ['user:p%40ss', 'p%40ss', 'user:p@ss', 'p@ss']),
+    ('https://user:pa/ss@host/x', ['user:pa/ss', 'pa/ss']),
+    # The last '@' may not end the user info; the part after ':' is masked anyway, at worst garbling the text.
+    ('https://host/x?r=a:v@c', ['host/x?r=a:v', 'v']),
+    ('https://user:SECRET-URL@[bad', ['user:SECRET-URL', 'SECRET-URL']),
+    ('https://user@host/x', ['user']),
+    ('https://user:@host/x', ['user:']),
+    ('https://host/x', []),
+    (None, []),
+])
+def test_url_credential_values(url, expected):
+    assert url_credential_values(url) == expected
+
+
+# Undoing redaction for an update
+
+def _with_url(url):
+    return {'name': 'n', 'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL', 'url': url}}
+
+
+_STORED = {'type': 'WES_ON_CROMWELL', 'url': 'https://user:SECRET-URL@host/x'}
+
+
+def test_drop_redacted_values_drops_the_stored_url_as_describe_shows_it():
+    cleaned = drop_redacted_values(_with_url('https://***@host/x'), _STORED)
+    assert cleaned == {'name': 'n', 'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL'}}
+
+
+def test_drop_redacted_values_drops_the_stored_token_uri_as_describe_shows_it():
+    stored = {'type': 'WES_ON_CROMWELL', 'oauth_config': {'tokenUri': 'https://c:SECRET-TOKEN@idp/t'}}
+    data = {'engine_adapter_configuration': {'type': 'WES_ON_CROMWELL',
+                                             'oauth_config': {'tokenUri': 'https://***@idp/t', 'clientId': 'c'}}}
+    cleaned = drop_redacted_values(data, stored)
+    assert cleaned['engine_adapter_configuration']['oauth_config'] == {'clientId': 'c'}
+
+
+@pytest.mark.parametrize('url, stored', [
+    # An edited masked URL is sent, so validation refuses it rather than silently discarding the edit.
+    ('https://***@other/x', _STORED),
+    ('https://new.example.com', _STORED),
+    # A stored URL without user info is not masked, so the URL is an ordinary value.
+    ('https://host/x', {'url': 'https://host/x'}),
+    ('https://***@host/x', None),
+])
+def test_drop_redacted_values_keeps_any_other_url(url, stored):
+    data = _with_url(url)
+    assert drop_redacted_values(data, stored) == data
+
+
+def test_drop_redacted_values_keeps_a_masked_url_an_option_gave():
+    data = _with_url('https://***@host/x')
+    assert drop_redacted_values(data, _STORED, {'url'}) == data
+
+
+def test_drop_redacted_values_does_not_change_its_input():
+    data = _with_url('https://***@host/x')
+    drop_redacted_values(data, _STORED)
+    assert data == _with_url('https://***@host/x')

@@ -8,8 +8,8 @@ import copy
 import json
 import re
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from urllib.parse import urlsplit, urlunsplit
+from typing import AbstractSet, Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
+from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -30,8 +30,11 @@ ENGINE_SECRET_FIELDS: List[str] = [
 # The Workbench UI's pattern. The service accepts more (e.g. 'ab' or '-x'); the CLI keeps to what the UI creates.
 ENGINE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9-]{2,}$')
 
+# Dotted paths, relative to engine_adapter_configuration, of every field holding a URL. A user name or password
+# in one is refused on input and masked on output.
+ENGINE_URL_FIELDS: List[str] = ['url', 'oauth_config.tokenUri']
+
 _URL_PROBLEM = 'engine_adapter_configuration.url must use https:// (http:// is only allowed for localhost)'
-_URL_USERINFO_PROBLEM = 'engine_adapter_configuration.url must not contain a user name or password'
 _LOCAL_HOSTS = ('localhost', '127.0.0.1')
 
 
@@ -203,7 +206,7 @@ def delete_field(data: Dict[str, Any], path: str) -> None:
     data.pop(leaf, None)
 
 
-def _is_blank(value: Any) -> bool:
+def is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
 
 
@@ -229,91 +232,72 @@ def _is_allowed_url(url: str) -> bool:
     return parts.scheme == 'http' and hostname in _LOCAL_HOSTS
 
 
-def _has_userinfo(url: str) -> bool:
-    try:
-        parts = urlsplit(url)
-        return parts.username is not None or parts.password is not None
-    except ValueError:
-        return False
+# A scheme and its '//', exactly as written. Anything else before the user info is masked along with it.
+_SCHEME_AND_SLASHES = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://')
 
 
-# urlsplit silently drops these characters, so what it parses can differ from the raw text.
-_URLSPLIT_STRIPPED = ('\t', '\r', '\n')
+def _credentials_span(url: Any) -> Optional[Tuple[int, int]]:
+    """Where the user info of a URL may be: from after the scheme's '//' up to the last '@'.
 
-
-def _has_stripped_characters(url: str) -> bool:
-    return any(char in url for char in _URLSPLIT_STRIPPED)
-
-
-def _raw_user_info(url: str) -> Optional[str]:
-    """The user info of the raw URL text: between the scheme's // and the last @ before the first / ? or #."""
-    _, separator, rest = url.partition('//')
-    if not separator:
-        return None
-    authority = re.split(r'[/?#]', rest, maxsplit=1)[0]
-    user_info, at, _ = authority.rpartition('@')
-    return user_info if at else None
-
-
-def url_password(url: Any) -> Optional[str]:
-    """The password inside a URL's user info, or None when it has none or does not parse."""
-    if not isinstance(url, str):
-        return None
-    try:
-        return urlsplit(url).password or None
-    except ValueError:
-        return None
-
-
-def raw_url_password(url: Any) -> Optional[str]:
-    """The password as written in the URL text, which differs from url_password where urlsplit strips characters."""
-    if url_password(url) is None:
-        return None
-    user_info = _raw_user_info(url)
-    if user_info is None or ':' not in user_info:
-        return None
-    return user_info.partition(':')[2] or None
-
-
-def _mask_parsed_url_password(url: str) -> str:
-    """Rebuild the URL from its parsed form with the password masked, for when the raw user info cannot be found."""
-    parts = urlsplit(url)
-    user_info, _, host = parts.netloc.rpartition('@')
-    return urlunsplit(parts._replace(netloc=f'{user_info.partition(":")[0]}:{SECRET_PLACEHOLDER}@{host}'))
-
-
-def _mask_url_password(url: Any) -> Any:
-    """The URL with the password in its user info replaced by the placeholder; anything else is kept as given."""
-    if url_password(url) is None:
-        return url
-    if _has_stripped_characters(url):
-        # The parsed netloc no longer matches the text, so mask the raw user info instead.
-        user_info = _raw_user_info(url)
-        if user_info is None:
-            return _mask_parsed_url_password(url)
-        user, colon, _ = user_info.partition(':')
-        masked = f'{user}:{SECRET_PLACEHOLDER}' if colon else SECRET_PLACEHOLDER
-        return url.replace(f'{user_info}@', f'{masked}@', 1)
-    netloc = urlsplit(url).netloc
-    user_info, _, host = netloc.rpartition('@')
-    user = user_info.partition(':')[0]
-    # The netloc first appears right after the scheme, so only the user info changes.
-    return url.replace(netloc, f'{user}:{SECRET_PLACEHOLDER}@{host}', 1)
-
-
-def url_problems(adapter: Dict[str, Any]) -> List[str]:
-    """The UI only accepts https engine URLs; plain http is allowed here for engines on this machine.
-
-    A URL holding a user name or password is refused, and never quoted, since the password is a secret.
+    Ending at the last '@' rather than at the first '/', '?' or '#' covers a password holding one of those, which
+    urlsplit would read as the end of the host. When the URL does not start with a scheme and '//' (it may hold a
+    character urlsplit strips, such as a tab), the span starts at the beginning of the text.
     """
-    url = adapter.get('url')
-    if _is_blank(url):
+    if not isinstance(url, str) or '@' not in url:
+        return None
+    scheme = _SCHEME_AND_SLASHES.match(url)
+    return (scheme.end() if scheme else 0), url.rindex('@')
+
+
+def mask_url_credentials(url: Any) -> Any:
+    """The URL with everything between its scheme's '//' and its last '@' replaced by the placeholder, so no
+    reading of the URL can find a password in what is shown. Anything else is kept as given."""
+    span = _credentials_span(url)
+    if span is None:
+        return url
+    start, end = span
+    return url[:start] + SECRET_PLACEHOLDER + url[end:]
+
+
+def url_credential_values(url: Any) -> List[str]:
+    """Every form of a URL's user info and password that a service could echo: as written, as urlsplit reads it,
+    and percent-decoded."""
+    span = _credentials_span(url)
+    if span is None:
         return []
-    if isinstance(url, str) and _has_userinfo(url):
-        return [_URL_USERINFO_PROBLEM]
-    if _is_allowed_url(url):
-        return []
-    return [_URL_PROBLEM]
+    user_info = url[span[0]:span[1]]
+    # When the last '@' is not the end of the user info, the part after ':' is some other piece of the URL, and
+    # masking it only garbles the text; it is still masked, since it may be a password holding '/', '?' or '#'.
+    values = [user_info, user_info.partition(':')[2]]
+    try:
+        values.append(urlsplit(url).password)
+    except ValueError:
+        pass
+    values += [unquote(value) for value in values if value]
+    return [value for value in dict.fromkeys(values) if value and value != SECRET_PLACEHOLDER]
+
+
+def _userinfo_problem(path: str) -> str:
+    return f"engine_adapter_configuration.{path} must not contain '@': a user name or password is not allowed"
+
+
+def url_problems(adapter: Dict[str, Any], paths: Optional[AbstractSet[str]] = None) -> List[str]:
+    """Check the URL fields: the UI only accepts https engine URLs, and plain http is allowed here for engines on
+    this machine. paths limits the check to those fields (relative to engine_adapter_configuration).
+
+    Any '@' is refused, since it may end a user name and password that urlsplit cannot see (one holding '/', '?'
+    or '#', say), and the URL is never quoted.
+    """
+    problems = []
+    for path in ENGINE_URL_FIELDS:
+        url = get_field(adapter, path)
+        if (paths is not None and path not in paths) or is_blank(url) or not isinstance(url, str):
+            continue
+        if '@' in url:
+            problems.append(_userinfo_problem(path))
+        elif path == 'url' and not _is_allowed_url(url):
+            problems.append(_URL_PROBLEM)
+    return problems
 
 
 def _wes_method_problems(adapter: Dict[str, Any], method: str) -> List[str]:
@@ -344,9 +328,9 @@ def validate_engine_for_create(engine: ExecutionEngineRequest) -> List[str]:
         if method == WesOnCromwellAuthenticationMethod.OAUTH.value and 'ssl_config' in adapter:
             required.append('engine_adapter_configuration.ssl_config.server_certificate_chain')
         method_problems = _wes_method_problems(adapter, method)
-    problems = [f'{path} is required' for path in required if _is_blank(get_field(body, path))]
+    problems = [f'{path} is required' for path in required if is_blank(get_field(body, path))]
 
-    if not _is_blank(engine.id) and not ENGINE_ID_PATTERN.fullmatch(engine.id):
+    if not is_blank(engine.id) and not ENGINE_ID_PATTERN.fullmatch(engine.id):
         problems.append("id must start with a letter or digit, hold only letters, digits and '-', "
                         "and be at least 3 characters")
     problems += method_problems
@@ -359,19 +343,33 @@ def validate_engine_for_create(engine: ExecutionEngineRequest) -> List[str]:
     return problems
 
 
-def validate_engine_for_update(engine: ExecutionEngineRequest, stored: ExecutionEngine) -> List[str]:
+def _wes_update_method_problems(adapter: Dict[str, Any], stored_adapter: Dict[str, Any]) -> List[str]:
+    method = adapter.get('authentication_method') or WesOnCromwellAuthenticationMethod.OAUTH.value
+    stored_method = stored_adapter.get('authentication_method') or WesOnCromwellAuthenticationMethod.OAUTH.value
+    if method == stored_method and adapter.get('oauth_config') == stored_adapter.get('oauth_config'):
+        # An MTLS engine saved with OAuth settings can still be updated from its describe output.
+        adapter = {key: value for key, value in adapter.items() if key != 'oauth_config'}
+    return _wes_method_problems(adapter, method)
+
+
+def validate_engine_for_update(engine: ExecutionEngineRequest,
+                               stored: ExecutionEngine,
+                               given_by_option: AbstractSet[str] = frozenset()) -> List[str]:
     """Check what an update changes. Values equal to the stored ones are not re-checked, so an engine
-    saved before a rule existed can still be updated without changing them."""
+    saved before a rule existed can still be updated without changing them, unless an option gave them:
+    given_by_option holds those fields' paths, relative to engine_adapter_configuration."""
     adapter = engine.to_request_body()['engine_adapter_configuration']
     stored_adapter = stored.engine_adapter_configuration or {}
-    problems = []
-    if adapter.get('url') != stored_adapter.get('url'):
-        problems += url_problems(adapter)
+    changed = {path for path in ENGINE_URL_FIELDS
+               if path in given_by_option or get_field(adapter, path) != get_field(stored_adapter, path)}
+    problems = url_problems(adapter, changed)
+    if adapter.get('type') == EngineAdapterType.WES_ON_CROMWELL.value:
+        problems += _wes_update_method_problems(adapter, stored_adapter)
     return problems
 
 
 def redact_engine_secrets(engine: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a copy of an engine dict with every present secret, and any password in its URL, replaced by
+    """Return a copy of an engine dict with every present secret, and the user info of every URL, replaced by
     the placeholder."""
     redacted = copy.deepcopy(engine)
     adapter = redacted.get('engine_adapter_configuration')
@@ -379,18 +377,32 @@ def redact_engine_secrets(engine: Dict[str, Any]) -> Dict[str, Any]:
         for path in ENGINE_SECRET_FIELDS:
             if get_field(adapter, path) is not None:
                 set_field(adapter, path, SECRET_PLACEHOLDER)
-        if 'url' in adapter:
-            adapter['url'] = _mask_url_password(adapter['url'])
+        for path in ENGINE_URL_FIELDS:
+            url = get_field(adapter, path)
+            if isinstance(url, str):
+                set_field(adapter, path, mask_url_credentials(url))
     return redacted
 
 
-def drop_placeholder_secrets(engine: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a copy without placeholder secrets, so an update keeps the stored secret instead of
-    overwriting it with the placeholder from redacted output."""
+def drop_redacted_values(engine: Dict[str, Any],
+                         stored_adapter: Optional[Dict[str, Any]],
+                         given_by_option: AbstractSet[str] = frozenset()) -> Dict[str, Any]:
+    """Undo redact_engine_secrets for an update, so redacted describe output sent back keeps the stored values.
+
+    Placeholder secrets are always dropped. A URL is dropped when it is the stored URL as redacted output shows it,
+    unless an option gave it (given_by_option holds those paths, relative to engine_adapter_configuration): a
+    masked URL that was typed, or edited, is kept and refused by validation.
+    """
     cleaned = copy.deepcopy(engine)
     adapter = cleaned.get('engine_adapter_configuration')
-    if isinstance(adapter, dict):
-        for path in ENGINE_SECRET_FIELDS:
-            if get_field(adapter, path) == SECRET_PLACEHOLDER:
-                delete_field(adapter, path)
+    if not isinstance(adapter, dict):
+        return cleaned
+    for path in ENGINE_SECRET_FIELDS:
+        if get_field(adapter, path) == SECRET_PLACEHOLDER:
+            delete_field(adapter, path)
+    for path in ENGINE_URL_FIELDS:
+        stored_url = get_field(stored_adapter or {}, path)
+        masked = mask_url_credentials(stored_url)
+        if path not in given_by_option and masked != stored_url and get_field(adapter, path) == masked:
+            delete_field(adapter, path)
     return cleaned

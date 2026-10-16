@@ -5,10 +5,10 @@ the secret options, then call these, so every route gets the same id handling, v
 duplicate and version checks, and health-check report. Each operation has a prepare step that needs no service,
 so a command runs every local check before it connects.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import AbstractSet, Any, Dict, List, Optional, Tuple
 
 from dnastack.cli.commands.workbench.engines.engine_input import (
-    EngineInputError, apply_secret_flags, fill_engine_id, follow_default_azure_scope, inherit_adapter_type,
+    EngineInputError, apply_secret_flags, as_sentence, fill_engine_id, follow_default_azure_scope, inherit_adapter_type,
     inherit_authentication_method, parse_engine_request, read_secret_options, resolve_if_match,
 )
 from dnastack.cli.commands.workbench.engines.engine_names import subcommand_for, with_article
@@ -16,7 +16,7 @@ from dnastack.cli.commands.workbench.engines.health_check_failure import exit_on
 from dnastack.cli.commands.workbench.engines.secret_redaction import redacted_http_error, request_secret_values
 from dnastack.client.workbench.ewes.client import EWesClient
 from dnastack.client.workbench.ewes.engine_models import (
-    ExecutionEngineRequest, validate_engine_for_create, validate_engine_for_update,
+    ExecutionEngineRequest, drop_redacted_values, validate_engine_for_create, validate_engine_for_update,
 )
 from dnastack.client.workbench.ewes.models import ExecutionEngine
 from dnastack.http.session import ClientError, HttpError
@@ -32,12 +32,14 @@ def _engine_exists(client: EWesClient, engine_id: str) -> bool:
     return True
 
 
-def _raise_without_secrets(error: HttpError, request: ExecutionEngineRequest, engine_id: str, action: str) -> None:
-    """Report a failed create or update with every secret the request sent masked in the service's text.
+def _raise_without_secrets(error: HttpError, request: ExecutionEngineRequest, engine_id: str, action: str,
+                           stored_adapter: Optional[Dict[str, Any]] = None) -> None:
+    """Report a failed create or update with every secret the request sent, and every stored URL credential,
+    masked in the service's text.
 
     A failed health check is printed as a report and exits; any other error is raised again as the same type.
     """
-    secrets = request_secret_values(request)
+    secrets = request_secret_values(request, stored_adapter)
     if isinstance(error, ClientError):
         exit_on_failed_health_check(error, engine_id, action, secrets)
     # Not chained: the original error's text still holds the secrets.
@@ -59,7 +61,7 @@ def _describe_problems(heading: str, problems: List[str], option_names: Optional
                 problem = problem.replace(path, flag)
             elif problem.startswith(f'{path} '):
                 problem = flag + problem[len(path):]
-        named.append(problem if problem.endswith('.') else f'{problem}.')
+        named.append(as_sentence(problem))
     return heading + '\n' + '\n'.join(f'  - {p}' for p in named)
 
 
@@ -75,7 +77,7 @@ def prepare_engine_create(engine: Dict[str, Any],
     sets it, so problems name the option.
     """
     engine = apply_secret_flags(engine, **(secret_options or {}))
-    request = parse_engine_request(fill_engine_id(engine), for_update=False)
+    request = parse_engine_request(fill_engine_id(engine))
     problems = validate_engine_for_create(request)
     if problems:
         raise EngineInputError(_describe_problems('The engine cannot be created:', problems, option_names))
@@ -115,13 +117,15 @@ def update_engine_from_description(client: EWesClient,
                                    engine: Dict[str, Any],
                                    secret_values: Optional[Dict[str, str]] = None,
                                    adapter_type: Optional[str] = None,
-                                   option_names: Optional[Dict[str, str]] = None) -> ExecutionEngine:
+                                   option_names: Optional[Dict[str, str]] = None,
+                                   given_by_option: AbstractSet[str] = frozenset()) -> ExecutionEngine:
     """Update an engine from a description of the fields to change; every field left out keeps its value.
 
     engine and secret_values come from prepare_engine_update. The secrets are applied after the stored
     authentication method is known, since that decides where a WES secret goes. adapter_type is the adapter type
     the caller expects; a stored engine of another type is refused with the subcommand to use instead.
-    option_names is as for prepare_engine_create.
+    option_names is as for prepare_engine_create. given_by_option holds the paths, relative to
+    engine_adapter_configuration, of the adapter fields an option set rather than --config.
     """
     existing = client.get_engine(engine_id=engine_id)
     if_match = resolve_if_match(engine_id, engine.get('version'), existing.version)
@@ -137,12 +141,14 @@ def update_engine_from_description(client: EWesClient,
     engine = inherit_authentication_method(engine, stored_adapter)
     engine = follow_default_azure_scope(engine, stored_adapter)
     engine = apply_secret_flags(engine, **(secret_values or {}), already_read=True)
-    request = parse_engine_request(engine, for_update=True)
+    # After the secret options, so a placeholder given as one is dropped too.
+    engine = drop_redacted_values(engine, stored_adapter, given_by_option)
+    request = parse_engine_request(engine)
 
-    problems = validate_engine_for_update(request, existing)
+    problems = validate_engine_for_update(request, existing, given_by_option)
     if problems:
         raise EngineInputError(_describe_problems('The engine cannot be updated:', problems, option_names))
     try:
         return client.update_engine(engine_id=engine_id, engine=request, if_match=if_match)
     except HttpError as e:
-        _raise_without_secrets(e, request, engine_id, 'updated')
+        _raise_without_secrets(e, request, engine_id, 'updated', stored_adapter)

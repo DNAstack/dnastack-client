@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from dnastack.cli.commands.workbench.engines.engine_names import subcommand_for
 from dnastack.client.workbench.ewes.engine_models import (
     ENGINE_ID_PATTERN, EngineAdapterType, ExecutionEngineRequest, WesOnCromwellAuthenticationMethod,
-    derive_engine_id, drop_placeholder_secrets, get_field, set_field,
+    derive_engine_id, get_field,
 )
 from dnastack.common.json_argument_parser import ArgumentType, FileOrValue, JsonLike
 
@@ -34,7 +34,7 @@ _SECRET_FLAGS = {
 }
 
 
-def _as_sentence(message: str) -> str:
+def as_sentence(message: str) -> str:
     return message if message.endswith('.') else f'{message}.'
 
 
@@ -42,14 +42,14 @@ class EngineInputError(Exception):
     """An invalid engine argument. The message never contains secret values, and always ends with a period."""
 
     def __init__(self, message: str):
-        super().__init__(_as_sentence(message))
+        super().__init__(as_sentence(message))
 
 
 class EngineOptionError(click.BadParameter, EngineInputError):
     """A bad value in one option. click prints it as "Invalid value for '<option>': <message>" and exits 2."""
 
     def __init__(self, message: str, option_name: str):
-        click.BadParameter.__init__(self, _as_sentence(message), param_hint=f"'{option_name}'")
+        click.BadParameter.__init__(self, as_sentence(message), param_hint=f"'{option_name}'")
 
 
 def _parse_json(value: JsonLike, option_name: str) -> Any:
@@ -172,16 +172,18 @@ def read_secret_options(secret_options: Dict[str, Optional[str]]) -> Dict[str, s
     return {name: _read_secret(_SECRET_FLAGS[name], raw) for name, raw in secret_options.items() if raw is not None}
 
 
-def _require_object_parents(adapter: Dict[str, Any], path: str) -> None:
-    """Make every parent object along the path exist, replacing a null one with an empty object."""
-    parents = path.split('.')[:-1]
-    node: Any = adapter
-    for i, key in enumerate(parents):
+def set_config_field(engine: Dict[str, Any], path: str, value: Any) -> None:
+    """Write a value into an engine description at a dotted path, replacing a null parent from --config with an
+    empty object."""
+    *parents, leaf = path.split('.')
+    node = engine
+    for index, key in enumerate(parents):
         if node.get(key) is None:
             node[key] = {}
         node = node[key]
         if not isinstance(node, dict):
-            raise EngineInputError(f"engine_adapter_configuration.{'.'.join(parents[:i + 1])} must be an object")
+            raise EngineOptionError(f"{'.'.join(parents[:index + 1])} must be an object", '--config')
+    node[leaf] = value
 
 
 def apply_secret_flags(engine: Dict[str, Any],
@@ -206,7 +208,7 @@ def apply_secret_flags(engine: Dict[str, Any],
         return engine
 
     if not isinstance(engine.get('engine_adapter_configuration', {}), dict):
-        raise EngineInputError('engine_adapter_configuration must be an object')
+        raise EngineOptionError('engine_adapter_configuration must be an object', '--config')
     adapter_type = get_field(engine, 'engine_adapter_configuration.type')
     if not adapter_type:
         raise EngineOptionError('engine_adapter_configuration.type must be set in --config to use this option',
@@ -222,7 +224,6 @@ def apply_secret_flags(engine: Dict[str, Any],
     targets = _secret_targets(adapter_type, authentication_method)
 
     result = copy.deepcopy(engine)
-    adapter = result['engine_adapter_configuration']
     for option_name, raw in given.items():
         if option_name not in targets:
             engine_kind = f'{subcommand_for(adapter_type)} engines'
@@ -230,8 +231,8 @@ def apply_secret_flags(engine: Dict[str, Any],
                 engine_kind += (f' using {authentication_method.lower()} authentication' if method_is_valid
                                 else ' using the authentication_method in --config')
             raise EngineOptionError(f'does not apply to {engine_kind}', option_name)
-        _require_object_parents(adapter, targets[option_name])
-        set_field(adapter, targets[option_name], raw if already_read else _read_secret(option_name, raw))
+        set_config_field(result, f'engine_adapter_configuration.{targets[option_name]}',
+                         raw if already_read else _read_secret(option_name, raw))
     return result
 
 
@@ -265,8 +266,9 @@ def inherit_adapter_type(engine: Dict[str, Any], stored_type: Optional[str]) -> 
         return engine
     config_type = (adapter or {}).get('type')
     if config_type and config_type != stored_type:
-        raise EngineInputError(f'engine_adapter_configuration.type cannot be changed '
-                               f'(stored: {stored_type}, --config: {config_type})')
+        # Only a known type is named: anything else in --config may be a pasted secret.
+        given = f', --config: {config_type}' if config_type in {t.value for t in EngineAdapterType} else ''
+        raise EngineInputError(f'engine_adapter_configuration.type cannot be changed (stored: {stored_type}{given})')
     return {**engine, 'engine_adapter_configuration': {**(adapter or {}), 'type': stored_type}}
 
 
@@ -325,14 +327,12 @@ def _describe_error(error: Dict[str, Any]) -> str:
 def _describe_validation_error(error: ValidationError) -> str:
     # Built from loc and msg only: pydantic's own message includes the rejected input values.
     # Several unknown keys under one parent describe the same way, so each line is listed once.
-    lines = [f'  - {line}' for line in dict.fromkeys(_as_sentence(_describe_error(e)) for e in error.errors())]
+    lines = [f'  - {line}' for line in dict.fromkeys(as_sentence(_describe_error(e)) for e in error.errors())]
     return 'The engine description is not valid:\n' + '\n'.join(lines)
 
 
-def parse_engine_request(engine: Dict[str, Any], for_update: bool) -> ExecutionEngineRequest:
+def parse_engine_request(engine: Dict[str, Any]) -> ExecutionEngineRequest:
     body = {key: value for key, value in engine.items() if key not in SERVER_SET_FIELDS}
-    if for_update:
-        body = drop_placeholder_secrets(body)
     if not get_field(body, 'engine_adapter_configuration.type'):
         raise EngineInputError('engine_adapter_configuration.type is required')
     try:

@@ -1233,7 +1233,7 @@ def test_create_with_a_password_in_the_url_option_is_refused(tmp_path, kind):
     with _patched(client):
         result = _invoke(['create', kind, *args])
     assert result.exit_code == 1
-    assert '  - --url must not contain a user name or password.' in result.stderr
+    assert "  - --url must not contain '@': a user name or password is not allowed." in result.stderr
     _assert_url_secret_hidden(result)
     client.create_engine.assert_not_called()
 
@@ -1246,7 +1246,7 @@ def test_create_with_a_password_in_the_config_url_is_refused(tmp_path, key):
     with _patched(client):
         result = _invoke(['create', KIND[key], '--config', _write(tmp_path, 'e.json', data)])
     assert result.exit_code == 1
-    assert 'must not contain a user name or password.' in result.stderr
+    assert "must not contain '@': a user name or password is not allowed." in result.stderr
     _assert_url_secret_hidden(result)
     _assert_no_secrets(result)
     client.create_engine.assert_not_called()
@@ -1258,39 +1258,62 @@ def test_update_to_a_url_with_a_password_is_refused(key):
     with _patched(client):
         result = _invoke(['update', KIND[key], engine(key)['id'], '--url', URL_WITH_PASSWORD])
     assert result.exit_code == 1
-    assert '  - --url must not contain a user name or password.' in result.stderr
+    assert "  - --url must not contain '@': a user name or password is not allowed." in result.stderr
     _assert_url_secret_hidden(result)
     client.update_engine.assert_not_called()
 
 
-def _stored_with_url_password(key):
+def _stored_with_url_password(key, url='https://user:SECRET-URL@host/x'):
     data = engine(key)
-    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host/x'
+    data['engine_adapter_configuration']['url'] = url
     return data
 
 
+# Stored URLs the CLI can no longer create, each with how describe shows it.
+STORED_URLS = [
+    ('https://user:SECRET-URL@host/x', 'https://***@host/x'),
+    # urlsplit reads '#' as the end of the host, rejects an unbalanced IPv6 bracket, and drops tab, CR and LF.
+    ('https://user:SECRET#URL@host/x', 'https://***@host/x'),
+    ('https://user:SECRET-URL@[bad', 'https://***@[bad'),
+    *((f'https://user:SECRET-URL{c}X@host/x', 'https://***@host/x') for c in '\t\n\r'),
+]
+
+
+@pytest.mark.parametrize('url, shown', STORED_URLS)
 @pytest.mark.parametrize('key', KEYS_WITH_URL)
-def test_describe_masks_the_password_in_the_url(key):
-    stored = _stored_with_url_password(key)
+def test_describe_masks_the_user_info_in_the_url(key, url, shown):
+    stored = _stored_with_url_password(key, url)
     client = _client(existing=stored)
     with _patched(client):
         result = _invoke(['describe', stored['id']])
     assert result.exit_code == 0, result.stderr
-    assert json.loads(result.stdout)[0]['engine_adapter_configuration']['url'] == 'https://user:***@host/x'
+    assert json.loads(result.stdout)[0]['engine_adapter_configuration']['url'] == shown
     _assert_url_secret_hidden(result)
     _assert_no_secrets(result)
 
 
-def test_list_masks_the_password_in_the_url():
+def test_list_masks_the_user_info_in_the_url():
     client = _client()
     client.list_engines.return_value = iter(
         [ExecutionEngine(**as_service_response(_stored_with_url_password(key))) for key in KEYS_WITH_URL])
     with _patched(client):
         result = _invoke(['list'])
     assert result.exit_code == 0, result.stderr
-    assert result.stdout.count('https://user:***@host/x') == len(KEYS_WITH_URL)
+    assert result.stdout.count('https://***@host/x') == len(KEYS_WITH_URL)
     _assert_url_secret_hidden(result)
     _assert_no_secrets(result)
+
+
+def test_describe_masks_the_user_info_in_the_token_uri():
+    stored = engine('wes_oauth')
+    stored['engine_adapter_configuration']['oauth_config']['tokenUri'] = 'https://c:SECRET-URL@idp.example.com/t'
+    client = _client(existing=stored)
+    with _patched(client):
+        result = _invoke(['describe', stored['id']])
+    assert result.exit_code == 0, result.stderr
+    shown = json.loads(result.stdout)[0]['engine_adapter_configuration']['oauth_config']['tokenUri']
+    assert shown == 'https://***@idp.example.com/t'
+    _assert_url_secret_hidden(result)
 
 
 @pytest.mark.parametrize('key', KEYS_WITH_URL)
@@ -1305,18 +1328,66 @@ def test_update_of_an_engine_with_a_stored_url_password_keeps_it_and_masks_outpu
     assert result.exit_code == 0, result.stderr
     sent = client.update_engine.call_args.kwargs['engine'].to_request_body()
     assert 'url' not in sent['engine_adapter_configuration']
-    assert json.loads(result.stdout)['engine_adapter_configuration']['url'] == 'https://user:***@host/x'
+    assert json.loads(result.stdout)['engine_adapter_configuration']['url'] == 'https://***@host/x'
     _assert_url_secret_hidden(result)
 
 
-def test_service_error_echoing_a_url_password_masks_it(tmp_path):
+@pytest.mark.parametrize('url, shown', STORED_URLS)
+@pytest.mark.parametrize('key', KEYS_WITH_URL)
+def test_update_from_unedited_describe_output_keeps_the_stored_url(tmp_path, key, url, shown):
+    stored = _stored_with_url_password(key, url)
+    client = _client(existing=stored)
+    client.update_engine.side_effect = lambda engine_id, engine, if_match: ExecutionEngine(
+        **as_service_response({**stored, 'name': 'Renamed engine'}))
+    with _patched(client):
+        described = json.loads(_invoke(['describe', stored['id']]).stdout)[0]
+        described['name'] = 'Renamed engine'
+        result = _invoke(['update', KIND[key], stored['id'], '--config', _write(tmp_path, 'e.json', described)])
+    assert result.exit_code == 0, result.stderr
+    sent = client.update_engine.call_args.kwargs['engine'].to_request_body()
+    assert 'url' not in sent['engine_adapter_configuration']
+    assert sent['name'] == 'Renamed engine'
+    _assert_url_secret_hidden(result)
+    _assert_no_secrets(result)
+
+
+_USERINFO_REFUSED = "  - --url must not contain '@': a user name or password is not allowed."
+
+
+def test_update_with_an_edited_masked_url_is_refused(tmp_path):
+    client = _client(existing=_stored_with_url_password('wes_oauth'))
     data = engine('wes_oauth')
-    data['engine_adapter_configuration']['url'] = 'https://user:SECRET-URL@host.example.com'
-    client = _client(existing=engine('wes_oauth'))
-    client.update_engine.side_effect = lambda engine_id, engine, if_match: (_ for _ in ()).throw(
-        _echoing_error(ClientError, 400, engine.to_request_body()))
+    data['engine_adapter_configuration']['url'] = 'https://***@other/x'
+    with _patched(client):
+        result = _invoke(['update', 'wes', data['id'], '--config', _write(tmp_path, 'e.json', data)])
+    assert result.exit_code == 1
+    assert _USERINFO_REFUSED in result.stderr
+    client.update_engine.assert_not_called()
+
+
+# An option is never describe output, so an unchanged value is checked like any other.
+@pytest.mark.parametrize('url', ['https://***@host/x', 'https://user:SECRET-URL@host/x'])
+def test_update_with_the_stored_url_masked_or_not_as_an_option_is_refused(url):
+    client = _client(existing=_stored_with_url_password('wes_oauth'))
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-oauth', '--url', url])
+    assert result.exit_code == 1
+    assert _USERINFO_REFUSED in result.stderr
+    _assert_url_secret_hidden(result)
+    client.update_engine.assert_not_called()
+
+
+def _throw(error):
+    raise error
+
+
+@pytest.mark.parametrize('url, shown', STORED_URLS)
+def test_service_error_echoing_a_url_password_masks_it(tmp_path, url, shown):
+    data = _stored_with_url_password('wes_oauth', url)
     # The stored URL equals the one sent, so the update's local URL check does not refuse it.
-    client.get_engine.return_value = ExecutionEngine(**as_service_response(data))
+    client = _client(existing=data)
+    client.update_engine.side_effect = lambda engine_id, engine, if_match: _throw(
+        _echoing_error(ClientError, 400, engine.to_request_body()))
     with _patched(client):
         result = _invoke(['update', 'wes', data['id'], '--config', _write(tmp_path, 'e.json', data)])
     assert result.exit_code == 1
@@ -1325,35 +1396,99 @@ def test_service_error_echoing_a_url_password_masks_it(tmp_path):
     _assert_no_secrets(result)
 
 
-STRIPPED_CHARACTERS = ['\t', '\n', '\r']
+@pytest.mark.parametrize('url, shown', STORED_URLS)
+def test_update_error_quoting_a_stored_url_it_did_not_send_masks_it(url, shown):
+    stored = _stored_with_url_password('wes_oauth', url)
+    client = _client(existing=stored)
+    # The service keeps the stored URL, and its health check quotes it.
+    client.update_engine.side_effect = _echoing_error(ClientError, 400, {'url': url})
+    with _patched(client):
+        result = _invoke(['update', 'wes', stored['id'], '--name', 'Renamed engine'])
+    assert result.exit_code == 1
+    assert 'url' not in client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    _assert_url_secret_hidden(result)
 
 
-@pytest.mark.parametrize('stripped', STRIPPED_CHARACTERS)
-def test_describe_masks_a_url_password_holding_characters_urlsplit_strips(stripped):
+def test_update_health_check_quoting_a_stored_url_masks_it():
+    url = 'https://user:SECRET-URL@host/x'
+    client = _client(existing=_stored_with_url_password('wes_oauth', url))
+    body = {'msg': 'Initial engine health check failed.', 'errors': [{'checks': [
+        {'type': 'CONNECTIVITY', 'outcome': 'FAILURE', 'error': f'I/O error on GET request for "{url}"'}]}]}
+    client.update_engine.side_effect = ClientError(_response(400, json.dumps(body)))
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-oauth', '--name', 'Renamed engine'])
+    assert result.exit_code == 1
+    assert 'failed its health check' in result.stderr
+    _assert_url_secret_hidden(result)
+
+
+@pytest.mark.parametrize('url', ['https://user:SECRET#URL@host.example.com', 'https://user:SECRET/URL@host.example.com',
+                                 'https://user:SECRET?URL@host.example.com'])
+def test_create_with_a_password_urlsplit_cannot_see_is_refused(url):
+    args = list(OPTIONS_BY_KIND['wes'])
+    args[args.index('--url') + 1] = url
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', 'wes', *args])
+    assert result.exit_code == 1
+    assert _USERINFO_REFUSED in result.stderr
+    assert 'SECRET' not in result.stderr
+    client.create_engine.assert_not_called()
+
+
+def test_create_with_a_password_in_the_token_uri_is_refused():
+    args = list(OPTIONS_BY_KIND['wes'])
+    args[args.index('--token-uri') + 1] = 'https://c:SECRET-URL@idp.example.com/t'
+    client = _client()
+    with _patched(client):
+        result = _invoke(['create', 'wes', *args])
+    assert result.exit_code == 1
+    assert "  - --token-uri must not contain '@': a user name or password is not allowed." in result.stderr
+    _assert_url_secret_hidden(result)
+    client.create_engine.assert_not_called()
+
+
+# Switching a WES engine's authentication method on update
+
+def test_update_to_mtls_from_describe_output_refuses_the_oauth_settings(tmp_path):
     stored = engine('wes_oauth')
-    stored['engine_adapter_configuration']['url'] = f'https://user:SECRET-URL{stripped}X@host/x'
     client = _client(existing=stored)
     with _patched(client):
-        result = _invoke(['describe', stored['id']])
-    assert result.exit_code == 0, result.stderr
-    _assert_url_secret_hidden(result)
-    _assert_no_secrets(result)
-
-
-@pytest.mark.parametrize('stripped', STRIPPED_CHARACTERS)
-def test_service_error_echoing_a_url_password_holding_stripped_characters_masks_it(tmp_path, stripped):
-    data = engine('wes_oauth')
-    data['engine_adapter_configuration']['url'] = f'https://user:SECRET-URL{stripped}X@host.example.com'
-    client = _client(existing=engine('wes_oauth'))
-    client.update_engine.side_effect = lambda engine_id, engine, if_match: (_ for _ in ()).throw(
-        _echoing_error(ClientError, 400, engine.to_request_body()))
-    client.get_engine.return_value = ExecutionEngine(**as_service_response(data))
-    with _patched(client):
-        result = _invoke(['update', 'wes', data['id'], '--config', _write(tmp_path, 'e.json', data)])
+        described = json.loads(_invoke(['describe', stored['id']]).stdout)[0]
+        described['engine_adapter_configuration']['authentication_method'] = 'MTLS'
+        result = _invoke(['update', 'wes', stored['id'], '--config', _write(tmp_path, 'e.json', described),
+                          '--client-key-and-certificate-chain', 'SECRET-MTLS-KEY'])
     assert result.exit_code == 1
-    assert 'ClientError: ' in result.stderr
-    _assert_url_secret_hidden(result)
-    _assert_no_secrets(result)
+    assert ('  - engine_adapter_configuration.oauth_config is only used with OAUTH authentication; remove it.'
+            in result.stderr)
+    assert 'SECRET-MTLS-KEY' not in result.stderr
+    client.update_engine.assert_not_called()
+
+
+def test_update_to_mtls_without_the_oauth_settings_is_sent(tmp_path):
+    client = _client(existing=engine('wes_oauth'))
+    client.update_engine.return_value = ExecutionEngine(**as_service_response(engine('wes_mtls')))
+    config = {'engine_adapter_configuration': {'authentication_method': 'MTLS'}}
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-oauth', '--config', json.dumps(config),
+                          '--client-key-and-certificate-chain', _write(tmp_path, 'k.pem', 'KEY')])
+    assert result.exit_code == 0, result.stderr
+    sent = client.update_engine.call_args.kwargs['engine'].to_request_body()['engine_adapter_configuration']
+    assert sent['authentication_method'] == 'MTLS'
+    assert 'oauth_config' not in sent
+
+
+# A non-object parent in --config gives the same error whichever option writes below it.
+@pytest.mark.parametrize('option', [['--client-id', 'c'], ['--client-secret', 'SECRET-OAUTH']])
+def test_option_below_a_non_object_parent_in_config_is_one_error(option):
+    config = {'engine_adapter_configuration': {'oauth_config': 'x'}}
+    client = _client(existing=engine('wes_oauth'))
+    with _patched(client):
+        result = _invoke(['update', 'wes', 'wes-oauth', '--config', json.dumps(config), *option])
+    assert result.exit_code == 2
+    assert "Invalid value for '--config'" in result.stderr
+    assert 'oauth_config must be an object.' in result.stderr
+    client.update_engine.assert_not_called()
 
 
 # "authentication_method": null in --config
