@@ -19,8 +19,8 @@ DEFAULT_WORKBENCH_DESTINATION = "workbench.omics.ai"
 NAMESPACE_ARG = ArgumentSpec(
     name='namespace',
     arg_names=['--namespace', '-n'],
-    help='Specify the namespace to connect to. By default, the namespace will be '
-         'extracted from the users credentials.',
+    help='Specify the namespace to connect to. Defaults to your active namespace.',
+    common_option=True,
 )
 
 GLOBAL_ARG = ArgumentSpec(

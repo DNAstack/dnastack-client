@@ -16,6 +16,26 @@ class FormattedHelpCommand(Command):
         super().__init__(*args, **kwargs)
         # Store help texts for arguments
         self.argument_help_texts = {}
+        # Names of click params listed under "Common Options:"
+        self.common_option_names = set()
+        # Names of click params listed as required in help, though click does not enforce them
+        self.display_required_option_names = set()
+        # What the Examples line shows after an option, by click param name, where it is not VALUE
+        self.example_values = {}
+        # The heading of the required options section
+        self.required_section_title = 'Required Options:'
+
+    def store_common_option(self, param_name: str):
+        """Mark an option as common so help lists it in the Common Options section"""
+        self.common_option_names.add(param_name)
+
+    def store_display_required_option(self, param_name: str):
+        """Mark an option as required for help only, so help lists it in the required options section"""
+        self.display_required_option_names.add(param_name)
+
+    def store_example_value(self, param_name: str, example_value: str):
+        """Record what the Examples line shows after an option instead of VALUE"""
+        self.example_values[param_name] = example_value
 
     def store_argument_help(self, arg_name: str, help_text: str):
         """Store help text for an argument"""
@@ -30,6 +50,7 @@ class FormattedHelpCommand(Command):
         positional_args: List[Parameter] = []
         required_options: List[Parameter] = []
         optional_options: List[Parameter] = []
+        common_options: List[Parameter] = []
 
         for param in self.params:
             if isinstance(param, Argument):
@@ -37,7 +58,9 @@ class FormattedHelpCommand(Command):
             elif isinstance(param, Option):
                 if getattr(param, 'hidden', False):
                     continue
-                if param.required:
+                if param.name in self.common_option_names:
+                    common_options.append(param)
+                elif param.required or param.name in self.display_required_option_names:
                     required_options.append(param)
                 else:
                     optional_options.append(param)
@@ -58,9 +81,9 @@ class FormattedHelpCommand(Command):
         usage_parts = []
         if positional_args:
             usage_parts.extend(styler.argument_required_name(param.name.upper()) for param in positional_args)
-        if required_options:
+        if required_options or any(p.required for p in common_options):
             usage_parts.append(styler.option_required_name("REQUIRED_OPTIONS"))
-        if optional_options:
+        if optional_options or any(not p.required for p in common_options):
             usage_parts.append(styler.option_optional_name("[OPTIONS]"))
 
         if usage_parts:
@@ -93,14 +116,15 @@ class FormattedHelpCommand(Command):
 
         # Add required options section
         if required_options:
-            section_text = 'Required Options:'
+            section_text = self.required_section_title
             new_help.extend([
                 '',
                 styler.option_required_header(section_text),
                 styler.option_required_divider('-', len(section_text))
             ])
             for param in required_options:
-                new_help.append(self._format_option(param, required=True))
+                # The heading says a display-required option is required; only click-required ones say it again.
+                new_help.append(self._format_option(param, required=True, required_suffix=param.required))
 
         # Add optional options section
         if optional_options:
@@ -112,6 +136,17 @@ class FormattedHelpCommand(Command):
             ])
             for param in optional_options:
                 new_help.append(self._format_option(param, required=False))
+
+        # Add common options section
+        if common_options:
+            section_text = 'Common Options:'
+            new_help.extend([
+                '',
+                styler.option_optional_header(section_text),
+                styler.option_optional_divider('-', len(section_text))
+            ])
+            for param in common_options:
+                new_help.append(self._format_option(param, required=param.required))
 
         # Add examples section
         section_text = 'Examples:'
@@ -156,7 +191,7 @@ class FormattedHelpCommand(Command):
         help_parts = wrap_text(help_str, available_width)
         return self._align_text(name, help_parts, description_start)
 
-    def _format_option(self, param: Option, required: bool = False) -> str:
+    def _format_option(self, param: Option, required: bool = False, required_suffix: bool = True) -> str:
         """Format an option for the help output."""
         opts = []
         for opt in param.opts + param.secondary_opts:
@@ -166,7 +201,8 @@ class FormattedHelpCommand(Command):
         if required:
             opt_str = styler.option_required_name(', '.join(opts))
             help_str = styler.option_required_help(param.help or '')
-            help_str += styler.option_required_metavar(' (Required)')
+            if required_suffix:
+                help_str += styler.option_required_metavar(' (Required)')
         else:
             opt_str = styler.option_optional_name(', '.join(opts))
             help_str = styler.option_optional_help(param.help or '')
@@ -200,13 +236,19 @@ class FormattedHelpCommand(Command):
         visual_length = get_visual_length(option_part)
         padding_needed = description_start - visual_length
 
+        description_padding = ' ' * description_start
+        if padding_needed < 1:
+            # A name too long for its column gets a line of its own, so it does not run into the description.
+            result = [option_part]
+            result.extend(f"{description_padding}{part}" for part in help_parts)
+            return '\n'.join(result) + "\n"
+
         first_line = f"{option_part}{' ' * padding_needed}{help_parts[0]}"
 
         if len(help_parts) == 1:
             return first_line + "\n"
 
         result = [first_line]
-        description_padding = ' ' * description_start
         result.extend(f"{description_padding}{part}" for part in help_parts[1:])
         return '\n'.join(result) + "\n"
 
@@ -232,7 +274,9 @@ class FormattedHelpCommand(Command):
         )
 
         required_part = ' '.join(
-            styler.option_required_name(f"--{param.name.replace('_', '-')} VALUE{' [...]' if getattr(param, 'multiple', False) else ''}")
+            styler.option_required_name(
+                f"--{param.name.replace('_', '-')} {self.example_values.get(param.name, 'VALUE')}"
+                f"{' [...]' if getattr(param, 'multiple', False) else ''}")
             for param in required_options
         )
 

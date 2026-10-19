@@ -25,7 +25,8 @@ def reconfigure_logger_on_debug_mode_change(in_debug_mode):
     if in_debug_mode:
         if not __DEBUG_LOG_ACTIVATION_NOTIFIED:
             logging.warning('🚨 WARNING: The DEFAULT log level is set to DEBUG. At this level, it may display highly '
-                            'sensitive information, such as an access token, a refresh token, a JWT. You can set the '
+                            'sensitive information, such as an access token, a refresh token, a JWT. It may also '
+                            'display request and response bodies, which can include credentials. You can set the '
                             'environment variable "DNASTACK_LOG_LEVEL" to "INFO", "WARNING", or "ERROR".')
 
             __DEBUG_LOG_ACTIVATION_NOTIFIED = True

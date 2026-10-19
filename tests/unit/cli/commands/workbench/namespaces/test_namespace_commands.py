@@ -242,8 +242,10 @@ class TestUpdateCommand:
     def test_update_requires_at_least_one_flag(self, mock_get_client):
         result = self.runner.invoke(self.group, ['update', 'ns-existing-456'])
 
-        assert result.exit_code != 0
-        assert "at least one" in result.output.lower()
+        assert result.exit_code == 2
+        assert 'Usage:' in result.output
+        assert 'Error: Specify at least one of --name or --description.' in result.output
+        mock_get_client.assert_not_called()
 
     @patch('dnastack.cli.commands.workbench.namespaces.commands.get_user_client')
     def test_update_requires_namespace_id(self, mock_get_client):

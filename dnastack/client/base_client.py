@@ -84,12 +84,14 @@ class BaseServiceClient(ABC):
 
     def create_http_session(self,
                             suppress_error: bool = False,
-                            no_auth: bool = False) -> HttpSession:
+                            no_auth: bool = False,
+                            log_response_body: bool = True) -> HttpSession:
         """Create HTTP session wrapper"""
         session = HttpSession(self._endpoint.id,
                               HttpAuthenticatorFactory.create_multiple_from(endpoint=self._endpoint),
                               suppress_error=suppress_error,
-                              enable_auth=(not no_auth))
+                              enable_auth=(not no_auth),
+                              log_response_body=log_response_body)
         self.events.set_passthrough(session.events)
         return session
 

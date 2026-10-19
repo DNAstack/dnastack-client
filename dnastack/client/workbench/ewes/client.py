@@ -1,10 +1,15 @@
-from typing import List, Iterator, Optional, Union, Iterable
-from urllib.parse import urljoin
+from contextlib import contextmanager
+from http.client import HTTPConnection
+from typing import Any, Dict, List, Iterator, Optional, Type, TypeVar, Union, Iterable
+from urllib.parse import quote, urljoin
+
+from pydantic import BaseModel, ValidationError
 
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
 from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader
+from dnastack.client.workbench.ewes.engine_models import EngineParamPresetRequest, ExecutionEngineRequest
 from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceInfo, ExtendedRunStatus, \
     ExtendedRunListOptions, \
     ExtendedRunListResponse, ExtendedRun, RunId, WorkbenchApiError, BatchActionResult, MinimalExtendedRun, \
@@ -14,7 +19,39 @@ from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceI
     EngineHealthCheck, EngineHealthCheckListOptions, EngineHealthCheckListResponse, \
     Hook, HookListResponse, SimpleSample, UpdateRunSamplesRequest
 from dnastack.common.tracing import Span
-from dnastack.http.session import HttpSession
+from dnastack.http.session import HttpSession, JsonPatch
+
+
+def _path_segment(value: str) -> str:
+    """Escape a user-supplied id so that it names one path segment, or reject it if no encoding can."""
+    # requests un-escapes %2E when it re-quotes a URL, and urllib3 then removes '.' and '..' segments.
+    # No encoding keeps those ids inside one segment, and an empty id would address the collection.
+    if value in ('', '.', '..'):
+        raise ValueError(f"'{value}' is not a valid id")
+    return quote(value, safe='')
+
+
+_ResponseModel = TypeVar('_ResponseModel', bound=BaseModel)
+
+
+class UnreadableEngineResponseError(Exception):
+    """The engines service returned an engine or preset that does not match the model this client reads."""
+
+
+def _read_engine_response(model: Type[_ResponseModel], body: Dict[str, Any], what: str) -> _ResponseModel:
+    """Parse a response to an engine or preset write, without echoing any of its values on failure.
+
+    A pydantic error message quotes the offending input, and the body of an engine response may hold a
+    credential, so the message is rebuilt from each error's location and reason only.
+    """
+    try:
+        return model(**body)
+    except ValidationError as e:
+        problems = '; '.join(
+            f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}" for error in e.errors()
+        )
+    # Raised outside the except block so that the ValidationError, which quotes the input, is not chained.
+    raise UnreadableEngineResponseError(f'The engines service returned {what} this CLI cannot read: {problems}')
 
 
 class ExtendedRunListResultLoader(WorkbenchResultLoader):
@@ -113,6 +150,18 @@ class EngineHealthCheckListResultLoader(WorkbenchResultLoader):
 
     def extract_api_response(self, response_body: dict) -> EngineHealthCheckListResponse:
         return EngineHealthCheckListResponse(**response_body)
+
+
+@contextmanager
+def _without_wire_debugging():
+    # Engine create/update bodies carry credentials, and http.client's wire debugging (debug mode) prints
+    # request bodies verbatim.
+    saved = HTTPConnection.debuglevel
+    HTTPConnection.debuglevel = 0
+    try:
+        yield
+    finally:
+        HTTPConnection.debuglevel = saved
 
 
 class EWesClient(BaseWorkbenchClient):
@@ -312,6 +361,12 @@ class EWesClient(BaseWorkbenchClient):
             )
             return ExtendedRunStatus(**response.json())
 
+    def _engine_url(self, engine_id: str, suffix: str = '') -> str:
+        return urljoin(self.endpoint.url, f'{self.namespace}/engines/{_path_segment(engine_id)}{suffix}')
+
+    def _engine_param_preset_url(self, engine_id: str, param_preset_id: str) -> str:
+        return self._engine_url(engine_id, f'/param-presets/{_path_segment(param_preset_id)}')
+
     def list_engines(self,
                      list_options: ExecutionEngineListOptions,
                      max_results: int = None,
@@ -319,7 +374,7 @@ class EWesClient(BaseWorkbenchClient):
         trace = trace or Span(origin=self)
         return ResultIterator(EngineListResultLoader(
             service_url=urljoin(self.endpoint.url, f'{self.namespace}/engines'),
-            http_session=self.create_http_session(),
+            http_session=self.create_http_session(log_response_body=False),
             list_options=list_options,
             max_results=max_results,
             trace=trace,
@@ -328,9 +383,8 @@ class EWesClient(BaseWorkbenchClient):
     def get_engine(self,
                    engine_id: str,
                    trace: Optional[Span] = None) -> ExecutionEngine:
-        with self.create_http_session() as session:
-            response = session.get(urljoin(self.endpoint.url, f'{self.namespace}/engines/{engine_id}'),
-                                   trace_context=trace)
+        with self.create_http_session(log_response_body=False) as session:
+            response = session.get(self._engine_url(engine_id), trace_context=trace)
             return ExecutionEngine(**response.json())
 
     def list_engine_param_presets(self,
@@ -339,7 +393,7 @@ class EWesClient(BaseWorkbenchClient):
                                   trace: Optional[Span] = None) -> Iterable[EngineParamPreset]:
         trace = trace or Span(origin=self)
         return ResultIterator(EngineParamPresetListResultLoader(
-            service_url=urljoin(self.endpoint.url, f'{self.namespace}/engines/{engine_id}/param-presets'),
+            service_url=self._engine_url(engine_id, '/param-presets'),
             http_session=self.create_http_session(),
             list_options=list_options,
             trace=trace,
@@ -350,11 +404,97 @@ class EWesClient(BaseWorkbenchClient):
                                 param_preset_id: str,
                                 trace: Optional[Span] = None) -> EngineParamPreset:
         with self.create_http_session() as session:
-            response = session.get(
-                urljoin(self.endpoint.url,
-                        f'{self.namespace}/engines/{engine_id}/param-presets/{param_preset_id}'),
-                trace_context=trace)
+            response = session.get(self._engine_param_preset_url(engine_id, param_preset_id), trace_context=trace)
             return EngineParamPreset(**response.json())
+
+    def create_engine(self, engine: ExecutionEngineRequest, trace: Optional[Span] = None) -> ExecutionEngine:
+        trace = trace or Span(origin=self)
+        with self.create_http_session(log_response_body=False) as session:
+            with _without_wire_debugging():
+                response = session.post(urljoin(self.endpoint.url, f'{self.namespace}/engines'),
+                                        json=engine.to_request_body(),
+                                        trace_context=trace)
+            return _read_engine_response(ExecutionEngine, response.json(), 'an engine')
+
+    def update_engine(self,
+                      engine_id: str,
+                      engine: ExecutionEngineRequest,
+                      if_match: str,
+                      trace: Optional[Span] = None) -> ExecutionEngine:
+        trace = trace or Span(origin=self)
+        with self.create_http_session(log_response_body=False) as session:
+            with _without_wire_debugging():
+                response = session.put(self._engine_url(engine_id),
+                                       json=engine.to_request_body(),
+                                       headers={'If-Match': if_match},
+                                       trace_context=trace)
+            return _read_engine_response(ExecutionEngine, response.json(), 'an engine')
+
+    def patch_engine(self,
+                     engine_id: str,
+                     patches: List[JsonPatch],
+                     if_match: str,
+                     trace: Optional[Span] = None) -> ExecutionEngine:
+        trace = trace or Span(origin=self)
+        with self.create_http_session(log_response_body=False) as session:
+            response = session.json_patch(self._engine_url(engine_id),
+                                          json=[p.model_dump(exclude_none=True) for p in patches],
+                                          headers={'If-Match': if_match},
+                                          trace_context=trace)
+            return _read_engine_response(ExecutionEngine, response.json(), 'an engine')
+
+    def delete_engine(self, engine_id: str, trace: Optional[Span] = None) -> None:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            session.delete(self._engine_url(engine_id), trace_context=trace)
+
+    def create_engine_param_preset(self,
+                                   engine_id: str,
+                                   preset: EngineParamPresetRequest,
+                                   trace: Optional[Span] = None) -> EngineParamPreset:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.post(self._engine_url(engine_id, '/param-presets'),
+                                    json=preset.to_request_body(),
+                                    trace_context=trace)
+            return _read_engine_response(EngineParamPreset, response.json(), 'a parameter preset')
+
+    def update_engine_param_preset(self,
+                                   engine_id: str,
+                                   param_preset_id: str,
+                                   preset: EngineParamPresetRequest,
+                                   if_match: str,
+                                   trace: Optional[Span] = None) -> EngineParamPreset:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.put(
+                self._engine_param_preset_url(engine_id, param_preset_id),
+                json=preset.to_request_body(),
+                headers={'If-Match': if_match},
+                trace_context=trace)
+            return _read_engine_response(EngineParamPreset, response.json(), 'a parameter preset')
+
+    def patch_engine_param_preset(self,
+                                  engine_id: str,
+                                  param_preset_id: str,
+                                  patches: List[JsonPatch],
+                                  if_match: str,
+                                  trace: Optional[Span] = None) -> EngineParamPreset:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            response = session.json_patch(
+                self._engine_param_preset_url(engine_id, param_preset_id),
+                json=[p.model_dump(exclude_none=True) for p in patches],
+                headers={'If-Match': if_match},
+                trace_context=trace)
+            return _read_engine_response(EngineParamPreset, response.json(), 'a parameter preset')
+
+    def delete_engine_param_preset(self, engine_id: str, param_preset_id: str, trace: Optional[Span] = None) -> None:
+        trace = trace or Span(origin=self)
+        with self.create_http_session() as session:
+            session.delete(
+                self._engine_param_preset_url(engine_id, param_preset_id),
+                trace_context=trace)
 
     def list_engine_health_checks(self,
                                   engine_id: str,
@@ -363,7 +503,7 @@ class EWesClient(BaseWorkbenchClient):
                                   trace: Optional[Span] = None) -> Iterable[EngineHealthCheck]:
         trace = trace or Span(origin=self)
         return ResultIterator(EngineHealthCheckListResultLoader(
-            service_url=urljoin(self.endpoint.url, f'{self.namespace}/engines/{engine_id}/health-checks'),
+            service_url=self._engine_url(engine_id, '/health-checks'),
             http_session=self.create_http_session(),
             list_options=list_options,
             max_results=max_results,

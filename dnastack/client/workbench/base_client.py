@@ -133,13 +133,15 @@ class WorkbenchResultLoader(ResultLoader):
 
             status_code = response.status_code
             response_text = response.text
+            log_body = self.__http_session.log_response_body
 
             try:
                 response_body = response.json() if response_text else {}
             except Exception:
                 self.logger.error(f'{self.__service_url}: Unexpectedly non-JSON response body from {current_url}')
                 raise PageableApiError(
-                    f'Unable to deserialize JSON from {response_text}.',
+                    f'Unable to deserialize JSON from {response_text}.' if log_body
+                    else 'Unable to deserialize JSON from the response.',
                     status_code,
                     response_text,
                     urls=self.__visited_urls
@@ -149,13 +151,14 @@ class WorkbenchResultLoader(ResultLoader):
                 api_response = self.extract_api_response(response_body)
             except ValidationError:
                 raise PageableApiError(
-                    f'Invalid Response Body: {response_body}',
+                    f'Invalid Response Body: {response_body}' if log_body else 'Invalid Response Body',
                     status_code,
                     response_text,
                     urls=self.__visited_urls
                 )
 
-            self.logger.debug(f'Response:\n{pformat(response_body, indent=2)}')
+            self.logger.debug(f'Response:\n{pformat(response_body, indent=2)}' if log_body
+                              else 'Response: (response body not logged)')
 
             self.__next_page_url = api_response.pagination.next_page_url if api_response.pagination and api_response.pagination.next_page_url else None
             if not self.__next_page_url:

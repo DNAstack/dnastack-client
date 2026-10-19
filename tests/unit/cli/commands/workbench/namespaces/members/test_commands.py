@@ -1,9 +1,11 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+from click.testing import CliRunner
 
 from dnastack.cli.commands.workbench.namespaces.members.commands import (
+    init_members_commands,
     resolve_namespace,
     _validate_email_or_id,
 )
@@ -42,3 +44,22 @@ class TestValidateEmailOrId:
     def test_rejects_neither(self):
         with pytest.raises(click.UsageError, match="--email or --id"):
             _validate_email_or_id(email=None, user_id=None)
+
+
+class TestAddMemberUsageErrors:
+    """The email/id check is reported as a usage error, before any client is made."""
+
+    @pytest.mark.parametrize('args, message', [
+        (['add', '--role', 'ADMIN'], 'Error: Specify either --email or --id.'),
+        (['add', '--role', 'ADMIN', '--email', 'foo@dnastack.com', '--id', 'abc-123'],
+         'Error: Specify either --email or --id, not both.'),
+    ])
+    def test_add_reports_usage_error(self, args, message):
+        group = click.Group()
+        init_members_commands(group)
+        with patch('dnastack.cli.commands.workbench.namespaces.members.commands.get_user_client') as get_client:
+            result = CliRunner(mix_stderr=False).invoke(group, args)
+        assert result.exit_code == 2
+        assert 'Usage:' in result.stderr
+        assert message in result.stderr
+        get_client.assert_not_called()

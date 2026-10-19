@@ -4,7 +4,7 @@ import click
 from click import Group
 
 from dnastack.cli.commands.utils import MAX_RESULTS_ARG, PAGINATION_PAGE_ARG, PAGINATION_PAGE_SIZE_ARG
-from dnastack.cli.commands.workbench.utils import get_user_client
+from dnastack.cli.commands.workbench.utils import NAMESPACE_ARG, get_user_client
 from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
@@ -12,13 +12,6 @@ from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
 from dnastack.client.workbench.models import BaseListOptions
 from dnastack.client.workbench.workbench_user_service.client import WorkbenchUserClient
 
-
-NAMESPACE_ARG = ArgumentSpec(
-    name='namespace',
-    arg_names=['--namespace', '-n'],
-    help='The namespace ID. Defaults to the active namespace.',
-    required=False,
-)
 
 EMAIL_ARG = ArgumentSpec(
     name='email',
