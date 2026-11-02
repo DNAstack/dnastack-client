@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Tests the built wheel before it is published: installs it and runs a CLI smoke check, then the CLI e2e tests.
+# Run from the repo root after the build, in a virtualenv, with TEST_ENV_FILE naming the e2e env file.
+set -euo pipefail
+
+if [[ -z "${TEST_ENV_FILE:-}" ]]; then
+  echo "ERROR: TEST_ENV_FILE is not set; it must name the e2e env file" >&2
+  exit 1
+fi
+
+pip install dist/*.whl
+dnastack use --no-auth viral.ai
+
+E2E_ENV_FILE="$TEST_ENV_FILE" ./scripts/run-e2e-tests-in-container.sh -fv tests/e2e_tests/cli/test_*
