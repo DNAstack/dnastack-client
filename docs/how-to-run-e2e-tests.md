@@ -7,7 +7,7 @@
   * On MacOS, you need to ensure that the `chromedriver` command is executable.
 * The test environment variable file
   * The plain-text env file for your local testing 
-  * The encrypted `test-env.enc` file, [which is only for the CI/CD pipeline](#configuration-file-for-cicd-pipeline)
+  * For the CI/CD pipeline, see [Configuration file for CI/CD pipeline](#configuration-file-for-cicd-pipeline)
 
 ## Setup
 
@@ -190,23 +190,8 @@ Here is the additional variable for **testing on the staging environment**.
 
 ## Configuration file for CI/CD pipeline
 
-The CI/CD pipeline for the library requires its own encrypted configuration file (with environment variables), namedly
-`test-env.enc`. The file can be encrypted with this command. 
-
-```shell
-export E2E_ENV_FILE=.env
-```
-
-```shell
-gcloud kms encrypt \
-  --plaintext-file=${E2E_ENV_FILE} \
-  --ciphertext-file=test-env.enc\
-  --location=global \
-  --keyring=cloud-build-webhook \
-  --project=cloud-builld-webhook \
-  --key=secret_key
-```
-
-where it uses the same encryption key with the main CBW service. Then, _commit the file in this repository_.
+The Concourse `libraries-build` pipeline (team `dev`) runs the e2e tests with `ci/test-package` before it publishes the
+package. It reads the env file from the Concourse secret `dnastack-client-e2e-env` (key `env`) and passes it to the
+tests as `E2E_ENV_FILE`. To change the pipeline's test configuration, update that secret.
 
 > **WARNING:** Please DO NOT commit the plain text file.
