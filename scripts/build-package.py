@@ -49,7 +49,7 @@ def main():
                                                     universal_newlines=True).split('\n')
                 if line
             ]
-            if not file_path.startswith('scripts') and file_path not in ('cloudbuild.yaml', 'Makefile')
+            if not file_path.startswith('scripts') and file_path != 'Makefile'
         ]
         if changes and not args.ignore_unsaved:
             log.warning('Changes detected:')
