@@ -109,15 +109,16 @@ def main():
             f.write(pyproject_content)
 
     # Build the package
-    if args.dry_run:
-        log.warning('The package will not be built because the script is in the dry run mode.')
-    else:
-        log.info('Building the package with uv...')
-        subprocess.call(['uv', 'build'])
+    try:
+        if args.dry_run:
+            log.warning('The package will not be built because the script is in the dry run mode.')
+        else:
+            log.info('Building the package with uv...')
+            subprocess.check_call(['uv', 'build'])
+    finally:
+        log.info('Cleaning up...')
 
-    log.info('Cleaning up...')
-
-    subprocess.call(['git', 'checkout', '--', 'pyproject.toml', 'dnastack/constants.py'])
+        subprocess.call(['git', 'checkout', '--', 'pyproject.toml', 'dnastack/constants.py'])
 
     log.info('Done')
 

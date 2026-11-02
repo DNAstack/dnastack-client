@@ -11,4 +11,6 @@ fi
 pip install dist/*.whl
 dnastack use --no-auth viral.ai
 
+# The e2e scripts run `uv pip install --system`; this points them at the active virtualenv.
+export UV_PYTHON="$(command -v python3)"
 E2E_ENV_FILE="$TEST_ENV_FILE" ./scripts/run-e2e-tests-in-container.sh -fv tests/e2e_tests/cli/test_*
