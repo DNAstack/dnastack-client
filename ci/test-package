@@ -3,10 +3,7 @@
 # Run from the repo root after the build, in a virtualenv, with TEST_ENV_FILE naming the e2e env file.
 set -euo pipefail
 
-if [[ -z "${TEST_ENV_FILE:-}" ]]; then
-  echo "ERROR: TEST_ENV_FILE is not set; it must name the e2e env file" >&2
-  exit 1
-fi
+: "${TEST_ENV_FILE:?must name the e2e env file}"
 
 pip install dist/*.whl
 dnastack use --no-auth viral.ai
