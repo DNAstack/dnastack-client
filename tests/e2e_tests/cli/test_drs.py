@@ -66,7 +66,8 @@ class TestDrsCommand(DeprecatedPublisherCliTestCase):
         self.assertEqual(0, result.exit_code)
 
         # The files should be downloaded to the current working directory.
-        file_name_list = [f for f in os.listdir(os.getcwd()) if f != os.path.basename(self.input_file_path)]
+        file_name_list = [f for f in os.listdir(os.getcwd())
+                          if f != os.path.basename(self.input_file_path) and os.path.isfile(f)]
         self.assertGreaterEqual(len(file_name_list),len(self.drs_uris))
 
         for file_name in file_name_list:
