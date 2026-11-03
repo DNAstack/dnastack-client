@@ -84,32 +84,32 @@ def main():
 
     log.info(f'Version/Release: {release_version}')
 
-    # Update dnastack.constants
-    with open('dnastack/constants.py', 'r') as f:
-        content = f.read()
-    content = re.sub(r'__version__\s*=\s*[^\s]+', f'__version__ = "{release_version}"', content)
-    if in_dry_run_mode:
-        log.info(f'dnastack.constants:\n\n{content}')
-    else:
-        with open('dnastack/constants.py', 'w') as f:
-            f.write(content)
-
-    # Update pyproject.toml
-    pyproject_file_path = 'pyproject.toml'
-    with open(pyproject_file_path, 'r') as f:
-        pyproject_content = f.read()
-    
-    # Replace the version in pyproject.toml
-    pyproject_content = re.sub(r'(version\s*=\s*")[^"]+(")', fr'\g<1>{release_version}\g<2>', pyproject_content)
-    
-    if in_dry_run_mode:
-        log.info(f'pyproject.toml (version section):\n\nversion = "{release_version}"')
-    else:
-        with open(pyproject_file_path, 'w') as f:
-            f.write(pyproject_content)
-
-    # Build the package
     try:
+        # Update dnastack.constants
+        with open('dnastack/constants.py', 'r') as f:
+            content = f.read()
+        content = re.sub(r'__version__\s*=\s*[^\s]+', f'__version__ = "{release_version}"', content)
+        if in_dry_run_mode:
+            log.info(f'dnastack.constants:\n\n{content}')
+        else:
+            with open('dnastack/constants.py', 'w') as f:
+                f.write(content)
+
+        # Update pyproject.toml
+        pyproject_file_path = 'pyproject.toml'
+        with open(pyproject_file_path, 'r') as f:
+            pyproject_content = f.read()
+    
+        # Replace the version in pyproject.toml
+        pyproject_content = re.sub(r'(version\s*=\s*")[^"]+(")', fr'\g<1>{release_version}\g<2>', pyproject_content)
+    
+        if in_dry_run_mode:
+            log.info(f'pyproject.toml (version section):\n\nversion = "{release_version}"')
+        else:
+            with open(pyproject_file_path, 'w') as f:
+                f.write(pyproject_content)
+
+        # Build the package
         if args.dry_run:
             log.warning('The package will not be built because the script is in the dry run mode.')
         else:
