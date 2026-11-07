@@ -194,4 +194,8 @@ The Concourse `libraries-build` pipeline (team `dev`) runs the e2e tests with `c
 package. It reads the env file from the Concourse secret `dnastack-client-e2e-env` (key `env`) and passes it to the
 tests as `E2E_ENV_FILE`. To change the pipeline's test configuration, update that secret.
 
+The exception is `E2E_WORKBENCH_EXECUTION_ENGINE_JSON`. The pipeline appends it to the env file and builds it from the
+Concourse secret `dnastack-client-e2e-engine-client` (keys `clientId` and `clientSecret`). That is the Wallet client
+`dnastack-client-e2e-engine` on workbench-alpha, which the e2e tests give the execution engines they create.
+
 > **WARNING:** Please DO NOT commit the plain text file.
