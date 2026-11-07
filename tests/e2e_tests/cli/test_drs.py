@@ -1,4 +1,5 @@
 import os
+from tempfile import TemporaryDirectory
 from typing import Optional, Dict, List, Any
 
 from dnastack import use
@@ -62,18 +63,23 @@ class TestDrsCommand(DeprecatedPublisherCliTestCase):
                            intermediate_cleanup=lambda: self._clear_temp_files())
 
     def _test_download_files_with_cli_arguments_no_output_dir(self):
-        result = self.invoke('files', 'download', *self.drs_uris)
-        self.assertEqual(0, result.exit_code)
+        # Without -o the files go to the current working directory, so download from an empty one.
+        original_cwd = os.getcwd()
+        with TemporaryDirectory() as download_dir:
+            os.chdir(download_dir)
+            try:
+                result = self.invoke('files', 'download', *self.drs_uris)
+            finally:
+                os.chdir(original_cwd)
+            self.assertEqual(0, result.exit_code)
 
-        # The files should be downloaded to the current working directory.
-        file_name_list = [f for f in os.listdir(os.getcwd())
-                          if f != os.path.basename(self.input_file_path) and os.path.isfile(f)]
-        self.assertGreaterEqual(len(file_name_list),len(self.drs_uris))
+            file_name_list = os.listdir(download_dir)
+            self.assertTrue(file_name_list, 'No files were downloaded.')
+            self.assertGreaterEqual(len(self.drs_uris), len(file_name_list))
 
-        for file_name in file_name_list:
-            file_path = os.path.join(os.getcwd(), file_name)
-            self.assertTrue(os.path.getsize(file_path) > 0, f'The downloaded {file_path} must not be empty.')
-        # Clean up downloaded files in the current working directory.
+            for file_name in file_name_list:
+                file_path = os.path.join(download_dir, file_name)
+                self.assertTrue(os.path.getsize(file_path) > 0, f'The downloaded {file_path} must not be empty.')
 
     def test_download_files_with_input_file(self):
         self.retry_if_fail(self._test_download_files_with_input_file,
