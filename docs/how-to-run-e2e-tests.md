@@ -5,9 +5,7 @@
 * Python 3.11 or higher
 * `chromedriver`
   * On MacOS, you need to ensure that the `chromedriver` command is executable.
-* The test environment variable file
-  * The plain-text env file for your local testing 
-  * For the CI/CD pipeline, see [Configuration file for CI/CD pipeline](#configuration-file-for-cicd-pipeline)
+* The plain-text test environment variable file for your local testing
 
 ## Setup
 
@@ -197,5 +195,3 @@ tests as `E2E_ENV_FILE`. To change the pipeline's test configuration, update tha
 The exception is `E2E_WORKBENCH_EXECUTION_ENGINE_JSON`. The pipeline appends it to the env file and builds it from the
 Concourse secret `dnastack-client-e2e-engine-client` (keys `clientId` and `clientSecret`). That is the Wallet client
 `dnastack-client-e2e-engine` on workbench-alpha, which the e2e tests give the execution engines they create.
-
-> **WARNING:** Please DO NOT commit the plain text file.
