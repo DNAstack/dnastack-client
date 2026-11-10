@@ -567,7 +567,7 @@ dnastack publisher datasources list -o yaml
 
 ### Manage tenants
 
-These commands manage the tenants of a multi-tenant Publisher through its wallet. They need a sign-in by a user whose
+These commands manage the tenants of a multi-tenant Publisher through its authorization server. They need a sign-in by a user whose
 management-tenant policies grant the `admin:tenants:read` and `admin:tenants:write` actions. The CLI asks for that sign-in
 separately from the rest of Publisher, the first time you run one of these commands.
 
