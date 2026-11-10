@@ -7,8 +7,6 @@ sandbox
 .env
 .env.*
 !.env.dist
-!.env.enc
-!test-env.enc
 workflow.zip
 .dnastack/
 transformation.js
