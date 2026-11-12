@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
+from dnastack.http.authenticators.oauth2_adapter.models import RedactedReprMixin
 
 
 class ServiceType(BaseModel):
@@ -28,7 +28,7 @@ class Organization(BaseModel):
     url: str
 
 
-class Service(BaseModel):
+class Service(RedactedReprMixin, BaseModel):
     """
     GA4GH Service
 
@@ -54,7 +54,3 @@ class Service(BaseModel):
     
     .. note:: This is a non-standard property. Only available via DNAstack's GA4GH Service Registry.
     """
-
-    def __repr_args__(self):
-        for name, value in super().__repr_args__():
-            yield name, redact_secrets(value) if name == 'authentication' else value

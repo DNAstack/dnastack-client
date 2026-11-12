@@ -18,7 +18,8 @@ from dnastack.http.authenticators.abstract import Authenticator, AuthenticationR
 from dnastack.http.authenticators.constants import get_authenticator_log_level
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
+    redact_secrets
 from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
@@ -275,7 +276,7 @@ class OAuth2Authenticator(Authenticator):
 
                 if currently_in_debug_mode():
                     exception_details['_internal'] = {
-                        'session_info': session_info.model_dump(),
+                        'session_info': redact_secrets(session_info.model_dump()),
                         'session_manager': str(self._session_manager),
                     }
 

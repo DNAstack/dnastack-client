@@ -9,6 +9,7 @@ from dnastack.http.authenticators.oauth2_adapter.models import (
     OAuth2Authentication,
     redact_secrets,
 )
+from dnastack.http.authenticators.abstract import AuthState
 from dnastack.http.session_info import SessionInfo, SessionInfoHandler
 
 CLIENT_ID = 'explorer.example.com-public-client'
@@ -101,3 +102,14 @@ def test_context_hides_platform_subject_token():
     context = Context(platform_subject_token=SUBJECT_TOKEN)
     _assert_no_secrets(context)
     assert context.model_dump()['platform_subject_token'] == SUBJECT_TOKEN
+
+
+def test_auth_state_hides_session_tokens_and_client_secret():
+    session = SessionInfo(access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN, token_type='Bearer', issued_at=0,
+                          valid_until=0, handler=SessionInfoHandler(auth_info={'client_id': CLIENT_ID,
+                                                                               'client_secret': CLIENT_SECRET}))
+    state = AuthState(authenticator='OAuth2Authenticator', id='auth-id', status='ready',
+                      auth_info={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET},
+                      session_info=session.model_dump())
+    assert CLIENT_ID in _assert_no_secrets(state)
+    assert ACCESS_TOKEN not in str(redact_secrets(session.model_dump()))
