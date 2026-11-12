@@ -130,7 +130,7 @@ class OAuth2Authenticator(Authenticator):
             self.events.dispatch('authentication-failure', event_details)
 
             raise OAuth2MisconfigurationError('Cannot determine the type of authentication '
-                                              f'({auth_info.model_dump_json(exclude_none=True)})')
+                                              f'({auth_info!r})')
 
         adapter.check_config_readiness()
         for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
@@ -207,7 +207,6 @@ class OAuth2Authenticator(Authenticator):
             with trace_context.new_span({'method': 'post', 'url': auth_info.token_endpoint}) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
                 sub_logger.debug('Initiate the token refresh')
-                sub_logger.debug(f'refresh_token = {refresh_token}')
                 refresh_token_res = http_session.post(
                     auth_info.token_endpoint,
                     data={

@@ -2,6 +2,7 @@
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.service_registry.helper import parse_ga4gh_service_info
 from dnastack.client.service_registry.models import Service, ServiceType
+from dnastack.context.models import Context
 from dnastack.http.authenticators.oauth2_adapter.models import (
     GRANT_TYPE_DEVICE_CODE,
     GRANT_TYPE_TOKEN_EXCHANGE,
@@ -94,3 +95,9 @@ def test_redact_secrets_leaves_input_unchanged():
 
     assert redacted == [{'client_id': CLIENT_ID, 'client_secret': '***'}]
     assert auth['client_secret'] == CLIENT_SECRET
+
+
+def test_context_hides_platform_subject_token():
+    context = Context(platform_subject_token=SUBJECT_TOKEN)
+    _assert_no_secrets(context)
+    assert context.model_dump()['platform_subject_token'] == SUBJECT_TOKEN
