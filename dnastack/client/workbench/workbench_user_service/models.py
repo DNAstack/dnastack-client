@@ -6,10 +6,17 @@ from dnastack.client.workbench.models import PaginatedResource
 
 
 class WorkbenchUser(BaseModel):
+    id: Optional[str] = None
     email: str
     full_name: Optional[str] = None
     # Platform admins have an account but no namespace, so this can be absent/null.
     default_namespace: Optional[str] = None
+    active_namespace_id: Optional[str] = None
+    created_at: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[str] = None
+    updated_by: Optional[str] = None
+    features: Optional[List[str]] = None
 
 
 class Namespace(BaseModel):

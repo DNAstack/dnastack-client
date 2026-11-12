@@ -1,6 +1,8 @@
 from unittest.mock import Mock, patch, MagicMock
+
+import pytest
 from dnastack.client.workbench.workbench_user_service.client import WorkbenchUserClient
-from dnastack.client.workbench.workbench_user_service.models import Namespace
+from dnastack.client.workbench.workbench_user_service.models import Namespace, WorkbenchUser
 from dnastack.client.models import ServiceEndpoint
 
 
@@ -88,3 +90,60 @@ class TestSetActiveNamespace:
         assert isinstance(result, Namespace)
         assert result.id == "ns-789"
         assert result.name == "Switched Workspace"
+
+
+def _make_client():
+    endpoint = ServiceEndpoint(
+        id='test',
+        url='https://user-service.example.com/',
+        type=WorkbenchUserClient.get_default_service_type(),
+    )
+    return WorkbenchUserClient(endpoint)
+
+
+def _mock_session(mock_create_session):
+    mock_session = MagicMock()
+    mock_create_session.return_value.__enter__ = Mock(return_value=mock_session)
+    mock_create_session.return_value.__exit__ = Mock(return_value=False)
+    return mock_session
+
+
+class TestGetUser:
+    """Tests for WorkbenchUserClient.get_user"""
+
+    @pytest.mark.parametrize('email_or_id, expected_path', [
+        ('alice+test@example.com', 'users/alice%2Btest%40example.com'),
+        ('5f0c1f4e-0000-0000-0000-000000000001', 'users/5f0c1f4e-0000-0000-0000-000000000001'),
+    ])
+    @patch.object(WorkbenchUserClient, 'create_http_session')
+    def test_requests_user_as_one_path_segment(self, mock_create_session, email_or_id, expected_path):
+        mock_session = _mock_session(mock_create_session)
+        mock_session.get.return_value.json.return_value = {"id": "user-1", "email": "alice+test@example.com"}
+
+        result = _make_client().get_user(email_or_id)
+
+        mock_session.get.assert_called_once_with(f'https://user-service.example.com/{expected_path}')
+        assert isinstance(result, WorkbenchUser)
+
+    @pytest.mark.parametrize('email_or_id', ['', '.', '..'])
+    def test_rejects_ids_that_cannot_be_one_path_segment(self, email_or_id):
+        with pytest.raises(ValueError):
+            _make_client().get_user(email_or_id)
+
+
+class TestRegisterUser:
+    """Tests for WorkbenchUserClient.register_user"""
+
+    @patch.object(WorkbenchUserClient, 'create_http_session')
+    def test_posts_email_as_form_body(self, mock_create_session):
+        mock_session = _mock_session(mock_create_session)
+        mock_session.post.return_value.json.return_value = {"id": "user-2", "email": "bob@example.com"}
+
+        result = _make_client().register_user("bob@example.com")
+
+        mock_session.post.assert_called_once_with(
+            'https://user-service.example.com/users',
+            data={'email': 'bob@example.com'},
+        )
+        assert isinstance(result, WorkbenchUser)
+        assert result.id == "user-2"

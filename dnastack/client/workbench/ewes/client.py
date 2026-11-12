@@ -1,14 +1,14 @@
 from contextlib import contextmanager
 from http.client import HTTPConnection
 from typing import Any, Dict, List, Iterator, Optional, Type, TypeVar, Union, Iterable
-from urllib.parse import quote, urljoin
+from urllib.parse import urljoin
 
 from pydantic import BaseModel, ValidationError
 
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
-from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader
+from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader, path_segment
 from dnastack.client.workbench.ewes.engine_models import EngineParamPresetRequest, ExecutionEngineRequest
 from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceInfo, ExtendedRunStatus, \
     ExtendedRunListOptions, \
@@ -20,15 +20,6 @@ from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceI
     Hook, HookListResponse, SimpleSample, UpdateRunSamplesRequest
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession, JsonPatch
-
-
-def _path_segment(value: str) -> str:
-    """Escape a user-supplied id so that it names one path segment, or reject it if no encoding can."""
-    # requests un-escapes %2E when it re-quotes a URL, and urllib3 then removes '.' and '..' segments.
-    # No encoding keeps those ids inside one segment, and an empty id would address the collection.
-    if value in ('', '.', '..'):
-        raise ValueError(f"'{value}' is not a valid id")
-    return quote(value, safe='')
 
 
 _ResponseModel = TypeVar('_ResponseModel', bound=BaseModel)
@@ -362,10 +353,10 @@ class EWesClient(BaseWorkbenchClient):
             return ExtendedRunStatus(**response.json())
 
     def _engine_url(self, engine_id: str, suffix: str = '') -> str:
-        return urljoin(self.endpoint.url, f'{self.namespace}/engines/{_path_segment(engine_id)}{suffix}')
+        return urljoin(self.endpoint.url, f'{self.namespace}/engines/{path_segment(engine_id)}{suffix}')
 
     def _engine_param_preset_url(self, engine_id: str, param_preset_id: str) -> str:
-        return self._engine_url(engine_id, f'/param-presets/{_path_segment(param_preset_id)}')
+        return self._engine_url(engine_id, f'/param-presets/{path_segment(param_preset_id)}')
 
     def list_engines(self,
                      list_options: ExecutionEngineListOptions,

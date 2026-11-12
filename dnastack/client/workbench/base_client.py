@@ -1,6 +1,7 @@
 from abc import ABC
 from pprint import pformat
 from typing import Optional, List
+from urllib.parse import quote
 
 from pydantic import ValidationError
 
@@ -13,6 +14,15 @@ from dnastack.common.tracing import Span
 from dnastack.http.authenticators.factory import HttpAuthenticatorFactory
 from dnastack.http.authenticators.oauth2 import OAuth2Authenticator
 from dnastack.http.session import HttpSession, HttpError
+
+
+def path_segment(value: str) -> str:
+    """Escape a user-supplied id so that it names one path segment, or reject it if no encoding can."""
+    # requests un-escapes %2E when it re-quotes a URL, and urllib3 then removes '.' and '..' segments.
+    # No encoding keeps those ids inside one segment, and an empty id would address the collection.
+    if value in ('', '.', '..'):
+        raise ValueError(f"'{value}' is not a valid id")
+    return quote(value, safe='')
 
 
 class ApiError(Exception):

@@ -5,7 +5,7 @@ from dnastack.client.base_client import BaseServiceClient
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
-from dnastack.client.workbench.base_client import WorkbenchResultLoader
+from dnastack.client.workbench.base_client import WorkbenchResultLoader, path_segment
 from dnastack.client.workbench.models import BaseListOptions
 from dnastack.client.workbench.workbench_user_service.models import (
     WorkbenchUser,
@@ -85,6 +85,23 @@ class WorkbenchUserClient(BaseServiceClient):
         with self.create_http_session() as session:
             response = session.get(
                 urljoin(self.endpoint.url, 'users/me')
+            )
+        return WorkbenchUser(**response.json())
+
+    def get_user(self, email_or_id: str) -> WorkbenchUser:
+        """Get a single user by email or user ID."""
+        with self.create_http_session() as session:
+            response = session.get(
+                urljoin(self.endpoint.url, f'users/{path_segment(email_or_id)}')
+            )
+        return WorkbenchUser(**response.json())
+
+    def register_user(self, email: str) -> WorkbenchUser:
+        """Register a user by email."""
+        with self.create_http_session() as session:
+            response = session.post(
+                urljoin(self.endpoint.url, 'users'),
+                data={'email': email},
             )
         return WorkbenchUser(**response.json())
 
