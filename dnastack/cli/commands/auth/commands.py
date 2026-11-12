@@ -14,6 +14,7 @@ from dnastack.cli.helpers.printer import echo_header, echo_list
 from dnastack.common.auth_manager import AuthManager, ExtendedAuthState
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 from dnastack.configuration.wrapper import ConfigurationWrapper
 from dnastack.http.session_info import SessionManager
 
@@ -65,7 +66,9 @@ def init_auth_commands(group: Group):
                output: Optional[str] = None):
         """ Check the status of all authenticators. """
         handler = AuthCommandHandler(context_name=context)
-        show_iterator(output or RESOURCE_OUTPUT_ARG.default, handler.get_states([endpoint_id] if endpoint_id else None))
+        show_iterator(output or RESOURCE_OUTPUT_ARG.default,
+                      handler.get_states([endpoint_id] if endpoint_id else None),
+                      transform=lambda state: state.model_copy(update={'auth_info': redact_secrets(state.auth_info)}))
     
     
     @formatted_command(

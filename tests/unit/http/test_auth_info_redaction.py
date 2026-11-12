@@ -1,8 +1,10 @@
 """Unit tests for keeping OAuth client secrets and tokens out of model repr/str (and so out of log messages)."""
+from dnastack.cli.commands.auth.event_handlers import handle_auth_end, handle_revoke_begin
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.service_registry.helper import parse_ga4gh_service_info
 from dnastack.client.service_registry.models import Service, ServiceType
 from dnastack.context.models import Context
+from dnastack.common.events import Event
 from dnastack.http.authenticators.oauth2_adapter.models import (
     GRANT_TYPE_DEVICE_CODE,
     GRANT_TYPE_TOKEN_EXCHANGE,
@@ -113,3 +115,13 @@ def test_auth_state_hides_session_tokens_and_client_secret():
                       session_info=session.model_dump())
     assert CLIENT_ID in _assert_no_secrets(state)
     assert ACCESS_TOKEN not in str(redact_secrets(session.model_dump()))
+
+
+def test_auth_cli_tables_hide_client_secret(capsys):
+    state = AuthState(authenticator='OAuth2Authenticator', id='auth-id', status='uninitialized',
+                      auth_info={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}, session_info={})
+    handle_auth_end(Event(details={'session_id': 'auth-id', 'state': state}))
+    handle_revoke_begin(Event(details={'session_id': 'auth-id', 'state': state}))
+    output = capsys.readouterr().out
+    assert CLIENT_ID in output
+    assert CLIENT_SECRET not in output
