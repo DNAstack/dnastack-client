@@ -30,11 +30,22 @@ def _get_tenant_client(context_name: Optional[str] = None) -> TenantClient:
 
 
 def _resolve_tenant_id(client: TenantClient, id_or_name: str) -> str:
-    """ Wallet addresses tenants by ID only, so a name is looked up among all tenants """
+    """
+    Wallet addresses tenants by ID only, so a name is looked up among all tenants.
+
+    A tenant name can also parse as a UUID (for example, 32 hex digits), so a UUID that matches no tenant ID is looked
+    up as a name.
+    """
     try:
-        return str(UUID(id_or_name))
+        tenant_id = str(UUID(id_or_name))
     except ValueError:
-        pass
+        tenant_id = None
+
+    if tenant_id is not None:
+        try:
+            return client.get_tenant(tenant_id).id
+        except UnknownTenantError:
+            pass
 
     for tenant in client.list_tenants():
         if tenant.name == id_or_name:

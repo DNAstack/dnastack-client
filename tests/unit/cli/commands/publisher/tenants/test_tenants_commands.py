@@ -6,9 +6,11 @@ from click import Group
 from click.testing import CliRunner
 
 from dnastack.cli.commands.publisher.tenants.commands import init_tenants_commands
+from dnastack.client.tenants.client import UnknownTenantError
 from dnastack.client.tenants.models import Tenant, TenantStatus
 
 TENANT_ID = '6f1c1f7e-9a59-4d0c-9a8e-3b6f0f7d6a11'
+UUID_LIKE_NAME = '0123456789abcdef0123456789abcdef'
 GET_CLIENT = 'dnastack.cli.commands.publisher.tenants.commands._get_tenant_client'
 
 
@@ -19,6 +21,7 @@ class TenantCommandsTest:
         init_tenants_commands(self.group)
         self.client = Mock()
         self.client.list_tenants.return_value = [Tenant(id=TENANT_ID, name='sickkids', status=TenantStatus.ENABLED)]
+        self.client.get_tenant.return_value = Tenant(id=TENANT_ID, name='sickkids', status=TenantStatus.ENABLED)
 
 
 @patch(GET_CLIENT)
@@ -79,6 +82,16 @@ class TestDeleteCommand(TenantCommandsTest):
 
         assert result.exit_code == 0, result.output
         self.client.list_tenants.assert_not_called()
+        self.client.delete_tenant.assert_called_once_with(TENANT_ID)
+
+    def test_deletes_tenant_whose_name_parses_as_uuid_by_name(self, mock_get_client):
+        mock_get_client.return_value = self.client
+        self.client.get_tenant.side_effect = UnknownTenantError(UUID_LIKE_NAME)
+        self.client.list_tenants.return_value = [Tenant(id=TENANT_ID, name=UUID_LIKE_NAME)]
+
+        result = self.runner.invoke(self.group, ['delete', UUID_LIKE_NAME, '--force'])
+
+        assert result.exit_code == 0, result.output
         self.client.delete_tenant.assert_called_once_with(TENANT_ID)
 
     def test_fails_for_unknown_tenant_name(self, mock_get_client):

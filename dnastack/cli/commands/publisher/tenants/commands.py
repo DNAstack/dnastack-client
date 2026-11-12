@@ -175,7 +175,7 @@ def _parse_expiry(expires: str) -> datetime:
     try:
         return parse_point_in_time(expires)
     except InvalidPointInTimeError as e:
-        raise click.BadParameter(str(e))
+        raise click.BadParameter(str(e)) from e
 
 
 def _set_status(tenant: str, status: TenantStatus, context: Optional[str]):
