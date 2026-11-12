@@ -16,11 +16,16 @@ from imagination.decorator.config import Service
 from pydantic import BaseModel, Field
 
 from dnastack.common.logger import get_logger
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 from dnastack.constants import LOCAL_STORAGE_DIRECTORY
 
 
 class SessionInfoHandler(BaseModel):
     auth_info: Dict[str, Any]
+
+    def __repr_args__(self):
+        for name, value in super().__repr_args__():
+            yield name, redact_secrets(value) if name == 'auth_info' else value
 
 
 class JwtClaims(BaseModel):
@@ -47,8 +52,8 @@ class SessionInfo(BaseModel):
     dnastack_schema_version: float = Field(alias='model_version', default=3.0)
 
     config_hash: Optional[str] = None
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
+    access_token: Optional[str] = Field(default=None, repr=False)
+    refresh_token: Optional[str] = Field(default=None, repr=False)
     scope: Optional[str] = None
     token_type: str
 

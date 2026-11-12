@@ -5,6 +5,7 @@ from pydantic import Field, BaseModel
 
 from dnastack.client.service_registry.models import ServiceType
 from dnastack.common.model_mixin import JsonModelMixin as HashableModel
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 
 
 class EndpointSource(BaseModel):
@@ -57,6 +58,12 @@ class ServiceEndpoint(BaseModel, HashableModel):
     # DEPRECATED: It is here only for the migration.
     source: Optional[EndpointSource] = None
     """ The source of the endpoint configuration (e.g., service registry) """
+
+    def __repr_args__(self):
+        for name, value in super().__repr_args__():
+            if name in ('authentication', 'fallback_authentications'):
+                value = redact_secrets(value)
+            yield name, value
 
     def get_authentications(self) -> List[Dict[str, Any]]:
         """ Get the list of authentication information """
