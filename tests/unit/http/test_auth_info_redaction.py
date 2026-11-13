@@ -1,9 +1,13 @@
 """Unit tests for keeping OAuth client secrets and tokens out of model repr/str (and so out of log messages)."""
+import json
+
+from dnastack.cli.commands.auth.commands import mask_client_secrets
 from dnastack.cli.commands.auth.event_handlers import handle_auth_end, handle_revoke_begin
 from dnastack.client.models import ServiceEndpoint
 from dnastack.client.service_registry.helper import parse_ga4gh_service_info
 from dnastack.client.service_registry.models import Service, ServiceType
 from dnastack.context.models import Context
+from dnastack.common.auth_manager import ExtendedAuthState
 from dnastack.common.events import Event
 from dnastack.http.authenticators.oauth2_adapter.models import (
     GRANT_TYPE_DEVICE_CODE,
@@ -125,3 +129,17 @@ def test_auth_cli_tables_hide_client_secret(capsys):
     output = capsys.readouterr().out
     assert CLIENT_ID in output
     assert CLIENT_SECRET not in output
+
+
+def test_auth_status_masks_client_secrets_but_keeps_session_tokens():
+    session = SessionInfo(access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN, token_type='Bearer', issued_at=0,
+                          valid_until=0, handler=SessionInfoHandler(auth_info={'client_id': CLIENT_ID,
+                                                                               'client_secret': CLIENT_SECRET}))
+    state = ExtendedAuthState(authenticator='OAuth2Authenticator', id='auth-id', status='ready',
+                              auth_info={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET},
+                              session_info=session.model_dump(), endpoints=['endpoint-id'])
+    shown = json.dumps(mask_client_secrets(state).model_dump())
+    assert CLIENT_SECRET not in shown
+    assert CLIENT_ID in shown
+    assert ACCESS_TOKEN in shown
+    assert state.session_info['handler']['auth_info']['client_secret'] == CLIENT_SECRET
