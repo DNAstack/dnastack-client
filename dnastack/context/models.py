@@ -18,4 +18,4 @@ class Context(BaseModel):
     endpoints: List[Endpoint] = Field(default_factory=lambda: [])
     
     # Store subject token for token exchange authentication if provided
-    platform_subject_token: Optional[str] = Field(default=None)
+    platform_subject_token: Optional[str] = Field(default=None, repr=False)

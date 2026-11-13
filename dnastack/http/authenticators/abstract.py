@@ -12,6 +12,7 @@ from dnastack.common.events import EventSource
 from dnastack.common.logger import get_logger_for
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.constants import get_authenticator_log_level
+from dnastack.http.authenticators.oauth2_adapter.models import RedactedReprMixin
 from dnastack.http.session_info import SessionInfo
 
 
@@ -89,7 +90,7 @@ class AuthStateStatus:
     REAUTH_REQUIRED = 'reauth-required'
 
 
-class AuthState(BaseModel):
+class AuthState(RedactedReprMixin, BaseModel):
     authenticator: str
     id: str
     auth_info: Dict[str, Any]

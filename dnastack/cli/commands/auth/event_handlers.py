@@ -1,4 +1,3 @@
-from copy import deepcopy
 from math import floor
 from time import time
 from typing import Any, Dict
@@ -6,6 +5,7 @@ from typing import Any, Dict
 from dnastack.cli.helpers.printer import echo_dict_in_table, echo_result, echo_list, echo_header
 from dnastack.common.events import Event
 from dnastack.http.authenticators.abstract import AuthStateStatus, AuthState
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 
 _status_color_map = {
     AuthStateStatus.READY: 'green',
@@ -30,7 +30,7 @@ def handle_auth_begin(event: Event):
 def handle_auth_end(event: Event):
     session_id = event.details['session_id']
     state: AuthState = event.details['state']
-    feedback: Dict[str, Any] = deepcopy(state.auth_info)
+    feedback: Dict[str, Any] = redact_secrets(state.auth_info)
     if state.status == AuthStateStatus.READY:
         is_refreshable = bool(state.session_info.get('refresh_token'))
         access_grant_duration_in_seconds = floor(state.session_info['valid_until'] - time())
@@ -73,7 +73,7 @@ def handle_revoke_begin(event: Event):
                 f'Session {session_id}',
                 ' ')
 
-    echo_dict_in_table(event.details['state'].auth_info, left_padding_size=21)
+    echo_dict_in_table(redact_secrets(event.details['state'].auth_info), left_padding_size=21)
 
 
 def handle_revoke_end(event: Event):

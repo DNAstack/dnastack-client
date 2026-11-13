@@ -18,7 +18,8 @@ from dnastack.http.authenticators.abstract import Authenticator, AuthenticationR
 from dnastack.http.authenticators.constants import get_authenticator_log_level
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
+    redact_secrets
 from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
@@ -130,7 +131,7 @@ class OAuth2Authenticator(Authenticator):
             self.events.dispatch('authentication-failure', event_details)
 
             raise OAuth2MisconfigurationError('Cannot determine the type of authentication '
-                                              f'({auth_info.model_dump_json(exclude_none=True)})')
+                                              f'({auth_info!r})')
 
         adapter.check_config_readiness()
         for auth_event_type in ['blocking-response-required', 'blocking-response-ok', 'blocking-response-failed']:
@@ -207,7 +208,6 @@ class OAuth2Authenticator(Authenticator):
             with trace_context.new_span({'method': 'post', 'url': auth_info.token_endpoint}) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
                 sub_logger.debug('Initiate the token refresh')
-                sub_logger.debug(f'refresh_token = {refresh_token}')
                 refresh_token_res = http_session.post(
                     auth_info.token_endpoint,
                     data={
@@ -276,7 +276,7 @@ class OAuth2Authenticator(Authenticator):
 
                 if currently_in_debug_mode():
                     exception_details['_internal'] = {
-                        'session_info': session_info.model_dump(),
+                        'session_info': redact_secrets(session_info.model_dump()),
                         'session_manager': str(self._session_manager),
                     }
 

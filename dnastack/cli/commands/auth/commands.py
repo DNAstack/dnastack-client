@@ -14,8 +14,17 @@ from dnastack.cli.helpers.printer import echo_header, echo_list
 from dnastack.common.auth_manager import AuthManager, ExtendedAuthState
 from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 from dnastack.configuration.wrapper import ConfigurationWrapper
 from dnastack.http.session_info import SessionManager
+
+
+def mask_client_secrets(state: ExtendedAuthState) -> ExtendedAuthState:
+    """ Mask the auth config secrets, including the session handler's copy; session tokens stay visible """
+    session_info = dict(state.session_info)
+    if session_info.get('handler'):
+        session_info['handler'] = redact_secrets(session_info['handler'])
+    return state.model_copy(update={'auth_info': redact_secrets(state.auth_info), 'session_info': session_info})
 
 
 def init_auth_commands(group: Group):
@@ -65,7 +74,9 @@ def init_auth_commands(group: Group):
                output: Optional[str] = None):
         """ Check the status of all authenticators. """
         handler = AuthCommandHandler(context_name=context)
-        show_iterator(output or RESOURCE_OUTPUT_ARG.default, handler.get_states([endpoint_id] if endpoint_id else None))
+        show_iterator(output or RESOURCE_OUTPUT_ARG.default,
+                      handler.get_states([endpoint_id] if endpoint_id else None),
+                      transform=mask_client_secrets)
     
     
     @formatted_command(

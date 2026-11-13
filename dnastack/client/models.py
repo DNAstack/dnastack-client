@@ -5,6 +5,7 @@ from pydantic import Field, BaseModel
 
 from dnastack.client.service_registry.models import ServiceType
 from dnastack.common.model_mixin import JsonModelMixin as HashableModel
+from dnastack.http.authenticators.oauth2_adapter.models import RedactedReprMixin
 
 
 class EndpointSource(BaseModel):
@@ -18,7 +19,7 @@ class EndpointSource(BaseModel):
     """ This endpoint's identifier in the external source system """
 
 
-class ServiceEndpoint(BaseModel, HashableModel):
+class ServiceEndpoint(RedactedReprMixin, BaseModel, HashableModel):
     """API Service Endpoint"""
     dnastack_schema_version: float = Field(alias='model_version', default=2.0)
     """ Service Endpoint Configuration Specification Version """
