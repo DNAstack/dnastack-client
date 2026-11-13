@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch, MagicMock
 
 import pytest
+import responses
 from dnastack.client.workbench.workbench_user_service.client import WorkbenchUserClient
 from dnastack.client.workbench.workbench_user_service.models import Namespace, WorkbenchUser
 from dnastack.client.models import ServiceEndpoint
@@ -134,16 +135,14 @@ class TestGetUser:
 class TestRegisterUser:
     """Tests for WorkbenchUserClient.register_user"""
 
-    @patch.object(WorkbenchUserClient, 'create_http_session')
-    def test_posts_email_as_form_body(self, mock_create_session):
-        mock_session = _mock_session(mock_create_session)
-        mock_session.post.return_value.json.return_value = {"id": "user-2", "email": "bob@example.com"}
+    @responses.activate
+    def test_posts_email_as_url_encoded_form(self):
+        responses.post('https://user-service.example.com/users', status=201,
+                       json={"id": "user-2", "email": "bob+test@example.com"})
 
-        result = _make_client().register_user("bob@example.com")
+        result = _make_client().register_user("bob+test@example.com")
 
-        mock_session.post.assert_called_once_with(
-            'https://user-service.example.com/users',
-            data={'email': 'bob@example.com'},
-        )
-        assert isinstance(result, WorkbenchUser)
+        request = responses.calls[0].request
+        assert request.headers['Content-Type'] == 'application/x-www-form-urlencoded'
+        assert request.body == 'email=bob%2Btest%40example.com'
         assert result.id == "user-2"

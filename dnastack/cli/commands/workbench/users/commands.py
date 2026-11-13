@@ -9,6 +9,13 @@ from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_A
 from dnastack.cli.helpers.exporter import to_json, normalize
 
 
+def _require_email_address(email: str):
+    """Reject a value with no text on both sides of an '@' before it reaches the server."""
+    local_part, at, domain = email.rpartition('@')
+    if not (at and local_part.strip() and domain.strip()):
+        raise click.BadParameter(f"'{email}' is not an email address.", param_hint="'--email'")
+
+
 def init_users_commands(group: Group):
     @formatted_command(
         group=group,
@@ -44,7 +51,8 @@ def init_users_commands(group: Group):
             ArgumentSpec(
                 name='email',
                 arg_names=['--email'],
-                help='The email address of the user to register.',
+                help='The email address of the user to register. Takes one email; if --email is repeated, '
+                     'only the last one is registered.',
                 required=True,
             ),
             CONTEXT_ARG,
@@ -59,6 +67,7 @@ def init_users_commands(group: Group):
 
         docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/users-register
         """
+        _require_email_address(email)
         client = get_user_client(context, endpoint_id)
         user = client.register_user(email)
         click.echo(to_json(normalize(user)))
