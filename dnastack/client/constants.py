@@ -7,6 +7,7 @@ from dnastack.client.datasources.client import DataSourceServiceClient
 from dnastack.client.drs import DrsClient
 from dnastack.client.explorer.client import ExplorerClient
 from dnastack.client.service_registry.client import ServiceRegistry
+from dnastack.client.tenants.client import TenantClient
 from dnastack.client.workbench.ewes.client import EWesClient
 from dnastack.client.workbench.samples.client import SamplesClient
 from dnastack.client.workbench.storage.client import StorageClient
@@ -17,7 +18,7 @@ from dnastack.client.workbench.workflow.client import WorkflowClient
 ALL_SERVICE_CLIENT_CLASSES = (
     CollectionServiceClient, DataConnectClient, DrsClient, ExplorerClient, ServiceRegistry, EWesClient, StorageClient, SamplesClient,
     WorkflowClient,
-    WorkbenchUserClient, DataSourceServiceClient)
+    WorkbenchUserClient, DataSourceServiceClient, TenantClient)
 
 # All client classes for data access
 DATA_SERVICE_CLIENT_CLASSES = (
@@ -37,4 +38,5 @@ SERVICE_CLIENT_CLASS = TypeVar('SERVICE_CLIENT_CLASS',
                                ExplorerClient,
                                SamplesClient,
                                ServiceRegistry,
-                               DataSourceServiceClient)
+                               DataSourceServiceClient,
+                               TenantClient)
