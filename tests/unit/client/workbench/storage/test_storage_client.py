@@ -28,11 +28,6 @@ class TestReindexStorageAccount:
         assert account.indexing_status == "RUNNING"
         assert account.last_indexed_at == "2026-11-15T12:00:00Z"
 
-    @pytest.mark.parametrize('storage_account_id', ['', '.', '..'])
-    def test_rejects_ids_that_cannot_be_one_path_segment(self, storage_account_id):
-        with pytest.raises(ValueError):
-            _make_client().reindex_storage_account(storage_account_id)
-
 
 _ODD_ID = 'a/../b#c?d'
 _ODD_SEGMENT = 'a%2F..%2Fb%23c%3Fd'
@@ -57,11 +52,13 @@ class TestStorageAccountIdIsOnePathSegment:
 
         assert responses.calls[0].request.url == expected_url
 
+    @pytest.mark.parametrize('storage_account_id', ['', '.', '..'])
     @pytest.mark.parametrize('call', [
-        lambda client: client.get_storage_account('..'),
-        lambda client: client.update_storage_account('', StorageAccount(), 'etag-1'),
-        lambda client: client.delete_storage_account('.'),
+        lambda client, account_id: client.get_storage_account(account_id),
+        lambda client, account_id: client.update_storage_account(account_id, StorageAccount(), 'etag-1'),
+        lambda client, account_id: client.delete_storage_account(account_id),
+        lambda client, account_id: client.reindex_storage_account(account_id),
     ])
-    def test_rejects_ids_that_cannot_be_one_path_segment(self, call):
+    def test_rejects_ids_that_cannot_be_one_path_segment(self, call, storage_account_id):
         with pytest.raises(ValueError):
-            call(_make_client())
+            call(_make_client(), storage_account_id)
