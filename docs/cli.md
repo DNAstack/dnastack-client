@@ -117,6 +117,15 @@ For more information, please check out [the documentation on service registries]
   * [publisher](#publisher-service-endpoint) 
     * datasources
       * list
+    * [tenants](#manage-tenants)
+      * list
+      * describe
+      * create
+      * delete
+      * disable
+      * enable
+      * set-expiration
+      * clear-expiration
   * use<sup>1</sup>
 
 > <sup>1</sup>This command group is deprecated.
@@ -554,6 +563,41 @@ dnastack publisher datasources list --type AWS
 
 # Get output in YAML format
 dnastack publisher datasources list -o yaml
+```
+
+### Manage tenants
+
+These commands manage the tenants of a multi-tenant Publisher through its authorization server. They need a sign-in by a user whose
+management-tenant policies grant the `admin:tenants:read` and `admin:tenants:write` actions. The CLI asks for that sign-in
+separately from the rest of Publisher, the first time you run one of these commands.
+
+A tenant is given by its ID or its name.
+
+```shell
+dnastack publisher tenants list [OPTIONS]                       # All tenants, including disabled ones
+dnastack publisher tenants describe TENANT
+dnastack publisher tenants create --name NAME [--expires WHEN]
+dnastack publisher tenants delete TENANT [--force]
+dnastack publisher tenants disable TENANT
+dnastack publisher tenants enable TENANT
+dnastack publisher tenants set-expiration TENANT WHEN
+dnastack publisher tenants clear-expiration TENANT
+```
+
+* `--name` must be a DNS label: at most 63 lowercase letters, digits and `-`, not starting or ending with `-`.
+* `WHEN` is an ISO 8601 duration from now (e.g. `P30D`, `PT12H`), a date (e.g. `2026-11-01`, meaning the end of that day
+  in your local timezone) or a date-time (e.g. `2026-11-01T17:00:00Z`). A tenant without an expiry never expires.
+* A disabled tenant keeps its data, but nobody can sign in to it or reach its resources until it is enabled again.
+* Deleting a tenant makes it inaccessible immediately, and it is permanently deleted along with its resources shortly
+  after. `delete` asks for confirmation unless `--force` is given. An expired tenant is deleted the same way.
+
+Example:
+```shell
+# Create a tenant that is deleted after 30 days
+dnastack publisher tenants create --name demo-tenant --expires P30D
+
+# Keep it after all
+dnastack publisher tenants clear-expiration demo-tenant
 ```
 
 ### Get the information of a specific workflow run
