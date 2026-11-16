@@ -1,3 +1,4 @@
+from time import monotonic, sleep
 from typing import Optional, List
 
 import click
@@ -9,7 +10,36 @@ from dnastack.cli.core.command import formatted_command
 from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_ARG, SINGLE_ENDPOINT_ID_ARG
 from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
-from dnastack.client.workbench.storage.models import StorageListOptions, Provider
+from dnastack.client.workbench.storage.client import StorageClient
+from dnastack.client.workbench.storage.models import StorageAccount, StorageListOptions, Provider
+
+REINDEX_POLL_INTERVAL_SECONDS = 10
+REINDEX_DEFAULT_TIMEOUT_SECONDS = 3600
+
+
+def _wait_for_indexing(client: StorageClient,
+                       storage_id: str,
+                       account: StorageAccount,
+                       timeout: int,
+                       last_completed_at: Optional[str]) -> StorageAccount:
+    """Poll until indexing stops, and fail unless it recorded a completed run after `last_completed_at`."""
+    deadline = monotonic() + timeout
+    while account.indexing_status == 'RUNNING':
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise click.ClickException(f'Indexing of storage account {storage_id} is still running after '
+                                       f'{timeout} seconds.')
+        sleep(min(REINDEX_POLL_INTERVAL_SECONDS, remaining))
+        account = client.get_storage_account(storage_id)
+
+    if account.indexing_status != 'IDLE':
+        raise click.ClickException(f'Storage account {storage_id} reports indexing status '
+                                   f'{account.indexing_status}, which --wait does not recognise.')
+    # Workbench records last_indexed_at only when a run completes; a failed run returns to IDLE without it.
+    if account.last_indexed_at == last_completed_at:
+        raise click.ClickException(f'Indexing of storage account {storage_id} stopped but did not complete. '
+                                   f'The last completed indexing is still {last_completed_at or "none"}.')
+    return account
 
 
 def init_storage_commands(group: Group):
@@ -120,6 +150,63 @@ def init_storage_commands(group: Group):
         storage_accounts = [client.get_storage_account(storage_account_id) for storage_account_id in storage_id]
         click.echo(to_json(normalize(storage_accounts)))
 
+    @formatted_command(
+        group=group,
+        name='reindex',
+        specs=[
+            ArgumentSpec(
+                name='storage_id',
+                arg_type=ArgumentType.POSITIONAL,
+                help='The storage account id',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='wait',
+                arg_names=['--wait'],
+                help='Wait for indexing to finish, then print the account. Exits non-zero if indexing did not '
+                     'complete. Indexing keeps running if the wait ends early.',
+                type=bool,
+            ),
+            ArgumentSpec(
+                name='timeout',
+                arg_names=['--timeout'],
+                help=f'With --wait, how many seconds to wait before giving up '
+                     f'(default {REINDEX_DEFAULT_TIMEOUT_SECONDS}).',
+                type=int,
+            ),
+            NAMESPACE_ARG,
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def reindex_storage_account(context: Optional[str],
+                                endpoint_id: Optional[str],
+                                namespace: Optional[str],
+                                storage_id: str,
+                                wait: bool = False,
+                                timeout: Optional[int] = None):
+        """
+        Re-scan a storage account for sample files
 
+        Indexing runs in the background: without --wait the command returns once indexing has started. Indexing
+        also removes sample files whose objects are no longer in the bucket. Requires the workbench.storage.update
+        permission (namespace admin).
+        """
+        if timeout is not None and not wait:
+            raise click.BadParameter('only applies with --wait.', param_hint="'--timeout'")
+        if timeout is not None and timeout < 0:
+            raise click.BadParameter('must be zero or more seconds.', param_hint="'--timeout'")
+        client = get_storage_client(context, endpoint_id, namespace)
+        if not wait:
+            click.echo(to_json(normalize(client.reindex_storage_account(storage_id))))
+            return
 
-
+        before = client.get_storage_account(storage_id)
+        if before.indexing_status is None:
+            raise click.ClickException('This Workbench does not report indexing status, so --wait cannot '
+                                       'tell when indexing finishes.')
+        account = client.reindex_storage_account(storage_id)
+        account = _wait_for_indexing(client, storage_id, account,
+                                     REINDEX_DEFAULT_TIMEOUT_SECONDS if timeout is None else timeout,
+                                     before.last_indexed_at)
+        click.echo(to_json(normalize(account)))

@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 from dnastack import ServiceEndpoint
 from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
-from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader
+from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader, path_segment
 from dnastack.client.workbench.storage.models import StorageAccount, StorageListOptions, StorageListResponse
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
@@ -48,6 +48,9 @@ class StorageClient(BaseWorkbenchClient):
             endpoint.type = cls.get_default_service_type()
         return cls(endpoint, namespace)
 
+    def _account_url(self, storage_account_id: str, suffix: str = '') -> str:
+        return urljoin(self.endpoint.url, f'{self.namespace}/storage/{path_segment(storage_account_id)}{suffix}')
+
     def add_storage_account(self, storage_account: StorageAccount) -> StorageAccount:
         """Create a new storage account."""
         with self.create_http_session() as session:
@@ -61,7 +64,7 @@ class StorageClient(BaseWorkbenchClient):
         """Update a storage account."""
         with self.create_http_session() as session:
             response = session.submit("PUT",
-                                      urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'),
+                                      self._account_url(storage_account_id),
                                       json=storage_account.model_dump(),
                                       headers={"If-Match": if_match}
                                       )
@@ -71,13 +74,20 @@ class StorageClient(BaseWorkbenchClient):
     def delete_storage_account(self, storage_account_id: str) -> None:
         """Delete a storage account."""
         with self.create_http_session() as session:
-            session.delete(urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'))
+            session.delete(self._account_url(storage_account_id))
         return None
 
     def get_storage_account(self, storage_account_id: str) -> StorageAccount:
         """Get a storage account by its ID."""
         with self.create_http_session() as session:
-            response = session.get(urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'))
+            response = session.get(self._account_url(storage_account_id))
+        return StorageAccount(**response.json())
+
+    def reindex_storage_account(self, storage_account_id: str) -> StorageAccount:
+        """Start re-scanning a storage account's bucket. Indexing runs in the background: the returned account
+        reports RUNNING until it finishes, or IDLE if indexing already finished before the server responded."""
+        with self.create_http_session() as session:
+            response = session.post(self._account_url(storage_account_id, '/reindex'))
         return StorageAccount(**response.json())
 
     def list_storage_accounts(self, list_options: Optional[StorageListOptions], max_results: int) -> Iterator[StorageAccount]:
