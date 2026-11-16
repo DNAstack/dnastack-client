@@ -93,8 +93,7 @@ class TestReindexCommand:
         mock_sleep.assert_not_called()
 
     @responses.activate
-    @patch('dnastack.cli.commands.workbench.storage.commands.sleep')
-    def test_wait_fails_when_workbench_does_not_report_indexing_status(self, mock_sleep):
+    def test_wait_fails_when_workbench_does_not_report_indexing_status(self):
         responses.get(_ACCOUNT_URL, json={"id": "storage-1"})
         responses.post(f'{_ACCOUNT_URL}/reindex', json={"id": "storage-1"})
 
@@ -118,8 +117,7 @@ class TestReindexCommand:
         assert result.stdout == ""
 
     @responses.activate
-    @patch('dnastack.cli.commands.workbench.storage.commands.sleep')
-    def test_wait_fails_on_an_indexing_status_it_does_not_know(self, mock_sleep):
+    def test_wait_fails_on_an_indexing_status_it_does_not_know(self):
         responses.get(_ACCOUNT_URL, json=_account('IDLE'))
         responses.post(f'{_ACCOUNT_URL}/reindex', json=_account('QUEUED', last_indexed_at='2026-11-16T09:30:00Z'))
 
