@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 from dnastack import ServiceEndpoint
 from dnastack.client.result_iterator import ResultIterator
 from dnastack.client.service_registry.models import ServiceType
-from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader
+from dnastack.client.workbench.base_client import BaseWorkbenchClient, WorkbenchResultLoader, path_segment
 from dnastack.client.workbench.storage.models import StorageAccount, StorageListOptions, StorageListResponse
 from dnastack.common.tracing import Span
 from dnastack.http.session import HttpSession
@@ -78,6 +78,15 @@ class StorageClient(BaseWorkbenchClient):
         """Get a storage account by its ID."""
         with self.create_http_session() as session:
             response = session.get(urljoin(self.endpoint.url, f'{self.namespace}/storage/{storage_account_id}'))
+        return StorageAccount(**response.json())
+
+    def reindex_storage_account(self, storage_account_id: str) -> StorageAccount:
+        """Start re-scanning a storage account's bucket. Indexing runs in the background; the returned
+        account reports it as RUNNING until it finishes."""
+        with self.create_http_session() as session:
+            response = session.post(
+                urljoin(self.endpoint.url, f'{self.namespace}/storage/{path_segment(storage_account_id)}/reindex')
+            )
         return StorageAccount(**response.json())
 
     def list_storage_accounts(self, list_options: Optional[StorageListOptions], max_results: int) -> Iterator[StorageAccount]:

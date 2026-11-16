@@ -58,6 +58,8 @@ class StorageAccount(BaseModel):
     created_at: Optional[str] = None
     last_updated_at: Optional[str] = None
     bucket: Optional[str] = None
+    indexing_status: Optional[str] = None
+    last_indexed_at: Optional[str] = None
     credentials: Optional[Union[AwsStorageAccountCredentials, GcpStorageAccountCredentials, AzureStorageAccountCredentials]] = None
 
 

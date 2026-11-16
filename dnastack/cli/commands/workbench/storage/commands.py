@@ -1,3 +1,4 @@
+from time import monotonic, sleep
 from typing import Optional, List
 
 import click
@@ -10,6 +11,8 @@ from dnastack.cli.core.command_spec import ArgumentSpec, ArgumentType, CONTEXT_A
 from dnastack.cli.helpers.exporter import to_json, normalize
 from dnastack.cli.helpers.iterator_printer import OutputFormat, show_iterator
 from dnastack.client.workbench.storage.models import StorageListOptions, Provider
+
+REINDEX_POLL_INTERVAL_SECONDS = 10
 
 
 def init_storage_commands(group: Group):
@@ -123,3 +126,63 @@ def init_storage_commands(group: Group):
 
 
 
+
+
+    @formatted_command(
+        group=group,
+        name='reindex',
+        specs=[
+            ArgumentSpec(
+                name='storage_id',
+                arg_type=ArgumentType.POSITIONAL,
+                help='The storage account id',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='wait',
+                arg_names=['--wait'],
+                help='Wait for indexing to finish, then print the account.',
+                type=bool,
+            ),
+            ArgumentSpec(
+                name='timeout',
+                arg_names=['--timeout'],
+                help='With --wait, how many seconds to wait before giving up. Indexing keeps running.',
+                type=int,
+                default=3600,
+            ),
+            NAMESPACE_ARG,
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def reindex_storage_account(context: Optional[str],
+                                endpoint_id: Optional[str],
+                                namespace: Optional[str],
+                                storage_id: str,
+                                wait: bool = False,
+                                timeout: int = 3600):
+        """
+        Re-scan a storage account for sample files
+
+        Indexing runs in the background: without --wait the command returns once indexing has started. Indexing
+        also removes sample files whose objects are no longer in the bucket. Requires the workbench.storage.update
+        permission (namespace admin).
+        """
+        client = get_storage_client(context, endpoint_id, namespace)
+        account = client.reindex_storage_account(storage_id)
+
+        if wait:
+            if account.indexing_status is None:
+                raise click.ClickException('This Workbench does not report indexing status, so --wait cannot '
+                                           'tell when indexing finishes.')
+            deadline = monotonic() + timeout
+            while account.indexing_status == 'RUNNING':
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise click.ClickException(f'Indexing of storage account {storage_id} is still running after '
+                                               f'{timeout} seconds.')
+                sleep(min(REINDEX_POLL_INTERVAL_SECONDS, remaining))
+                account = client.get_storage_account(storage_id)
+
+        click.echo(to_json(normalize(account)))
