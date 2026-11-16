@@ -14,6 +14,7 @@ from dnastack.client.workbench.storage.client import StorageClient
 from dnastack.client.workbench.storage.models import StorageAccount, StorageListOptions, Provider
 
 REINDEX_POLL_INTERVAL_SECONDS = 10
+REINDEX_DEFAULT_TIMEOUT_SECONDS = 3600
 
 
 def _wait_for_indexing(client: StorageClient,
@@ -22,9 +23,6 @@ def _wait_for_indexing(client: StorageClient,
                        timeout: int,
                        last_completed_at: Optional[str]) -> StorageAccount:
     """Poll until indexing stops, and fail unless it recorded a completed run after `last_completed_at`."""
-    if account.indexing_status is None:
-        raise click.ClickException('This Workbench does not report indexing status, so --wait cannot '
-                                   'tell when indexing finishes.')
     deadline = monotonic() + timeout
     while account.indexing_status == 'RUNNING':
         remaining = deadline - monotonic()
@@ -165,15 +163,16 @@ def init_storage_commands(group: Group):
             ArgumentSpec(
                 name='wait',
                 arg_names=['--wait'],
-                help='Wait for indexing to finish, then print the account. Exits non-zero if indexing did not complete.',
+                help='Wait for indexing to finish, then print the account. Exits non-zero if indexing did not '
+                     'complete. Indexing keeps running if the wait ends early.',
                 type=bool,
             ),
             ArgumentSpec(
                 name='timeout',
                 arg_names=['--timeout'],
-                help='With --wait, how many seconds to wait before giving up. Indexing keeps running.',
+                help=f'With --wait, how many seconds to wait before giving up '
+                     f'(default {REINDEX_DEFAULT_TIMEOUT_SECONDS}).',
                 type=int,
-                default=3600,
             ),
             NAMESPACE_ARG,
             CONTEXT_ARG,
@@ -185,7 +184,7 @@ def init_storage_commands(group: Group):
                                 namespace: Optional[str],
                                 storage_id: str,
                                 wait: bool = False,
-                                timeout: int = 3600):
+                                timeout: Optional[int] = None):
         """
         Re-scan a storage account for sample files
 
@@ -193,11 +192,21 @@ def init_storage_commands(group: Group):
         also removes sample files whose objects are no longer in the bucket. Requires the workbench.storage.update
         permission (namespace admin).
         """
-        if timeout < 0:
+        if timeout is not None and not wait:
+            raise click.BadParameter('only applies with --wait.', param_hint="'--timeout'")
+        if timeout is not None and timeout < 0:
             raise click.BadParameter('must be zero or more seconds.', param_hint="'--timeout'")
         client = get_storage_client(context, endpoint_id, namespace)
-        last_completed_at = client.get_storage_account(storage_id).last_indexed_at if wait else None
+        if not wait:
+            click.echo(to_json(normalize(client.reindex_storage_account(storage_id))))
+            return
+
+        before = client.get_storage_account(storage_id)
+        if before.indexing_status is None:
+            raise click.ClickException('This Workbench does not report indexing status, so --wait cannot '
+                                       'tell when indexing finishes.')
         account = client.reindex_storage_account(storage_id)
-        if wait:
-            account = _wait_for_indexing(client, storage_id, account, timeout, last_completed_at)
+        account = _wait_for_indexing(client, storage_id, account,
+                                     REINDEX_DEFAULT_TIMEOUT_SECONDS if timeout is None else timeout,
+                                     before.last_indexed_at)
         click.echo(to_json(normalize(account)))

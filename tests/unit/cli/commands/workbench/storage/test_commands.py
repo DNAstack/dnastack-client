@@ -93,7 +93,7 @@ class TestReindexCommand:
         mock_sleep.assert_not_called()
 
     @responses.activate
-    def test_wait_fails_when_workbench_does_not_report_indexing_status(self):
+    def test_wait_fails_before_reindexing_when_workbench_does_not_report_indexing_status(self):
         responses.get(_ACCOUNT_URL, json={"id": "storage-1"})
         responses.post(f'{_ACCOUNT_URL}/reindex', json={"id": "storage-1"})
 
@@ -102,6 +102,26 @@ class TestReindexCommand:
         assert result.exit_code == 1
         assert "indexing status" in result.stderr
         assert result.stdout == ""
+        assert [c.request.method for c in responses.calls] == ['GET']
+
+    @responses.activate
+    def test_wait_succeeds_without_polling_when_indexing_finished_before_the_response(self):
+        responses.get(_ACCOUNT_URL, json=_account('IDLE'))
+        responses.post(f'{_ACCOUNT_URL}/reindex', json=_account('IDLE', last_indexed_at='2026-11-16T09:30:00Z'))
+
+        result = self.runner.invoke(self.group, ['reindex', 'storage-1', '--wait'])
+
+        assert result.exit_code == 0, result.stderr
+        assert [c.request.method for c in responses.calls] == ['GET', 'POST']
+        assert json.loads(result.stdout)["last_indexed_at"] == "2026-11-16T09:30:00Z"
+
+    @responses.activate
+    def test_rejects_timeout_without_wait(self):
+        result = self.runner.invoke(self.group, ['reindex', 'storage-1', '--timeout', '60'])
+
+        assert result.exit_code == 2
+        assert len(responses.calls) == 0
+        assert "--wait" in result.stderr
 
     @responses.activate
     @patch('dnastack.cli.commands.workbench.storage.commands.sleep')
