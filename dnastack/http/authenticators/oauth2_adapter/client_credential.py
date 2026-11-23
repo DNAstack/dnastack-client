@@ -2,8 +2,8 @@ from typing import Dict, Any, List
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, error_response_text
-from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, oauth_failure_detail
+from dnastack.http.client_factory import HttpClientFactory
 
 
 class ClientCredentialAdapter(OAuth2Adapter):
@@ -47,18 +47,16 @@ class ClientCredentialAdapter(OAuth2Adapter):
             sub_logger = sub_span.create_span_logger(self._logger)
             with HttpClientFactory.make() as http_session:
                 span_headers = sub_span.create_http_headers()
-                with without_wire_debugging():
-                    response = http_session.post(auth_info.token_endpoint, data=auth_params, headers=span_headers)
+                response = http_session.post(auth_info.token_endpoint, data=auth_params, headers=span_headers)
 
             sub_logger.debug(f'exchange_tokens: {auth_info.token_endpoint}: HTTP {response.status_code}')
 
             if not response.ok:
                 sub_logger.debug('exchange_token: Token exchange fails.')
-                error_body = error_response_text(response)
-                raise AuthException(f'Failed to perform client-credential authentication for '
-                                    f'{auth_info.client_id} as the server responds with HTTP {response.status_code}:'
-                                    f'\n\n{error_body}\n',
-                                    resource_urls)
+                raise AuthException(
+                    f'Failed to perform client-credential authentication for {auth_info.client_id}: '
+                    f'{oauth_failure_detail(response)}',
+                    resource_urls)
 
             sub_logger.debug('exchange_token: Token exchange OK')
             return response.json()

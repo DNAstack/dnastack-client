@@ -1,6 +1,5 @@
 import re
 from copy import deepcopy
-from json import JSONDecodeError
 from time import time
 from typing import Optional, Any, Dict, Union
 from urllib.parse import urlparse
@@ -19,8 +18,8 @@ from dnastack.http.authenticators.constants import get_authenticator_log_level
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
-    redact_secrets
-from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
+    oauth_failure_detail, redact_secrets
+from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
 
@@ -208,16 +207,15 @@ class OAuth2Authenticator(Authenticator):
             with trace_context.new_span({'method': 'post', 'url': auth_info.token_endpoint}) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
                 sub_logger.debug('Initiate the token refresh')
-                with without_wire_debugging():
-                    refresh_token_res = http_session.post(
-                        auth_info.token_endpoint,
-                        data={
-                            "grant_type": "refresh_token",
-                            "refresh_token": refresh_token,
-                            "scope": session_info.scope,
-                        },
-                        auth=(auth_info.client_id, auth_info.client_secret),
-                    )
+                refresh_token_res = http_session.post(
+                    auth_info.token_endpoint,
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "scope": session_info.scope,
+                    },
+                    auth=(auth_info.client_id, auth_info.client_secret),
+                )
                 sub_logger.debug(f'refresh_token: HTTP {refresh_token_res.status_code} {auth_info.token_endpoint}')
 
             if refresh_token_res.ok:
@@ -249,17 +247,12 @@ class OAuth2Authenticator(Authenticator):
 
                 return self._session_info
             else:
-                try:
-                    error_json = refresh_token_res.json()
-                    error_msg = error_json.get('error_description')
-                except JSONDecodeError:
-                    error_msg = 'response body omitted'
-
                 # Handle token refresh failure based on HTTP status.
                 # 400/401 = the refresh token is invalid (expired, revoked, key rotated, etc.)
                 #           -> prompt the user to re-authenticate
                 # 5xx     = transient server error, re-login won't help
                 #           -> raise InvalidStateError
+                failure = oauth_failure_detail(refresh_token_res)
                 reauthentication_required = refresh_token_res.status_code in (400, 401)
 
                 exception_details = {
@@ -271,7 +264,7 @@ class OAuth2Authenticator(Authenticator):
                         'trace_id': refresh_token_res.headers.get('X-B3-Traceid'),
                         'status': refresh_token_res.status_code,
                     },
-                    'reason': f'Unable to refresh tokens: {error_msg}',
+                    'reason': f'Unable to refresh tokens: {failure}',
                 }
 
                 if currently_in_debug_mode():
@@ -281,8 +274,8 @@ class OAuth2Authenticator(Authenticator):
                     }
 
                 if reauthentication_required:
-                    logger.warning(f'Refresh token rejected by server (HTTP {refresh_token_res.status_code}): {error_msg}')
-                    raise ReauthenticationRequired(f'Refresh token rejected: {error_msg}')
+                    logger.warning(f'Refresh token rejected by server: {failure}')
+                    raise ReauthenticationRequired(f'Refresh token rejected: {failure}')
                 else:
                     event_details['reason'] = 'Invalid state while refreshing tokens'
                     self.events.dispatch('refresh-failure', event_details)

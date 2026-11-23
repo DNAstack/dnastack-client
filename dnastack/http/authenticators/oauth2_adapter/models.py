@@ -1,5 +1,5 @@
 from functools import cache
-from json import JSONDecodeError, dumps
+from json import JSONDecodeError
 from typing import Any, FrozenSet, Optional
 
 from pydantic import BaseModel, Field
@@ -76,15 +76,45 @@ def redact_secrets(value: Any) -> Any:
     return value
 
 
-def error_response_text(response: Any) -> str:
-    """ Mask secret fields in a JSON error body. A non-JSON body is returned as text. """
+# Server error text is not safe to print. Wallet and other token endpoints put the submitted secret back in
+# error_description, and a JSON string body is the secret itself. These codes are the OAuth error tokens from
+# RFC 6749 section 5.2 and RFC 8628 section 3.5. Anything else stays out of the message. The HTTP status still
+# separates a rejection from an outage.
+_OAUTH_ERROR_CODES = frozenset({
+    'invalid_request',
+    'invalid_client',
+    'invalid_grant',
+    'unauthorized_client',
+    'unsupported_grant_type',
+    'invalid_scope',
+    'server_error',
+    'temporarily_unavailable',
+    'authorization_pending',
+    'slow_down',
+    'access_denied',
+    'expired_token',
+})
+
+
+def oauth_error_code(response: Any) -> Optional[str]:
     try:
         parsed = response.json()
     except JSONDecodeError:
-        return response.text
-    if isinstance(parsed, (dict, list)):
-        return dumps(redact_secrets(parsed))
-    return response.text
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    code = parsed.get('error')
+    if isinstance(code, str) and code in _OAUTH_ERROR_CODES:
+        return code
+    return None
+
+
+def oauth_failure_detail(response: Any) -> str:
+    detail = f'HTTP {response.status_code}'
+    code = oauth_error_code(response)
+    if code:
+        detail += f' ({code})'
+    return detail
 
 
 class RedactedReprMixin:

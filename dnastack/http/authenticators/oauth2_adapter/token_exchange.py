@@ -5,11 +5,11 @@ from imagination import container
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
-    error_response_text
+    oauth_failure_detail
 from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
     CloudProviderFactory, CloudMetadataProvider, CloudMetadataConfig
 )
-from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
+from dnastack.http.client_factory import HttpClientFactory
 
 
 class TokenExchangeAdapter(OAuth2Adapter):
@@ -126,19 +126,16 @@ class TokenExchangeAdapter(OAuth2Adapter):
         with trace_context.new_span(metadata=trace_info) as sub_span:
             with HttpClientFactory.make() as http_session:
                 span_headers = sub_span.create_http_headers()
-                with without_wire_debugging():
-                    response = http_session.post(
-                        auth_info.token_endpoint,
-                        data=auth_params,
-                        headers=span_headers,
-                        auth=(client_id, client_secret)
-                    )
+                response = http_session.post(
+                    auth_info.token_endpoint,
+                    data=auth_params,
+                    headers=span_headers,
+                    auth=(client_id, client_secret)
+                )
 
             if not response.ok:
-                error_body = error_response_text(response)
                 raise AuthException(
-                    f'Failed to perform token exchange for {client_id} as the server responds with HTTP {response.status_code}:'
-                    f'\n\n{error_body}\n',
+                    f'Failed to perform token exchange for {client_id}: {oauth_failure_detail(response)}',
                     resource_urls
                 )
 

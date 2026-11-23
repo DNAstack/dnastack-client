@@ -348,7 +348,7 @@ class TestTokenExchangeAdapter(TestCase):
         mock_response = Mock()
         mock_response.ok = False
         mock_response.status_code = 401
-        mock_response.text = 'Invalid subject token or client credentials'
+        mock_response.text = 'Invalid subject token SUBJECT-TOKEN-LEAK'
         
         with patch('dnastack.http.client_factory.HttpClientFactory.make') as mock_factory:
             mock_session = MagicMock()
@@ -361,8 +361,9 @@ class TestTokenExchangeAdapter(TestCase):
                 adapter.exchange_tokens(trace_context)
             
             self.assertIn('Failed to perform token exchange', str(context.exception))
-            self.assertIn('401', str(context.exception))
-            self.assertIn('Invalid subject token', str(context.exception))
+            self.assertIn('HTTP 401', str(context.exception))
+            self.assertNotIn('SUBJECT-TOKEN-LEAK', str(context.exception))
+            self.assertNotIn('Invalid subject token', str(context.exception))
     
     def test_multiple_resource_urls(self):
         """Test that multiple resource URLs are properly formatted"""

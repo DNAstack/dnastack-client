@@ -1,3 +1,4 @@
+from json import JSONDecodeError
 from time import time, sleep
 from typing import Dict, Any, List
 
@@ -7,8 +8,8 @@ from dnastack.common.console import Console
 from dnastack.common.environments import env
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
-from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, oauth_failure_detail
+from dnastack.http.client_factory import HttpClientFactory
 
 
 class DeviceCodeFlowAdapter(OAuth2Adapter):
@@ -74,17 +75,15 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         with trace_context.new_span(metadata=trace_info) as sub_span:
             sub_logger = sub_span.create_span_logger(self._logger)
             span_headers = sub_span.create_http_headers()
-            with without_wire_debugging():
-                init_res = session.post(login_url,
-                                        params=device_code_params,
-                                        allow_redirects=False,
-                                        headers=span_headers)
+            init_res = session.post(login_url,
+                                    params=device_code_params,
+                                    allow_redirects=False,
+                                    headers=span_headers)
 
             sub_logger.debug(f'exchange_tokens: DC#1: {login_url}: HTTP {init_res.status_code}')
 
-        device_code_json = init_res.json()
-
         if init_res.ok:
+            device_code_json = init_res.json()
             logger.debug('exchange_tokens: Received the initial OK response')
 
             device_code = device_code_json["device_code"]
@@ -100,12 +99,7 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
             self._events.dispatch('blocking-response-required', dict(kind='user_verification', url=device_verify_uri))
         else:
             logger.debug('exchange_tokens: Received the ERROR response')
-
-            if "error" in init_res.json():
-                error_message = f'The device code request failed with message "{device_code_json["error"]}"'
-            else:
-                error_message = "The device code request failed"
-
+            error_message = f'The device code request failed: {oauth_failure_detail(init_res)}'
             logger.error(f'exchange_tokens: Failed to initiate the device code flow ({device_code_params})')
             raise AuthException(url=login_url, msg=error_message)
 
@@ -116,37 +110,40 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         while time() < expiry:
             with trace_context.new_span(metadata=trace_info) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
-                with without_wire_debugging():
-                    auth_token_res = session.post(
-                        token_url,
-                        data={
-                            "grant_type": self.__grant_type,
-                            "device_code": device_code,
-                            "client_id": client_id,
-                        },
-                        headers=sub_span.create_http_headers()
-                    )
+                auth_token_res = session.post(
+                    token_url,
+                    data={
+                        "grant_type": self.__grant_type,
+                        "device_code": device_code,
+                        "client_id": client_id,
+                    },
+                    headers=sub_span.create_http_headers()
+                )
 
                 sub_logger.debug(f'exchange_tokens: DC#2: {token_url}: HTTP {auth_token_res.status_code}')
 
-                auth_token_json = auth_token_res.json()
+                try:
+                    auth_token_json = auth_token_res.json()
+                except JSONDecodeError:
+                    raise AuthException(
+                        url=token_url,
+                        msg=f'Failed to retrieve a token: {oauth_failure_detail(auth_token_res)}',
+                    )
 
                 if auth_token_res.ok:
                     sub_logger.debug('exchange_tokens: The client is now authorized.')
                     session.close()
                     return auth_token_json
-                elif "error" in auth_token_json:
-                    if auth_token_json.get("error") == "authorization_pending":
-                        sub_logger.debug('exchange_tokens: Pending on user authorization...')
-                        sleep(poll_interval)
-                        continue
-
-                    error_msg = "Failed to retrieve a token"
-                    if "error_description" in auth_token_json:
-                        error_msg += f": {auth_token_json['error_description']}"
-
+                elif isinstance(auth_token_json, dict) and auth_token_json.get("error") == "authorization_pending":
+                    sub_logger.debug('exchange_tokens: Pending on user authorization...')
+                    sleep(poll_interval)
+                    continue
+                elif not isinstance(auth_token_json, dict) or "error" in auth_token_json:
                     sub_logger.error('Exceeded the waiting time limit for the device code')
-                    raise AuthException(url=token_url, msg=error_msg)
+                    raise AuthException(
+                        url=token_url,
+                        msg=f'Failed to retrieve a token: {oauth_failure_detail(auth_token_res)}',
+                    )
                 else:
                     sub_logger.warning('Encountered an unknown state during the verification')
                     sleep(poll_interval)
