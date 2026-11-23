@@ -20,7 +20,7 @@ from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFac
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
     redact_secrets
-from dnastack.http.client_factory import HttpClientFactory
+from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
 
@@ -208,17 +208,17 @@ class OAuth2Authenticator(Authenticator):
             with trace_context.new_span({'method': 'post', 'url': auth_info.token_endpoint}) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
                 sub_logger.debug('Initiate the token refresh')
-                refresh_token_res = http_session.post(
-                    auth_info.token_endpoint,
-                    data={
-                        "grant_type": "refresh_token",
-                        "refresh_token": refresh_token,
-                        "scope": session_info.scope,
-                    },
-                    auth=(auth_info.client_id, auth_info.client_secret),
-                )
-                sub_logger.debug(f'refresh_token: HTTP {refresh_token_res.status_code} {auth_info.token_endpoint}:'
-                                 f'\n{refresh_token_res.text}')
+                with without_wire_debugging():
+                    refresh_token_res = http_session.post(
+                        auth_info.token_endpoint,
+                        data={
+                            "grant_type": "refresh_token",
+                            "refresh_token": refresh_token,
+                            "scope": session_info.scope,
+                        },
+                        auth=(auth_info.client_id, auth_info.client_secret),
+                    )
+                sub_logger.debug(f'refresh_token: HTTP {refresh_token_res.status_code} {auth_info.token_endpoint}')
 
             if refresh_token_res.ok:
                 refresh_token_json = refresh_token_res.json()
@@ -253,7 +253,7 @@ class OAuth2Authenticator(Authenticator):
                     error_json = refresh_token_res.json()
                     error_msg = error_json.get('error_description')
                 except JSONDecodeError:
-                    error_msg = refresh_token_res.text
+                    error_msg = 'response body omitted'
 
                 # Handle token refresh failure based on HTTP status.
                 # 400/401 = the refresh token is invalid (expired, revoked, key rotated, etc.)
@@ -367,7 +367,10 @@ class OAuth2Authenticator(Authenticator):
     def _convert_token_response_to_session(self,
                                            authentication: Dict[str, Any],
                                            response: Dict[str, Any]):
-        assert 'access_token' in response, f'Failed to exchange tokens due to an unexpected response ({response})'
+        assert 'access_token' in response, (
+            'Failed to exchange tokens due to an unexpected response '
+            f'({redact_secrets(response)})'
+        )
 
         created_time = time()
         expiry_time = created_time + response['expires_in']
@@ -388,10 +391,6 @@ class OAuth2Authenticator(Authenticator):
 
     def update_request(self, session: SessionInfo, r: Union[Request, Session]) -> Union[Request, Session]:
         r.headers["Authorization"] = f"Bearer {session.access_token}"
-
-        if currently_in_debug_mode():
-            self._logger.debug(f'Bearer Token Claims: {session.access_token.split(".")[1]}')
-
         return r
 
     @classmethod

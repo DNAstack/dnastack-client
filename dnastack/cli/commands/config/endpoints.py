@@ -20,7 +20,7 @@ from dnastack.configuration.manager import ConfigurationManager
 from dnastack.configuration.wrapper import ConfigurationWrapper, UnknownContextError
 from dnastack.context.models import Context
 from dnastack.feature_flags import dev_mode
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, redact_secrets
 from dnastack.json_path import JsonPath, BrokenPropertyPathError
 
 
@@ -109,7 +109,7 @@ def list_endpoints(context: Optional[str],
     handler = EndpointCommandHandler(context_name=context)
     full_type = handler.parse_given_service_type(short_or_full_type)[1] if short_or_full_type else None
     show_iterator(output_format=output, iterator=[
-        endpoint.model_dump(exclude_none=True)
+        redact_secrets(endpoint.model_dump(exclude_none=True))
         for endpoint in handler.list_endpoints()
         if not full_type or endpoint.type == full_type
     ])

@@ -8,7 +8,7 @@ from dnastack.common.environments import env
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication
-from dnastack.http.client_factory import HttpClientFactory
+from dnastack.http.client_factory import HttpClientFactory, without_wire_debugging
 
 
 class DeviceCodeFlowAdapter(OAuth2Adapter):
@@ -74,12 +74,13 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         with trace_context.new_span(metadata=trace_info) as sub_span:
             sub_logger = sub_span.create_span_logger(self._logger)
             span_headers = sub_span.create_http_headers()
-            init_res = session.post(login_url,
-                                           params=device_code_params,
-                                           allow_redirects=False,
-                                           headers=span_headers)
+            with without_wire_debugging():
+                init_res = session.post(login_url,
+                                        params=device_code_params,
+                                        allow_redirects=False,
+                                        headers=span_headers)
 
-            sub_logger.debug(f'exchange_tokens: DC#1: {login_url}: HTTP {init_res.status_code}:\n{init_res.text}')
+            sub_logger.debug(f'exchange_tokens: DC#1: {login_url}: HTTP {init_res.status_code}')
 
         device_code_json = init_res.json()
 
@@ -91,8 +92,6 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
             poll_interval = int(device_code_json["interval"])
             expiry = time() + int(env('DEVICE_CODE_TTL', required=False) or device_code_json["expires_in"])
 
-            logger.debug(f'exchange_tokens: Verification URI = {device_verify_uri}')
-            logger.debug(f'exchange_tokens: Device Code = {device_code}')
             logger.debug(f'exchange_tokens: Device Code Expiration Time = {expiry}')
             logger.debug(f'exchange_tokens: Suggested Poll Interval = {poll_interval}')
 
@@ -117,18 +116,18 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
         while time() < expiry:
             with trace_context.new_span(metadata=trace_info) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
-                auth_token_res = session.post(
-                    token_url,
-                    data={
-                        "grant_type": self.__grant_type,
-                        "device_code": device_code,
-                        "client_id": client_id,
-                    },
-                    headers=sub_span.create_http_headers()
-                )
+                with without_wire_debugging():
+                    auth_token_res = session.post(
+                        token_url,
+                        data={
+                            "grant_type": self.__grant_type,
+                            "device_code": device_code,
+                            "client_id": client_id,
+                        },
+                        headers=sub_span.create_http_headers()
+                    )
 
-                sub_logger.debug(f'exchange_tokens: DC#2: {token_url}: HTTP {auth_token_res.status_code}:'
-                                 f'\n{auth_token_res.text}')
+                sub_logger.debug(f'exchange_tokens: DC#2: {token_url}: HTTP {auth_token_res.status_code}')
 
                 auth_token_json = auth_token_res.json()
 

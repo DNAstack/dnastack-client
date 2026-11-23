@@ -1,4 +1,5 @@
 from functools import cache
+from json import JSONDecodeError, dumps
 from typing import Any, FrozenSet, Optional
 
 from pydantic import BaseModel, Field
@@ -73,6 +74,17 @@ def redact_secrets(value: Any) -> Any:
     if isinstance(value, list):
         return [redact_secrets(item) for item in value]
     return value
+
+
+def error_response_text(response: Any) -> str:
+    """ Mask secret fields in a JSON error body. A non-JSON body is returned as text. """
+    try:
+        parsed = response.json()
+    except JSONDecodeError:
+        return response.text
+    if isinstance(parsed, (dict, list)):
+        return dumps(redact_secrets(parsed))
+    return response.text
 
 
 class RedactedReprMixin:

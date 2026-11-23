@@ -15,6 +15,7 @@ from dnastack.common.logger import get_logger
 from dnastack.configuration.manager import ConfigurationManager
 from dnastack.configuration.wrapper import ConfigurationWrapper
 from dnastack.feature_flags import dev_mode
+from dnastack.http.authenticators.oauth2_adapter.models import redact_secrets
 
 
 @formatted_group('registries', hidden=not dev_mode, aliases=['reg'])
@@ -31,7 +32,7 @@ def registry_command_group():
 def list_registries():
     """ List registered service registries """
     click.echo(to_json([
-        endpoint.model_dump(exclude_none=True)
+        redact_secrets(endpoint.model_dump(exclude_none=True))
         for endpoint in ServiceRegistryCommandHandler().get_registry_endpoint_iterator()
     ]))
 
@@ -126,7 +127,7 @@ def sync(registry_endpoint_id: str):
 def list_endpoints(registry_endpoint_id: str):
     """ List all service endpoints imported from given registry """
     click.echo(to_json([
-        endpoint.model_dump(exclude_none=True)
+        redact_secrets(endpoint.model_dump(exclude_none=True))
         for endpoint in ServiceRegistryCommandHandler().list_endpoints_associated_to(registry_endpoint_id)
     ]))
 
