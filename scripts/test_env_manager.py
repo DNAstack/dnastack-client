@@ -13,11 +13,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dnastack.common.secret_repository import SecretRepository, SecretNotFound
 
-BUILD_PROJECT_ID = 'cloud-builld-webhook'
+SECRET_PROJECT_ID = 'dnastack-product-development'
 RE_VALID_ENV_ID = r'[a-z0-9][a-z0-9_\-]*[a-z0-9]'
 SECRET_PREFIX = 'cli-test-env'
 
-secrets = SecretRepository(BUILD_PROJECT_ID)
+secrets = SecretRepository(SECRET_PROJECT_ID)
 
 
 def _get_secret_id(env_id: str):
