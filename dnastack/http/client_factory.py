@@ -24,8 +24,8 @@ class HttpClientFactory:
 
 @contextmanager
 def without_wire_debugging():
-    # Debug mode sets HTTPConnection.debuglevel, and http.client then prints request and response bodies.
-    # Token and engine calls carry credentials in those bodies.
+    # Engine create and update turn off process-global http.client tracing for that one call.
+    # CLI debug mode does not set HTTPConnection.debuglevel, and token calls do not use this helper.
     saved = HTTPConnection.debuglevel
     HTTPConnection.debuglevel = 0
     try:

@@ -107,6 +107,14 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
 
         trace_info['verify_url'] = token_url
 
+        def fail_poll(response, poll_logger):
+            detail = oauth_failure_detail(response)
+            poll_logger.error(f'exchange_tokens: Failed to retrieve a token: {detail}')
+            raise AuthException(
+                url=token_url,
+                msg=f'Failed to retrieve a token: {detail}',
+            )
+
         while time() < expiry:
             with trace_context.new_span(metadata=trace_info) as sub_span:
                 sub_logger = sub_span.create_span_logger(self._logger)
@@ -125,27 +133,17 @@ class DeviceCodeFlowAdapter(OAuth2Adapter):
                 try:
                     auth_token_json = auth_token_res.json()
                 except JSONDecodeError:
-                    raise AuthException(
-                        url=token_url,
-                        msg=f'Failed to retrieve a token: {oauth_failure_detail(auth_token_res)}',
-                    )
+                    fail_poll(auth_token_res, sub_logger)
 
                 if auth_token_res.ok:
                     sub_logger.debug('exchange_tokens: The client is now authorized.')
                     session.close()
                     return auth_token_json
-                elif isinstance(auth_token_json, dict) and auth_token_json.get("error") == "authorization_pending":
+                if isinstance(auth_token_json, dict) and auth_token_json.get("error") == "authorization_pending":
                     sub_logger.debug('exchange_tokens: Pending on user authorization...')
                     sleep(poll_interval)
                     continue
-                elif not isinstance(auth_token_json, dict) or "error" in auth_token_json:
-                    sub_logger.error('Exceeded the waiting time limit for the device code')
-                    raise AuthException(
-                        url=token_url,
-                        msg=f'Failed to retrieve a token: {oauth_failure_detail(auth_token_res)}',
-                    )
-                else:
-                    sub_logger.warning('Encountered an unknown state during the verification')
-                    sleep(poll_interval)
+
+                fail_poll(auth_token_res, sub_logger)
 
         raise AuthException(url=token_url, msg="the authorize step timed out.")

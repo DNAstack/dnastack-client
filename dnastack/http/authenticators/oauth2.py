@@ -360,10 +360,8 @@ class OAuth2Authenticator(Authenticator):
     def _convert_token_response_to_session(self,
                                            authentication: Dict[str, Any],
                                            response: Dict[str, Any]):
-        assert 'access_token' in response, (
-            'Failed to exchange tokens due to an unexpected response '
-            f'({redact_secrets(response)})'
-        )
+        if 'access_token' not in response:
+            raise AssertionError('Failed to exchange tokens due to an unexpected response')
 
         created_time = time()
         expiry_time = created_time + response['expires_in']

@@ -288,23 +288,28 @@ def test_refresh_logs_status_without_tokens():
 
 
 def test_unexpected_token_response_does_not_include_the_refresh_token():
+    free_form = 'FREE-FORM-SECRET'
     authenticator = OAuth2Authenticator(endpoint=ServiceEndpoint(url=RESOURCE_URL),
                                         auth_info={'grant_type': 'classified', 'resource_url': RESOURCE_URL},
                                         session_manager=Mock(), adapter_factory=Mock(), http_client_factory=Mock())
     try:
         authenticator._convert_token_response_to_session(
             {'client_id': CLIENT_ID},
-            {'refresh_token': REFRESH_TOKEN, 'client_secret': CLIENT_SECRET, 'token_type': 'Bearer'},
+            {
+                'refresh_token': REFRESH_TOKEN,
+                'client_secret': CLIENT_SECRET,
+                'token_type': 'Bearer',
+                'note': free_form,
+            },
         )
     except AssertionError as exc:
         message = str(exc)
     else:
         raise AssertionError('expected AssertionError')
 
-    assert REFRESH_TOKEN not in message
-    assert CLIENT_SECRET not in message
-    assert '***' in message
-    assert 'Bearer' in message
+    assert message == 'Failed to exchange tokens due to an unexpected response'
+    for secret in (REFRESH_TOKEN, CLIENT_SECRET, free_form, 'Bearer'):
+        assert secret not in message
 
 
 def test_debug_mode_does_not_log_bearer_token_claims():
@@ -562,6 +567,84 @@ def test_device_code_poll_failure_drops_error_description():
     for secret in (description, DEVICE_CODE, ACCESS_TOKEN):
         assert secret not in message
         assert secret not in logged
+
+
+def _device_clock():
+    now = {'t': 1_000.0}
+
+    def fake_time():
+        return now['t']
+
+    def fake_sleep(seconds):
+        now['t'] += seconds
+
+    return now, fake_time, fake_sleep
+
+
+def test_device_code_poll_json_without_oauth_error_keeps_the_status():
+    secret = 'POLL-JSON-MARKER'
+    init_body = {
+        'device_code': DEVICE_CODE,
+        'user_code': USER_CODE,
+        'verification_uri_complete': 'https://example.com/device',
+        'interval': 1,
+        'expires_in': 30,
+    }
+    calls = {'n': 0}
+
+    def post(*args, **kwargs):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            return _json_response(init_body)
+        return _json_response({'status': 'unavailable', 'detail': secret}, ok=False, status_code=503)
+
+    session = Mock()
+    session.post.side_effect = post
+    _, fake_time, fake_sleep = _device_clock()
+    with patch('dnastack.http.authenticators.oauth2_adapter.device_code_flow.time', fake_time), \
+            patch('dnastack.http.authenticators.oauth2_adapter.device_code_flow.sleep', fake_sleep), \
+            patch.object(HttpClientFactory, 'make', return_value=session), \
+            patch.object(TraceableLogger, 'error', autospec=True) as error:
+        try:
+            DeviceCodeFlowAdapter(_device_auth()).exchange_tokens(Span(origin='test'))
+        except AuthException as exc:
+            message = str(exc)
+        else:
+            raise AssertionError('expected AuthException')
+    logged = _messages(error)
+    assert 'HTTP 503' in message
+    assert 'timed out' not in message
+    assert 'HTTP 503' in logged
+    assert 'Exceeded the waiting time' not in logged
+    assert calls['n'] == 2
+    for secret_value in (secret, DEVICE_CODE):
+        assert secret_value not in message
+        assert secret_value not in logged
+
+
+def test_device_code_poll_waits_while_authorization_is_pending():
+    init_body = {
+        'device_code': DEVICE_CODE,
+        'user_code': USER_CODE,
+        'verification_uri_complete': 'https://example.com/device',
+        'interval': 5,
+        'expires_in': 30,
+    }
+    token_body = {'access_token': ACCESS_TOKEN, 'token_type': 'Bearer', 'expires_in': 3600}
+    session = Mock()
+    session.post.side_effect = [
+        _json_response(init_body),
+        _json_response({'error': 'authorization_pending'}, ok=False, status_code=400),
+        _json_response(token_body),
+    ]
+    now, fake_time, fake_sleep = _device_clock()
+    with patch('dnastack.http.authenticators.oauth2_adapter.device_code_flow.time', fake_time), \
+            patch('dnastack.http.authenticators.oauth2_adapter.device_code_flow.sleep', fake_sleep), \
+            patch.object(HttpClientFactory, 'make', return_value=session):
+        result = DeviceCodeFlowAdapter(_device_auth()).exchange_tokens(Span(origin='test'))
+    assert result['access_token'] == ACCESS_TOKEN
+    assert now['t'] == 1_005.0
+    assert session.post.call_count == 3
 
 
 def test_device_code_poll_plain_text_failure_drops_the_body():
