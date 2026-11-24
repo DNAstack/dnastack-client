@@ -14,6 +14,7 @@ from dnastack.common.logger import get_logger
 from dnastack.configuration.models import Configuration
 from dnastack.context.manager import ContextManager, BaseContextManager
 from dnastack.feature_flags import currently_in_debug_mode
+from dnastack.http.authenticators.oauth2_adapter.models import REDACTED_VALUE, secret_property_names
 from dnastack.json_path import JsonPath
 from tests.util.exam_helper import BaseTestCase, DeprecatedBasePublisherTestCase
 from tests.util.exam_helper_for_publisher import BasePublisherTestCase
@@ -166,10 +167,22 @@ class CliTestCase(BaseTestCase):
         for k, v in props.items():
             self.invoke('config', 'endpoints', 'set', id, k, str(v))
 
-        endpoint = self._get_endpoint(id)
+        listed = self._get_endpoint(id)
+        saved = self._get_saved_endpoint(id)
 
         for k, v in props.items():
-            self.assertEqual(JsonPath.get(endpoint, k), str(v))
+            if k.split('.')[-1] in secret_property_names():
+                self.assertEqual(JsonPath.get(listed, k), REDACTED_VALUE)
+                self.assertTrue(JsonPath.get(saved, k) == str(v), f'Saved {k} does not match the value set')
+            else:
+                self.assertEqual(JsonPath.get(listed, k), str(v))
+                self.assertEqual(JsonPath.get(saved, k), str(v))
+
+    def _get_saved_endpoint(self, id: str):
+        with open(self._config_file_path, 'r') as f:
+            config = yaml.load(f, Loader=yaml.SafeLoader)
+        context = config['contexts'][config['current_context']]
+        return [endpoint for endpoint in context['endpoints'] if endpoint['id'] == id][0]
 
     def _load_configuration(self) -> Configuration:
         with open(self._config_file_path, 'r') as f:
