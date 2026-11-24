@@ -173,9 +173,10 @@ class CliTestCase(BaseTestCase):
         for k, v in props.items():
             if k.split('.')[-1] in secret_property_names():
                 self.assertEqual(JsonPath.get(listed, k), REDACTED_VALUE)
+                self.assertTrue(JsonPath.get(saved, k) == str(v), f'Saved {k} does not match the value set')
             else:
                 self.assertEqual(JsonPath.get(listed, k), str(v))
-            self.assertEqual(JsonPath.get(saved, k), str(v))
+                self.assertEqual(JsonPath.get(saved, k), str(v))
 
     def _get_saved_endpoint(self, id: str):
         with open(self._config_file_path, 'r') as f:
