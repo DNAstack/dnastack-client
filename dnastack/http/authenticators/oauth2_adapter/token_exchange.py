@@ -4,7 +4,8 @@ from imagination import container
 
 from dnastack.common.tracing import Span
 from dnastack.http.authenticators.oauth2_adapter.abstract import OAuth2Adapter, AuthException
-from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE
+from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
+    oauth_failure_detail
 from dnastack.http.authenticators.oauth2_adapter.cloud_providers import (
     CloudProviderFactory, CloudMetadataProvider, CloudMetadataConfig
 )
@@ -134,8 +135,7 @@ class TokenExchangeAdapter(OAuth2Adapter):
 
             if not response.ok:
                 raise AuthException(
-                    f'Failed to perform token exchange for {client_id} as the server responds with HTTP {response.status_code}:'
-                    f'\n\n{response.text}\n',
+                    f'Failed to perform token exchange for {client_id}: {oauth_failure_detail(response)}',
                     resource_urls
                 )
 

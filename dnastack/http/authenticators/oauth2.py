@@ -1,6 +1,5 @@
 import re
 from copy import deepcopy
-from json import JSONDecodeError
 from time import time
 from typing import Optional, Any, Dict, Union
 from urllib.parse import urlparse
@@ -19,7 +18,7 @@ from dnastack.http.authenticators.constants import get_authenticator_log_level
 from dnastack.http.authenticators.oauth2_adapter.factory import OAuth2AdapterFactory
 from dnastack.http.authenticators.oauth2_adapter.token_exchange import TokenExchangeAdapter
 from dnastack.http.authenticators.oauth2_adapter.models import OAuth2Authentication, GRANT_TYPE_TOKEN_EXCHANGE, \
-    redact_secrets
+    oauth_failure_detail, redact_secrets
 from dnastack.http.client_factory import HttpClientFactory
 from dnastack.http.session_info import SessionInfo, SessionManager, SessionInfoHandler
 
@@ -217,8 +216,7 @@ class OAuth2Authenticator(Authenticator):
                     },
                     auth=(auth_info.client_id, auth_info.client_secret),
                 )
-                sub_logger.debug(f'refresh_token: HTTP {refresh_token_res.status_code} {auth_info.token_endpoint}:'
-                                 f'\n{refresh_token_res.text}')
+                sub_logger.debug(f'refresh_token: HTTP {refresh_token_res.status_code} {auth_info.token_endpoint}')
 
             if refresh_token_res.ok:
                 refresh_token_json = refresh_token_res.json()
@@ -249,17 +247,12 @@ class OAuth2Authenticator(Authenticator):
 
                 return self._session_info
             else:
-                try:
-                    error_json = refresh_token_res.json()
-                    error_msg = error_json.get('error_description')
-                except JSONDecodeError:
-                    error_msg = refresh_token_res.text
-
                 # Handle token refresh failure based on HTTP status.
                 # 400/401 = the refresh token is invalid (expired, revoked, key rotated, etc.)
                 #           -> prompt the user to re-authenticate
                 # 5xx     = transient server error, re-login won't help
                 #           -> raise InvalidStateError
+                failure = oauth_failure_detail(refresh_token_res)
                 reauthentication_required = refresh_token_res.status_code in (400, 401)
 
                 exception_details = {
@@ -271,7 +264,7 @@ class OAuth2Authenticator(Authenticator):
                         'trace_id': refresh_token_res.headers.get('X-B3-Traceid'),
                         'status': refresh_token_res.status_code,
                     },
-                    'reason': f'Unable to refresh tokens: {error_msg}',
+                    'reason': f'Unable to refresh tokens: {failure}',
                 }
 
                 if currently_in_debug_mode():
@@ -281,8 +274,8 @@ class OAuth2Authenticator(Authenticator):
                     }
 
                 if reauthentication_required:
-                    logger.warning(f'Refresh token rejected by server (HTTP {refresh_token_res.status_code}): {error_msg}')
-                    raise ReauthenticationRequired(f'Refresh token rejected: {error_msg}')
+                    logger.warning(f'Refresh token rejected by server: {failure}')
+                    raise ReauthenticationRequired(f'Refresh token rejected: {failure}')
                 else:
                     event_details['reason'] = 'Invalid state while refreshing tokens'
                     self.events.dispatch('refresh-failure', event_details)
@@ -367,7 +360,8 @@ class OAuth2Authenticator(Authenticator):
     def _convert_token_response_to_session(self,
                                            authentication: Dict[str, Any],
                                            response: Dict[str, Any]):
-        assert 'access_token' in response, f'Failed to exchange tokens due to an unexpected response ({response})'
+        if 'access_token' not in response:
+            raise AssertionError('Failed to exchange tokens due to an unexpected response')
 
         created_time = time()
         expiry_time = created_time + response['expires_in']
@@ -388,10 +382,6 @@ class OAuth2Authenticator(Authenticator):
 
     def update_request(self, session: SessionInfo, r: Union[Request, Session]) -> Union[Request, Session]:
         r.headers["Authorization"] = f"Bearer {session.access_token}"
-
-        if currently_in_debug_mode():
-            self._logger.debug(f'Bearer Token Claims: {session.access_token.split(".")[1]}')
-
         return r
 
     @classmethod

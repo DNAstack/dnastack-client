@@ -85,7 +85,9 @@ class GCPMetadataProvider(CloudMetadataProvider):
                     self._logger.debug(f'Successfully fetched GCP identity token for audience: {audience}')
                     return token
                 else:
-                    self._logger.warning(f'GCP metadata service returned {response.status_code}: {response.text}')
+                    self._logger.warning(
+                        f'GCP metadata service returned HTTP {response.status_code}'
+                    )
                     return None
 
         except Exception as e:

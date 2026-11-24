@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-from http.client import HTTPConnection
 from typing import Any, Dict, List, Iterator, Optional, Type, TypeVar, Union, Iterable
 from urllib.parse import urljoin
 
@@ -19,6 +17,7 @@ from dnastack.client.workbench.ewes.models import ExtendedRunEvents, WesServiceI
     EngineHealthCheck, EngineHealthCheckListOptions, EngineHealthCheckListResponse, \
     Hook, HookListResponse, SimpleSample, UpdateRunSamplesRequest
 from dnastack.common.tracing import Span
+from dnastack.http.client_factory import without_wire_debugging
 from dnastack.http.session import HttpSession, JsonPatch
 
 
@@ -141,18 +140,6 @@ class EngineHealthCheckListResultLoader(WorkbenchResultLoader):
 
     def extract_api_response(self, response_body: dict) -> EngineHealthCheckListResponse:
         return EngineHealthCheckListResponse(**response_body)
-
-
-@contextmanager
-def _without_wire_debugging():
-    # Engine create/update bodies carry credentials, and http.client's wire debugging (debug mode) prints
-    # request bodies verbatim.
-    saved = HTTPConnection.debuglevel
-    HTTPConnection.debuglevel = 0
-    try:
-        yield
-    finally:
-        HTTPConnection.debuglevel = saved
 
 
 class EWesClient(BaseWorkbenchClient):
@@ -401,7 +388,7 @@ class EWesClient(BaseWorkbenchClient):
     def create_engine(self, engine: ExecutionEngineRequest, trace: Optional[Span] = None) -> ExecutionEngine:
         trace = trace or Span(origin=self)
         with self.create_http_session(log_response_body=False) as session:
-            with _without_wire_debugging():
+            with without_wire_debugging():
                 response = session.post(urljoin(self.endpoint.url, f'{self.namespace}/engines'),
                                         json=engine.to_request_body(),
                                         trace_context=trace)
@@ -414,7 +401,7 @@ class EWesClient(BaseWorkbenchClient):
                       trace: Optional[Span] = None) -> ExecutionEngine:
         trace = trace or Span(origin=self)
         with self.create_http_session(log_response_body=False) as session:
-            with _without_wire_debugging():
+            with without_wire_debugging():
                 response = session.put(self._engine_url(engine_id),
                                        json=engine.to_request_body(),
                                        headers={'If-Match': if_match},

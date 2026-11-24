@@ -25,7 +25,7 @@ Override the default location of the configuration file. For testing, please def
 |------------------|---------------|
 | `bool`           | `false`       |
 
-Enable the global debug mode for the CLI/library. When the debug mode is enabled, the library will override the default log level (`DNASTACK_LOG_LEVEL`) to `DEBUG`. The debug mode of the library/CLI will also enable the debug mode of the HTTP client. |
+Enable the global debug mode for the CLI/library. When the debug mode is enabled, the library will override the default log level (`DNASTACK_LOG_LEVEL`) to `DEBUG`. Debug mode does not enable http.client wire tracing, which prints request and response bodies. |
 
 ### `DNASTACK_DEV`                  
 | Interpreted Type | Default Value |
