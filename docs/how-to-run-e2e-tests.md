@@ -21,7 +21,7 @@
    * At minimum, you'll need to fill in `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_EMAIL` and `E2E_PUBLISHER_AUTH_DEVICE_CODE_TEST_TOKEN`.
 3. Run `make setup` to set up the development environment with uv.
    * This command creates a virtual environment and installs all dependencies from `pyproject.toml`.
-   * Alternatively, run `uv sync --group dev` directly.
+   * `make setup` also installs Docker Buildx. Without Docker, run `uv sync --group dev` instead.
 
 ### Set up with Google Secret Manager (For team members with GCloud access)
 
@@ -40,7 +40,7 @@
 
 3. Run `make setup` to set up the development environment with uv.
    * This command creates a virtual environment and installs all dependencies from `pyproject.toml`.
-   * Alternatively, run `uv sync --group dev` directly.
+   * `make setup` also installs Docker Buildx. Without Docker, run `uv sync --group dev` instead.
 
 4. Run
    ```shell
