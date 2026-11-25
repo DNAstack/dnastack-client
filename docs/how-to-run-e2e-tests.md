@@ -3,6 +3,7 @@
 ## Prerequisites
 
 * Python 3.11 or higher
+* `uv` (see [Development Setup](../README.md#prerequisites))
 * `chromedriver`
   * On MacOS, you need to ensure that the `chromedriver` command is executable.
 * The plain-text test environment variable file for your local testing
@@ -37,16 +38,16 @@
    ```
    Open the link in your browser, log in with your Google account, and copy the authentication code back to the terminal.
 
-3. Run
-   ```shell
-   ./scripts/test_env_manager.py read default > .env
-   ```
-   * This script will pull the envfile from the secret manager.
-   * If you need to manage the shared envfiles, use `test_env_manager.py`. Use `--help` for more information.
-
-4. Run `make setup` to set up the development environment with uv.
+3. Run `make setup` to set up the development environment with uv.
    * This command creates a virtual environment and installs all dependencies from `pyproject.toml`.
    * Alternatively, run `uv sync --group dev` directly.
+
+4. Run
+   ```shell
+   uv run python scripts/test_env_manager.py read default > .env
+   ```
+   * This script will pull the envfile from the secret manager.
+   * To manage the shared envfiles, run `uv run python scripts/test_env_manager.py --help`.
 
 ### Note on the test suite
 
