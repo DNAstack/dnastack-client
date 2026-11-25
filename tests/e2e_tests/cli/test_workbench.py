@@ -1,11 +1,10 @@
-import asyncio
 import json
 import random
 
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from time import sleep
+from time import monotonic, sleep
 
 from dnastack.client.workbench.workflow.models import Workflow, WorkflowVersion, WorkflowDefaults, \
     WorkflowTransformation
@@ -1707,30 +1706,32 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
     def test_instruments_list(self):
         self._create_storage_account(provider=Provider.aws)
-        self._wait()
-        instruments = [Instrument(**instrument) for instrument in self.simple_invoke(
-            'workbench', 'instruments', 'list'
-        )]
+        instruments = self._wait_for_listed(
+            Instrument,
+            'workbench', 'instruments', 'list',
+            description='instruments to be indexed',
+        )
         self.assert_not_empty(instruments, f'Expected at least one instrument. Found {instruments}')
         for instrument in instruments:
             self.assert_not_empty(instrument.id, 'Instrument ID should not be empty')
 
-
     def _wait_for_samples(self):
+        return self._wait_for_listed(
+            Sample,
+            'workbench', 'samples', 'list',
+            description='samples to be created',
+        )
+
+    def _wait_for_listed(self, model, *command, description):
         timeout = 300
-        start_time = asyncio.get_event_loop().time()
+        start_time = monotonic()
         while True:
-            samples = [Sample(**sample) for sample in self.simple_invoke(
-                'workbench', 'samples', 'list'
-            )]
-            if samples:
-                break
-            if asyncio.get_event_loop().time() - start_time > timeout:
-                raise TimeoutError("Timeout reached while waiting for samples to be created.")
+            items = [model(**item) for item in self.simple_invoke(*command)]
+            if items:
+                return items
+            if monotonic() - start_time > timeout:
+                raise TimeoutError(f'Timed out after {timeout}s waiting for {description}.')
             sleep(2)
-        return samples
 
     def _wait(self):
-        timeout = 30
-        asyncio.get_event_loop().time()
-        sleep(timeout)
+        sleep(30)
