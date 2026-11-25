@@ -1,11 +1,10 @@
-import asyncio
 import json
 import random
 
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from time import sleep
+from time import monotonic, sleep
 
 from dnastack.client.workbench.workflow.models import Workflow, WorkflowVersion, WorkflowDefaults, \
     WorkflowTransformation
@@ -1725,17 +1724,14 @@ class TestWorkbenchCommand(WorkbenchCliTestCase):
 
     def _wait_for_listed(self, model, *command, description):
         timeout = 300
-        start_time = asyncio.get_event_loop().time()
-        items = []
+        start_time = monotonic()
         while True:
             items = [model(**item) for item in self.simple_invoke(*command)]
             if items:
                 return items
-            if asyncio.get_event_loop().time() - start_time > timeout:
-                raise TimeoutError(f"Timeout reached while waiting for {description}. Found {items}")
+            if monotonic() - start_time > timeout:
+                raise TimeoutError(f'Timed out after {timeout}s waiting for {description}.')
             sleep(2)
 
     def _wait(self):
-        timeout = 30
-        asyncio.get_event_loop().time()
-        sleep(timeout)
+        sleep(30)
