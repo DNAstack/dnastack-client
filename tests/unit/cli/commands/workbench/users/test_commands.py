@@ -86,22 +86,86 @@ class TestRegisterCommand(_UsersCommandTest):
         mock_get_client.assert_not_called()
 
 
+class TestUnregisterCommand(_UsersCommandTest):
+    """Tests for the users unregister CLI command."""
+
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_unregisters_user_with_force_and_reports_it(self, mock_get_client):
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['unregister', '--email', 'carol@example.com', '--force'])
+
+        assert result.exit_code == 0
+        mock_client.unregister_user.assert_called_once_with("carol@example.com")
+        assert result.stdout == "User carol@example.com unregistered\n"
+
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_sends_email_in_lower_case(self, mock_get_client):
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['unregister', '--email', 'Carol.Smith@Example.COM', '--force'])
+
+        assert result.exit_code == 0
+        mock_client.unregister_user.assert_called_once_with("carol.smith@example.com")
+        assert result.stdout == "User carol.smith@example.com unregistered\n"
+
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_declining_confirmation_sends_no_request(self, mock_get_client):
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['unregister', '--email', 'carol@example.com'], input='n\n')
+
+        assert result.exit_code == 0
+        assert "Confirm unregistration of Workbench user carol@example.com." in result.stdout
+        assert "cannot be undone" in result.stdout
+        assert "unregistered" not in result.stdout
+        mock_client.unregister_user.assert_not_called()
+
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_accepting_confirmation_unregisters_user(self, mock_get_client):
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+
+        result = self.runner.invoke(self.group, ['unregister', '--email', 'carol@example.com'], input='y\n')
+
+        assert result.exit_code == 0
+        mock_client.unregister_user.assert_called_once_with("carol@example.com")
+        assert result.stdout.endswith("User carol@example.com unregistered\n")
+
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_requires_email(self, mock_get_client):
+        result = self.runner.invoke(self.group, ['unregister', '--force'])
+
+        assert result.exit_code == 2
+        assert "--email" in result.stderr
+        mock_get_client.assert_not_called()
+
+    @pytest.mark.parametrize('email', ['', '   ', 'alice'])
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_rejects_value_that_is_not_an_email_without_sending_a_request(self, mock_get_client, email):
+        result = self.runner.invoke(self.group, ['unregister', '--email', email, '--force'])
+
+        assert result.exit_code == 2
+        assert "--email" in result.stderr
+        mock_get_client.assert_not_called()
+
+
 class TestErrorResponses(_UsersCommandTest):
-    """Tests for how both users commands report HTTP errors from the user service."""
+    """Tests for how the users commands report HTTP errors from the user service."""
 
     @pytest.mark.parametrize('method, path, args', [
         (responses.GET, 'users/alice%40example.com', ['describe', 'alice@example.com']),
         (responses.POST, 'users', ['register', '--email', 'alice@example.com']),
+        (responses.DELETE, 'users/alice%40example.com', ['unregister', '--email', 'alice@example.com', '--force']),
     ])
     @pytest.mark.parametrize('status', [400, 403, 404, 409])
     @responses.activate
     @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
     def test_reports_http_status_and_exits_non_zero(self, mock_get_client, status, method, path, args):
-        mock_get_client.return_value = WorkbenchUserClient(ServiceEndpoint(
-            id='test',
-            url=_USER_SERVICE_URL,
-            type=WorkbenchUserClient.get_default_service_type(),
-        ))
+        mock_get_client.return_value = _real_user_client()
         responses.add(method, f'{_USER_SERVICE_URL}{path}', status=status, body='rejected')
 
         result = self.runner.invoke(self.group, args)
@@ -109,3 +173,23 @@ class TestErrorResponses(_UsersCommandTest):
         assert result.exit_code == 1
         assert f"HTTP {status}: rejected" in result.stderr
         assert result.stdout == ""
+
+    @responses.activate
+    @patch('dnastack.cli.commands.workbench.users.commands.get_user_client')
+    def test_reports_partial_unregistration_and_exits_non_zero(self, mock_get_client):
+        mock_get_client.return_value = _real_user_client()
+        responses.delete(f'{_USER_SERVICE_URL}users/alice%40example.com', status=502, body='user retained for retry')
+
+        result = self.runner.invoke(self.group, ['unregister', '--email', 'alice@example.com', '--force'])
+
+        assert result.exit_code == 1
+        assert "HTTP 502: user retained for retry" in result.stderr
+        assert result.stdout == ""
+
+
+def _real_user_client() -> WorkbenchUserClient:
+    return WorkbenchUserClient(ServiceEndpoint(
+        id='test',
+        url=_USER_SERVICE_URL,
+        type=WorkbenchUserClient.get_default_service_type(),
+    ))

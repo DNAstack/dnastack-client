@@ -105,6 +105,11 @@ class WorkbenchUserClient(BaseServiceClient):
             )
         return WorkbenchUser(**response.json())
 
+    def unregister_user(self, email: str) -> None:
+        """Unregister a user by email."""
+        with self.create_http_session() as session:
+            session.delete(urljoin(self.endpoint.url, f'users/{path_segment(email)}'))
+
     def list_namespaces(self,
                         list_options: Optional[BaseListOptions] = None,
                         max_results: Optional[int] = None) -> Iterator[Namespace]:

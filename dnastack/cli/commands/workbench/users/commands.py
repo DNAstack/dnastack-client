@@ -71,3 +71,45 @@ def init_users_commands(group: Group):
         client = get_user_client(context, endpoint_id)
         user = client.register_user(email)
         click.echo(to_json(normalize(user)))
+
+    @formatted_command(
+        group=group,
+        name='unregister',
+        specs=[
+            ArgumentSpec(
+                name='email',
+                arg_names=['--email'],
+                help='The email address of the user to unregister. Takes one email; if --email is repeated, '
+                     'only the last one is unregistered.',
+                required=True,
+            ),
+            ArgumentSpec(
+                name='force',
+                arg_names=['--force', '-f'],
+                help='Unregister without prompting for confirmation.',
+                type=bool,
+            ),
+            CONTEXT_ARG,
+            SINGLE_ENDPOINT_ID_ARG,
+        ]
+    )
+    def unregister_user(context: Optional[str],
+                        endpoint_id: Optional[str],
+                        email: str,
+                        force: bool = False):
+        """
+        Unregister a user by email
+
+        docs: https://docs.omics.ai/products/command-line-interface/reference/workbench/users-unregister
+        """
+        _require_email_address(email)
+        email = email.lower()
+        if not force and not click.confirm(
+                f'Confirm unregistration of Workbench user {email}. They are removed from every namespace, and any '
+                f'namespace where they are the last ADMIN is deleted along with its contents. Their sign-in account '
+                f'is kept. This action cannot be undone.'):
+            return
+
+        client = get_user_client(context, endpoint_id)
+        client.unregister_user(email)
+        click.echo(f'User {email} unregistered')

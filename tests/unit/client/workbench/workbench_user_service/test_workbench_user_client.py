@@ -146,3 +146,22 @@ class TestRegisterUser:
         assert request.headers['Content-Type'] == 'application/x-www-form-urlencoded'
         assert request.body == 'email=bob%2Btest%40example.com'
         assert result.id == "user-2"
+
+
+class TestUnregisterUser:
+    """Tests for WorkbenchUserClient.unregister_user"""
+
+    @responses.activate
+    def test_deletes_user_addressed_by_email_as_one_path_segment(self):
+        responses.delete('https://user-service.example.com/users/bob%2Btest%40example.com', status=204)
+
+        result = _make_client().unregister_user("bob+test@example.com")
+
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == 'https://user-service.example.com/users/bob%2Btest%40example.com'
+        assert result is None
+
+    @pytest.mark.parametrize('email', ['', '.', '..'])
+    def test_rejects_emails_that_cannot_be_one_path_segment(self, email):
+        with pytest.raises(ValueError):
+            _make_client().unregister_user(email)
